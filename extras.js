@@ -72,20 +72,63 @@ function customCrop(rect){
   ctx.drawImage(video,rect.x,rect.y,rect.w,rect.h,0,0,w,h);
   return canvas;
 }
-async function recognizeSnapshot(rect,worker){
-  const crop=customCrop(rect);if(!crop)return null;
-  const variants=['gray','binary','alternate'],counts=new Map(),notes=[];
-  await worker.setParameters({tessedit_char_whitelist:'0123456789,',tessedit_pageseg_mode:Tesseract.PSM.SINGLE_LINE});
-  for(const type of variants){
-    const output=await worker.recognize(enhance(crop,type));
-    const raw=String(output.data.text||'').trim();
-    const value=readCandidates(raw),confidence=Math.round(Number(output.data.confidence)||0);
-    notes.push(`${type}: ${raw} → ${value??'?'} (${confidence}%)`);
-    if(value!==null&&confidence>=60)counts.set(value,(counts.get(value)||0)+1);
-    if([...counts.values()].some(n=>n>=2))break;
+// Read a SMALL numeric crop. Inventory text is black on a plain white HUD;
+// potion quantity is white-outlined text over item artwork and therefore
+// cannot safely be treated as the same OCR problem.
+function snapshotImage(rect,style){
+  if(!rect || rect.x<0 || rect.y<0 || rect.x+rect.w>video.videoWidth || rect.y+rect.h>video.videoHeight)return null;
+  const factor=7,pad=24;
+  const raw=document.createElement('canvas');raw.width=rect.w;raw.height=rect.h;
+  const cx=raw.getContext('2d',{willReadFrequently:true});cx.drawImage(video,rect.x,rect.y,rect.w,rect.h,0,0,rect.w,rect.h);
+  const out=document.createElement('canvas');out.width=raw.width*factor+pad*2;out.height=raw.height*factor+pad*2;
+  const ctx=out.getContext('2d',{willReadFrequently:true});ctx.fillStyle='white';ctx.fillRect(0,0,out.width,out.height);
+  if(style==='raw'){
+    ctx.imageSmoothingEnabled=false;
+    ctx.drawImage(raw,pad,pad,raw.width*factor,raw.height*factor);
+    return out;
   }
-  const valid=[...counts.entries()].filter(x=>x[1]>=2).sort((a,b)=>b[1]-a[1]);
-  return valid.length===1?{value:valid[0][0],note:notes.join(' | ')}:{value:null,note:'Uncertain: '+notes.join(' | ')};
+  const pixels=cx.getImageData(0,0,raw.width,raw.height);
+  for(let i=0;i<pixels.data.length;i+=4){
+    const r=pixels.data[i],g=pixels.data[i+1],b=pixels.data[i+2];
+    let v;
+    if(style==='gray') v=Math.round(.299*r+.587*g+.114*b);
+    else if(style==='dark85')v=Math.max(r,g,b)<92?0:255;
+    else if(style==='dark115')v=Math.max(r,g,b)<118?0:255;
+    else v=(.299*r+.587*g+.114*b)<160?0:255;
+    pixels.data[i]=pixels.data[i+1]=pixels.data[i+2]=v;
+  }
+  cx.putImageData(pixels,0,0);
+  ctx.imageSmoothingEnabled=false;ctx.drawImage(raw,pad,pad,raw.width*factor,raw.height*factor);
+  return out;
+}
+async function recognizeSnapshot(rect,worker,kind='mesos'){
+  const modes=kind==='mesos'?['raw','gray']:['dark85','dark115','raw'];
+  const details=[],candidates=[];
+  await worker.setParameters({
+    tessedit_char_whitelist:'0123456789,',
+    tessedit_pageseg_mode:kind==='mesos'?Tesseract.PSM.SINGLE_LINE:Tesseract.PSM.SINGLE_WORD
+  });
+  for(const mode of modes){
+    const image=snapshotImage(rect,mode);
+    if(!image)return {value:null,note:'Selected number crop is outside the game window.'};
+    const out=await worker.recognize(image);
+    const raw=String(out.data.text||'').trim();
+    const digits=raw.replace(/\D/g,'');
+    const value=/^[\d,\s.]*$/.test(raw)&&digits.length>0&&digits.length<14?Number(digits):null;
+    const confidence=Math.round(Number(out.data.confidence)||0);
+    details.push(`${mode}: ${JSON.stringify(raw)} => ${value??'?'} (${confidence}% OCR)`);
+    if(value!==null&&Number.isSafeInteger(value)&&confidence>=48)candidates.push({value,confidence,mode});
+  }
+  const frequencies=new Map();
+  for(const c of candidates)frequencies.set(c.value,(frequencies.get(c.value)||0)+1);
+  const agreement=candidates.find(c=>(frequencies.get(c.value)||0)>=2);
+  // The normal (unaltered) inventory crop is the most legible one. It may
+  // disagree with thresholding, so accept it as a *candidate* but require
+  // independent confirmation from a later video frame before displaying it.
+  const rawCandidate=kind==='mesos'?candidates.find(c=>c.mode==='raw'&&c.confidence>=55):null;
+  const best=agreement || rawCandidate || null;
+  return {value:best?.value??null,
+    note:details.join(' | ')+(best?(agreement?' | preprocessing agrees':' | checking again on next frame'):' | no reliable OCR candidate')};
 }
 function showExtraStats(){
   $('mesoBalance').textContent=extras.mesosCurrent===null?'—':fmt(extras.mesosCurrent);
@@ -94,7 +137,7 @@ function showExtraStats(){
   const hours=extras.mesoWhen&&extras.mesoStartWhen?(extras.mesoWhen-extras.mesoStartWhen)/3600000:0;
   $('mesoPerHour').textContent=hours>1/3600?fmt(Math.round((extras.mesosCurrent-extras.mesosStart)/hours)):'—';
   $('mesoScanStatus').textContent=extras.inventoryOpen?
-    (extras.mesoWhen?'Inventory visible · last confirmed '+extras.mesoWhen.toLocaleTimeString():'Inventory found · verifying balance…'):
+    (extras.mesoWhen?'Inventory visible · confirmed '+extras.mesoWhen.toLocaleTimeString():extras.mesoPending?'Inventory found · confirming '+fmt(extras.mesoPending.value)+'…':'Inventory found · unreadable balance (see diagnostics)'):
     (extras.mesoWhen?'Inventory closed · last confirmed '+extras.mesoWhen.toLocaleTimeString():'Waiting for inventory');
   $('hpCount').textContent=extras.hpCurrent===null?'—':fmt(extras.hpCurrent);
   $('mpCount').textContent=extras.mpCurrent===null?'—':fmt(extras.mpCurrent);
@@ -103,32 +146,37 @@ function showExtraStats(){
   const hpPrice=Number($('hpPrice').value)||0,mpPrice=Number($('mpPrice').value)||0;
   $('potionValue').textContent=fmt(Math.round(extras.hpUsed*hpPrice+extras.mpUsed*mpPrice));
   $('potStatus').textContent=extras.hotbar?
-    (extras.potionWhen?'Hotbar found · last confirmed '+extras.potionWhen.toLocaleTimeString():'Hotbar found · verifying stacks…'):
+    (extras.potionWhen?'Hotbar found · checked '+extras.potionWhen.toLocaleTimeString():'Hotbar found · unreadable stacks; use manual counts below'):
     'Searching for hotbar (first two top slots)';
 }
 function acceptMesos(value){
-  if(!Number.isSafeInteger(value)||value<0||value>1000000000000)return;
-  const p=extras.mesoPending;
-  extras.mesoPending=p?.value===value?{value,count:p.count+1}:{value,count:1};
-  // Two different preprocessing methods must agree in the current snapshot.
-  // No long inventory-open wait is required after that consensus.
+  if(!Number.isSafeInteger(value)||value<0||value>1000000000000)return false;
+  const prev=extras.mesoPending;
+  extras.mesoPending=prev?.value===value?{value,count:prev.count+1}:{value,count:1};
+  // Important: agreement in different image filters is NOT independent evidence.
+  // Require two separate scans showing the same balance, preventing one mistaken
+  // OCR result from being silently treated as a confirmed balance.
+  if(extras.mesoPending.count<2)return false;
   if(extras.mesosStart===null){extras.mesosStart=value;extras.mesoStartWhen=new Date();}
-  extras.mesosCurrent=value;extras.mesoWhen=new Date();
+  extras.mesosCurrent=value;extras.mesoWhen=new Date();return true;
 }
 function acceptPotion(kind,value){
-  if(!Number.isSafeInteger(value)||value<0||value>9999)return;
+  if(!Number.isSafeInteger(value)||value<0||value>9999)return false;
   const old=extras[kind+'Current'],p=extras.pending[kind];
+  // Potion glyphs sit on artwork. Two independent *frames*, not just two
+  // image filters of the same frame, must agree before a new count is accepted.
   extras.pending[kind]=p?.value===value?{value,count:p.count+1}:{value,count:1};
-  // The snapshot already required two concordant OCR passes.
-  if(old!==null && value<old){
-    const spent=old-value;
-    // Large gaps may mean a stack replacement, not genuine usage.
-    if(spent>Math.max(50,old*.75)){
-      extras.lastError=`${kind.toUpperCase()} stack changed sharply (${old} → ${value}); baseline reset, no usage added.`;
-    }else extras[kind+'Used']+=spent;
+  if(extras.pending[kind].count<2)return false;
+  if(old!==null&&value<old){
+    const used=old-value;
+    if(used>Math.max(15,Math.ceil(old*.20))){
+      extras.lastError=`${kind.toUpperCase()}: rejected sudden ${old} → ${value} (${used} items). Use manual correction if this was real.`;
+      return false;
+    }
+    extras[kind+'Used']+=used;
   }
-  extras[kind+'Current']=value;
-  extras.potionWhen=new Date();
+  extras[kind+'Current']=value;extras.potionWhen=new Date();
+  extras.lastError='';return true;
 }
 function resetExtras(){
   Object.assign(extras,{inventory:null,hotbar:null,lastFind:0,inventoryOpen:false,
@@ -159,19 +207,20 @@ async function scanExtras(worker){
   extras.inventoryOpen=!!inv;
   if(inv&&now-extras.lastMesoAttempt>4500){
     const crop=relativeRect(inv,196,427,75,27);
-    const read=await recognizeSnapshot(crop,worker);extras.lastMesoAttempt=Date.now();
+    const read=await recognizeSnapshot(crop,worker,'mesos');extras.lastMesoAttempt=Date.now();
     if(read?.value!==null&&read?.value!==undefined)acceptMesos(read.value);
     else extras.mesoPending=null;
-    $('mesoDebug').textContent=read?.note||'No readable mesos detected';
+    $('mesoDebug').textContent=(read?.note||'No readable mesos detected')+'\n' +(extras.mesoPending?`Independent captures agreeing: ${extras.mesoPending.count}/2`: 'Waiting for a clean candidate');
   }else if(!inv){extras.mesoPending=null;}
   const hb=extras.hotbar;
   if(hb&&(!inv||extras.turn%2===0)&&now-extras.lastPotionAttempt>4500){
-    const hp=await recognizeSnapshot(relativeRect(hb,8,34,36,24),worker);
-    const mp=await recognizeSnapshot(relativeRect(hb,65,34,45,24),worker);
+    // Tight glyph rows reduce potion artwork getting into the crop.
+    const hp=await recognizeSnapshot(relativeRect(hb,10,40,13,14),worker,'potion');
+    const mp=await recognizeSnapshot(relativeRect(hb,66,40,34,14),worker,'potion');
     extras.lastPotionAttempt=Date.now();
     if(hp?.value!==null&&hp?.value!==undefined)acceptPotion('hp',hp.value);else extras.pending.hp=null;
     if(mp?.value!==null&&mp?.value!==undefined)acceptPotion('mp',mp.value);else extras.pending.mp=null;
-    $('potDebug').textContent=`HP ${hp?.note||'unreadable'}\nMP ${mp?.note||'unreadable'}`;
+    $('potDebug').textContent=`HP ${hp?.note||'unreadable'}\nMP ${mp?.note||'unreadable'}\nConfirmations: HP ${extras.pending.hp?.count||0}/2 · MP ${extras.pending.mp?.count||0}/2`;
   }
   if(extras.lastError)$('potDebug').textContent+='\n'+extras.lastError;
   showExtraStats();
@@ -193,4 +242,32 @@ $('teachDigitsBtn').addEventListener('click',()=>{
   const result=teachEXPFromVisible($('templateExpInput').value);
   $('templateStatus').textContent=result.reason;
   if(result.ok){$('templateExpInput').value='';setStatus('EXP digit calibration saved locally.','good');}
+});
+
+// Manual readings provide a transparent fallback when the sprite overlaps the
+// quantity text. No missing potion usage is inferred from unobserved snapshots.
+function safeAmount(raw,max){
+  const text=String(raw||'').trim().replace(/,/g,'');
+  if(!/^\d+$/.test(text))return null;
+  const number=Number(text);return Number.isSafeInteger(number)&&number<=max?number:null;
+}
+$('setMesoSnapshot').addEventListener('click',()=>{
+  const value=safeAmount($('manualMesoBalance').value,1000000000000);
+  if(value===null){$('mesoDebug').textContent='Enter an exact non-negative meso balance.';return;}
+  if(extras.mesosStart===null){extras.mesosStart=value;extras.mesoStartWhen=new Date();}
+  extras.mesosCurrent=value;extras.mesoWhen=new Date();extras.mesoPending=null;
+  $('manualMesoBalance').value='';$('mesoDebug').textContent='Manual meso snapshot saved. Net change is based on confirmed snapshots.';showExtraStats();
+});
+$('setPotionSnapshot').addEventListener('click',()=>{
+  const hp=safeAmount($('manualHPStack').value,9999),mp=safeAmount($('manualMPStack').value,9999);
+  if(hp===null||mp===null){$('potDebug').textContent='Enter both exact HP and MP stack counts.';return;}
+  // These are explicitly observed stack snapshots: count decreases between
+  // confirmed snapshots contribute to uses. Restocks do not subtract uses.
+  // Larger jumps are allowed here because a person typed and verified them.
+  if(extras.hpCurrent!==null&&hp<extras.hpCurrent)extras.hpUsed+=extras.hpCurrent-hp;
+  if(extras.mpCurrent!==null&&mp<extras.mpCurrent)extras.mpUsed+=extras.mpCurrent-mp;
+  extras.hpCurrent=hp;extras.mpCurrent=mp;extras.pending={hp:null,mp:null};
+  extras.potionWhen=new Date();extras.lastError='';
+  $('manualHPStack').value='';$('manualMPStack').value='';
+  $('potDebug').textContent='Manual stacks saved. Observed decreases were counted; increases treated as restocks.';showExtraStats();
 });
