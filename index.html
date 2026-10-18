@@ -24,14 +24,23 @@
         <div class="dashboard-top">
           <div>
             <div class="eyebrow"><span class="live-spark"></span> YOUR TRAINING SESSION</div>
-            <h2>Level progress</h2>
+            <h2>EXP progress</h2>
           </div>
           <span class="reading-pill" id="readingBadge">Idle</span>
         </div>
 
-        <div class="character-card">
-          <div class="character-details"><span class="character-overline">CURRENT CHARACTER</span><div class="character-name" id="characterName">Detecting character…</div></div>
-          <div class="level-chip">LV. <strong id="characterLevel">—</strong></div>
+        <div class="character-card level-card">
+          <div class="character-details"><span class="character-overline">CURRENT LEVEL</span>
+            <div class="level-title">Level <strong id="characterLevel">—</strong></div>
+            <small id="levelSource">Level needed to calculate %</small>
+          </div>
+          <div class="quick-level">
+            <label for="quickLevel">If OCR misses your level</label>
+            <div class="quick-level-controls">
+              <input id="quickLevel" type="number" min="1" max="99" placeholder="e.g. 34" inputmode="numeric">
+              <button class="button" id="setLevelBtn">Set level</button>
+            </div>
+          </div>
         </div>
         <div class="level-row"><span>Progress to next level</span><strong id="progressLabel">—</strong></div>
         <div class="exp-track" role="progressbar" aria-label="Progress toward next level" aria-valuemin="0" aria-valuemax="100">
@@ -72,12 +81,12 @@
             <button class="button ghost" id="resetBtn">Reset session</button>
           </div>
         </div>
-        <p class="connection-hint">Share MapleStory's window. Only EXP, level, and character name regions are captured for OCR—there is no live game preview. EXP scans every 5 seconds. Level and name are checked more often until verified, then about every 30 seconds.</p>
+        <p class="connection-hint">Share MapleStory's window. Only the EXP digits and the orange level badge are read. There is no game preview. EXP scans are attempted every 5 seconds. The percentage is calculated from your EXP and the level table; the on-screen % is not read.</p>
       </section>
 
       <section class="lower-layout">
         <aside class="right-panels">
-          <section class="panel more-stats"><h2>More session details</h2><div class="data-row"><span>EXP gained, last 5 min</span><strong id="rolling">0</strong></div><div class="data-row"><span>Level % gained</span><strong id="pctGained">0.00%</strong></div><div class="data-row"><span>Level % per hour</span><strong id="pctHour">—</strong></div><div class="data-row"><span>Detected level-ups</span><strong id="levelUps">0</strong></div><div class="data-row"><span>EXP to next level</span><strong id="requiredExp">—</strong></div><div class="data-row"><span>Character OCR</span><strong id="identityStatus">Waiting</strong></div><p class="detail-help">Level requirements from <a href="https://meowdb.com/msclassic/guides/exp-table-level-1-to-100" target="_blank" rel="noopener noreferrer">MeowDB Classic EXP table</a>, levels 1–99. Level and name are verified using repeated reads of the bottom-left HUD. Level % is calculated from EXP and the table, not copied from on-screen OCR.</p></section>
+          <section class="panel more-stats"><h2>More session details</h2><div class="data-row"><span>EXP gained, last 5 min</span><strong id="rolling">0</strong></div><div class="data-row"><span>Level % gained</span><strong id="pctGained">0.00%</strong></div><div class="data-row"><span>Level % per hour</span><strong id="pctHour">—</strong></div><div class="data-row"><span>Detected level-ups</span><strong id="levelUps">0</strong></div><div class="data-row"><span>EXP to next level</span><strong id="requiredExp">—</strong></div><div class="data-row"><span>Level OCR</span><strong id="levelStatus">Waiting</strong></div><p class="detail-help">Level requirements from <a href="https://meowdb.com/msclassic/guides/exp-table-level-1-to-100" target="_blank" rel="noopener noreferrer">MeowDB Classic EXP table</a>, levels 1–99. Level is checked against multiple OCR passes and can be overridden at any time. Level % is calculated from current EXP divided by the EXP requirement, never read from on-screen %.</p></section>
 
           <details class="panel expandable settings-panel"><summary>OCR settings <span class="chevron">⌄</span></summary>
             <p class="detail-help">Only adjust these if EXP is being read incorrectly. Default settings are tuned for small MapleStory digits.</p>
@@ -85,17 +94,15 @@
             <div class="control-field"><label for="inkMode">Text color</label><select id="inkMode"><option value="auto" selected>Auto detect</option><option value="light">Light on dark</option><option value="dark">Dark on light</option></select></div>
             <div class="control-field"><label for="zoom">Enlargement <output id="zoomOutput">6×</output></label><input id="zoom" type="range" min="3" max="10" value="6"></div>
             <div class="control-field"><label for="threshold">Contrast threshold <output id="thresholdOutput">0</output></label><input id="threshold" type="range" min="-50" max="50" step="5" value="0"></div>
-            <div class="crop-grid"><div><span>EXP OCR view <small id="expPreviewLabel">—</small></span><div class="crop"><canvas id="expCrop"></canvas></div></div><div><span>Percentage OCR view <small id="pctPreviewLabel">—</small></span><div class="crop"><canvas id="pctCrop"></canvas></div></div></div>
+            <div class="crop-grid"><div><span>EXP OCR view <small id="expPreviewLabel">—</small></span><div class="crop"><canvas id="expCrop"></canvas></div></div></div>
           </details>
 
           <details class="panel expandable diagnostics-panel"><summary>Scan details & correction <span class="chevron">⌄</span></summary>
-            <div class="data-row"><span>Last scan</span><strong id="lastScan">—</strong></div><div class="data-row"><span>Scan duration</span><strong id="scanDuration">—</strong></div><div class="data-row"><span>EXP read</span><strong id="expStatus">Waiting</strong></div><div class="data-row"><span>Screen % cross-check</span><strong id="pctStatus">Waiting</strong></div>
+            <div class="data-row"><span>Last scan</span><strong id="lastScan">—</strong></div><div class="data-row"><span>Scan duration</span><strong id="scanDuration">—</strong></div><div class="data-row"><span>EXP read</span><strong id="expStatus">Waiting</strong></div><div class="data-row"><span>Level OCR</span><strong id="levelStatusDetail">See level status above</strong></div>
             <pre id="ocrDetails">OCR has not started.</pre>
-            <p class="detail-help">Unverified reads are not added to progress. Level percentage is calculated from EXP and the level table. If a number or name is misread, enter the correct value below. Level and name corrections stay in effect until you reset the session or share a different game window.</p>
-            <label class="correction-label">Character name<input id="manualName" type="text" maxlength="24" placeholder="e.g. Vanrion"></label>
-            <label class="correction-label">Character level<input id="manualLevel" type="number" min="1" max="100" placeholder="e.g. 34"></label>
-            <label class="correction-label">Correct EXP<input id="manualExp" type="text" inputmode="numeric" placeholder="e.g. 1234567"></label>
-            <label class="correction-label">On-screen % (diagnostic only)<input id="manualPct" type="text" inputmode="decimal" placeholder="e.g. 42.35"></label>
+            <p class="detail-help">Unverified EXP reads are not added. Level % is calculated from current EXP and the level requirement. If the level is missing, use Set level above. Changing your level safely starts a new EXP baseline.</p>
+            <label class="correction-label">Correct current EXP<input id="manualExp" type="text" inputmode="numeric" placeholder="e.g. 11821"></label>
+            <button class="button ghost" id="autoLevelBtn">Try auto-detecting level again</button>
             <button class="button" id="applyManual">Apply correction</button>
           </details>
         </aside>

@@ -3,14 +3,14 @@
 const $ = id => document.getElementById(id);
 const video = $('video');
 const state = {
-  stream: null, regions: {exp:null, pct:null, level:null, name:null},
+  stream: null, regions: {exp:null,level:null},
   autoAnchor:null, autoScore:null, autoBusy:false, detectorNote:'', frameDims:null,
   running: false, busy: false, cycle: 0,
   interval: null, worker: null, workerPromise: null,
-  sessionStart:null, lastExp:null, lastPct:null, currentExp:null, currentPct:null,
+  sessionStart:null, lastExp:null, currentExp:null, currentPct:null,
   expGained:0, pctGained:0, levelUps:0, gains:[], elapsedCache:0,
-  scanStarted:0, currentLevel:null, characterName:null, identityChecked:0, identityLockName:false, identityLockLevel:false, accountedLevel:null, pendingLevel:null,
-  identityCandidate:{level:null,name:null}, identityReads:0, lastScreenPct:null, pctCheckAt:0, lastOCRNote:''
+  scanStarted:0, currentLevel:null, identityChecked:0, identityLockLevel:false, accountedLevel:null, pendingLevel:null,
+  levelCandidate:null, levelReads:0, lastOCRNote:''
 };
 const fmt = n => Number.isSafeInteger(n) ? n.toLocaleString('en-US') : '—';
 const fmtPct = n => Number.isFinite(n) ? n.toFixed(2)+'%' : '—';
@@ -30,23 +30,23 @@ function refreshButtons(){
 }
 function pause(){state.running=false;state.cycle++;clearInterval(state.interval);state.interval=null;refreshButtons();}
 function reset(){
-  state.sessionStart=null;state.lastExp=null;state.lastPct=null;state.currentExp=null;state.currentPct=null;
-  state.currentLevel=null;state.characterName=null;state.identityChecked=0;state.identityLockName=false;state.identityLockLevel=false;state.accountedLevel=null;state.pendingLevel=null;
-  state.identityCandidate={level:null,name:null};state.identityReads=0;state.lastScreenPct=null;state.pctCheckAt=0;state.lastOCRNote='';
+  state.sessionStart=null;state.lastExp=null;state.currentExp=null;state.currentPct=null;
+  state.currentLevel=null;state.identityChecked=0;state.identityLockLevel=false;state.accountedLevel=null;state.pendingLevel=null;
+  state.levelCandidate=null;state.levelReads=0;state.lastOCRNote='';
   state.expGained=0;state.pctGained=0;state.levelUps=0;state.gains=[];
   $('currentExp').textContent='—';$('currentPct').textContent='—';$('perHour').textContent='0';
   $('gained').textContent='0';$('rolling').textContent='0';$('pctGained').textContent='0.00%';
   $('pctHour').textContent='—';$('eta').textContent='—';$('elapsed').textContent='00:00';
   $('levelUps').textContent='0';$('progressBar').style.width='0%';$('progressLabel').textContent='—';
-  $('lastScan').textContent='—';$('expStatus').textContent='Waiting';$('pctStatus').textContent='Waiting';
+  $('lastScan').textContent='—';$('expStatus').textContent='Waiting';$('levelStatus').textContent='Waiting';
   $('scanDuration').textContent='—';$('ocrDetails').textContent='OCR has not started.';badge('Idle');
-  $('characterName').textContent='Detecting character…';$('characterLevel').textContent='—';
-  $('expFraction').textContent='— / — EXP';$('expRemaining').textContent='— remaining';$('requiredExp').textContent='—';$('identityStatus').textContent='Waiting';
+  $('characterLevel').textContent='—';$('levelSource').textContent='Level needed to calculate %';
+  $('expFraction').textContent='— / — EXP';$('expRemaining').textContent='— remaining';$('requiredExp').textContent='—';$('levelStatus').textContent='Waiting';$('quickLevel').value='';
 }
 function stopSharing(){
   pause();if(state.stream)state.stream.getTracks().forEach(t=>t.stop());
   state.stream=null;video.srcObject=null;
-  state.regions={exp:null,pct:null,level:null,name:null};state.autoAnchor=null;state.frameDims=null;
+  state.regions={exp:null,level:null};state.autoAnchor=null;state.frameDims=null;
   refreshButtons();setStatus('Sharing stopped.');
 }
 $('shareBtn').addEventListener('click',async()=>{
@@ -57,7 +57,7 @@ $('shareBtn').addEventListener('click',async()=>{
     if(state.stream)stopSharing();
     state.stream=stream;video.srcObject=stream;await video.play();
     stream.getVideoTracks()[0].addEventListener('ended',()=>{if(state.stream===stream)stopSharing();},{once:true});
-    state.regions={exp:null,pct:null,level:null,name:null};pause();reset();
+    state.regions={exp:null,level:null};pause();reset();
     refreshButtons();setStatus('Connected. Locating the EXP HUD…');
     await autoDetectAndStart();
   }catch(e){if(stream)stream.getTracks().forEach(t=>t.stop());setStatus('Could not share: '+(e.message||e.name),'warn');}
@@ -194,8 +194,8 @@ async function detectHUD(){
   // Distances are measured relative to the EXP logo from the user's reference screenshot.
   const rect=(dx,dy,w,h)=>({x:Math.round(anchor.x+dx*s),y:Math.round(anchor.y+dy*s),w:Math.round(w*s),h:Math.round(h*s)});
   const valid=r=>r.x>=0&&r.y>=0&&r.x+r.w<=frame.width&&r.y+r.h<=frame.height;
-  const level=rect(-494,4,50,30), name=rect(-455,19,152,16);
-  state.regions={exp:areas.exp,pct:areas.pct,level:valid(level)?level:null,name:valid(name)?name:null};
+  const level=rect(-494,4,50,30);
+  state.regions={exp:areas.exp,level:valid(level)?level:null};
   state.detectorNote=`EXP label matched (${Math.round(anchor.score*100)}%), green brackets found. Capture ${frame.width}×${frame.height}.`;
   refreshButtons();
   return state.detectorNote;
@@ -212,12 +212,12 @@ async function autoDetectAndStart(){
     setStatus(msg+' Tracking will begin automatically.','good');
     startTracking();
   }catch(err){
-    setStatus((err.message||String(err))+' The EXP HUD must be visible. You can still enter your level/name manually under Scan details.','warn');
+    setStatus((err.message||String(err))+' Make sure the EXP HUD is visible, then retry.','warn');
     badge('HUD not found');
   }finally{state.autoBusy=false;refreshButtons();}
 }
 $('autoDetectBtn').addEventListener('click',async()=>{
-  pause();state.regions={exp:null,pct:null,level:null,name:null};refreshButtons();
+  pause();state.regions={exp:null,level:null};refreshButtons();
   setStatus('Searching for MapleStory EXP bar…');
   await autoDetectAndStart();
 });
@@ -286,24 +286,14 @@ function enhance(canvas,method){
   mx.drawImage(result,pad,pad);
   return withMargin;
 }
-function readCandidates(raw,key){
+function readCandidates(raw){
   const text=String(raw||'').replace(/[OoОо]/g,'0').replace(/[Il|]/g,'1').replace(/\u00a0/g,' ');
-  if(key==='exp'){
-    // Prefer the longest contiguous digit group, including normal thousands separators.
-    const candidates=[...text.matchAll(/\d(?:[\d,\.\s]*\d)?/g)]
-      .map(m=>m[0].replace(/\D/g,''))
-      .filter(v=>v.length>=1&&v.length<=15).sort((a,b)=>b.length-a.length);
-    if(!candidates.length)return null;
-    const n=Number(candidates[0]);return Number.isSafeInteger(n)?n:null;
-  }
-  const matches=[...text.matchAll(/(\d{1,3})(?:[.,](\d{1,4}))?\s*%?/g)];
-  // Prefer decimal percentages and then whole number percentages.
-  const sorted=matches.sort((a,b)=>Boolean(b[2])-Boolean(a[2]));
-  for(const m of sorted){
-    const n=Number(m[1]+(m[2]?'.'+m[2]:''));
-    if(Number.isFinite(n)&&n>=0&&n<=100)return Math.round(n*10000)/10000;
-  }
-  return null;
+  const candidates=[...text.matchAll(/\d(?:[\d,\.\s]*\d)?/g)]
+    .map(m=>m[0].replace(/\D/g,''))
+    .filter(v=>v.length>=1&&v.length<=15)
+    .sort((a,b)=>b.length-a.length);
+  if(!candidates.length)return null;
+  const n=Number(candidates[0]);return Number.isSafeInteger(n)?n:null;
 }
 function showSample(key,canvas){
   const dest=$(key+'Crop');const x=dest.getContext('2d');
@@ -319,7 +309,7 @@ async function getWorker(){
   state.workerPromise=(async()=>{
     const worker=await Tesseract.createWorker('eng');
     await worker.setParameters({
-      tessedit_char_whitelist:'0123456789.,()% ',
+      tessedit_char_whitelist:'0123456789,.',
       tessedit_pageseg_mode:Tesseract.PSM.SINGLE_LINE,
       preserve_interword_spaces:'1'
     });
@@ -338,11 +328,11 @@ async function recognizeArea(key,worker){
     if(i===0&&document.querySelector('.settings-panel').open)showSample(key,image);
     const result=await worker.recognize(image);
     const raw=(result.data.text||'').trim();
-    const candidate=readCandidates(raw,key);
+    const candidate=readCandidates(raw);
     const confidence=Math.round(Number(result.data.confidence)||0);
     tries.push({name,raw,candidate,confidence});
     if(candidate!==null){
-      const voteKey=key==='exp'?String(candidate):candidate.toFixed(4);
+      const voteKey=String(candidate);
       const item=votes.get(voteKey)||{value:candidate,count:0};item.count++;
       votes.set(voteKey,item);
       if(item.count>=2){
@@ -402,100 +392,57 @@ function levelInk(source,cutoff=190){
   out.drawImage(mask,pad,pad,mask.width*scale,mask.height*scale);
   return result;
 }
-function nameInk(source,cutoff=150){
-  // The region is purposefully only the SECOND text row; class appears above.
-  const scale=4,pad=18;
-  const out=document.createElement('canvas');out.width=source.width*scale+pad*2;out.height=source.height*scale+pad*2;
-  const context=source.getContext('2d',{willReadFrequently:true});
-  const d=context.getImageData(0,0,source.width,source.height).data;
-  const mask=document.createElement('canvas');mask.width=source.width;mask.height=source.height;
-  const cx=mask.getContext('2d'),pixels=cx.createImageData(source.width,source.height);
-  for(let i=0;i<d.length;i+=4){
-    const r=d[i],g=d[i+1],b=d[i+2];
-    const almostGray=Math.max(r,g,b)-Math.min(r,g,b)<54;
-    const ink=(r+g+b)/3>cutoff && almostGray;
-    pixels.data[i]=pixels.data[i+1]=pixels.data[i+2]=ink?0:255;pixels.data[i+3]=255;
-  }
-  cx.putImageData(pixels,0,0);
-  const dest=out.getContext('2d');dest.fillStyle='#fff';dest.fillRect(0,0,out.width,out.height);
-  dest.imageSmoothingEnabled=false;dest.drawImage(mask,pad,pad,source.width*scale,source.height*scale);
-  return out;
-}
-async function recognizeIdentity(key,worker){
-  if(!state.regions[key])return {value:null,status:'HUD region not found',details:[]};
-  const nameMode=key==='name';
-  await worker.setParameters({
-    tessedit_char_whitelist:nameMode?'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_':'0123456789',
-    tessedit_pageseg_mode:Tesseract.PSM.SINGLE_WORD
-  });
-  // Grab the original pixels first, then color-segment BEFORE resizing.
-  const base=prepareIdentitySource(key),values=new Map(),details=[];
-  const variants=nameMode
-    ?[['White letters',()=>nameInk(base,142)],['Bright letters',()=>nameInk(base,172)],['Grayscale',()=>enhance(base,'gray')],['Binary',()=>enhance(base,'binary')]]
-    :[['White on orange',()=>levelInk(base,160)],['Bright white on orange',()=>levelInk(base,195)],['Pure white on orange',()=>levelInk(base,225)]];
-  for(const [label,make] of variants){
-    const image=make();
-    if(!image){details.push(label+': no orange badge found');continue;}
-    const result=await worker.recognize(image);
-    const raw=String(result.data.text||'').trim();
-    const conf=Number(result.data.confidence||0);
-    let value=null;
-    if(nameMode){
-      // Never accept a class label as a character name.
-      const cleaned=raw.replace(/[^A-Za-z0-9_]/g,'');
-      if(cleaned.length>=3&&cleaned.length<=24)value=cleaned;
-    }else{
-      const cleaned=raw.replace(/[^0-9]/g,'');
-      const n=Number(cleaned);
-      if(/^\d{1,3}$/.test(cleaned)&&n>=1&&n<=100)value=n;
-    }
-    details.push(label+': '+JSON.stringify(raw)+(value===null?' (unreadable)':' → '+String(value))+' ('+Math.round(conf)+'%)');
-    if(value!==null){
-      const k=String(value).toLowerCase();const old=values.get(k)||{value,count:0};old.count++;values.set(k,old);
-    }
-  }
-  const sorted=[...values.values()].sort((a,b)=>b.count-a.count);
-  if(sorted[0]&&sorted[0].count>=2&&(!sorted[1]||sorted[0].count>sorted[1].count))
-    return {value:sorted[0].value,status:'Multi-pass match',details};
-  return {value:null,status:'Unverified: passes disagree',details};
-}
-function confirmIdentity(key,value){
-  const past=state.identityCandidate[key];
-  const count=past&&String(past.value).toLowerCase()===String(value).toLowerCase()?past.count+1:1;
-  state.identityCandidate[key]={value,count};
-  // Two independent video-frame scans must agree before showing identity.
-  return count>=2;
-}
-async function updateIdentity(worker){
-  const reports=[],details=[];
+async function recognizeLevel(worker){
+  if(!state.regions.level)return {value:null,status:'Level badge not located',details:[]};
+  await worker.setParameters({tessedit_char_whitelist:'0123456789',tessedit_pageseg_mode:Tesseract.PSM.SINGLE_WORD});
+  const details=[],votes=new Map();
   try{
-    if(!state.identityLockLevel){
-      const level=await recognizeIdentity('level',worker);details.push('LEVEL',...(level.details||[]));
-      if(level.value!==null){
-        const old=state.currentLevel;
-        if(old!==null&&level.value!==old&&level.value!==old+1){reports.push('Level changed unexpectedly; unverified');}
-        else if(confirmIdentity('level',level.value)){
-          if(old!==null&&level.value===old+1){state.pendingLevel=level.value;reports.push('Level '+level.value+' detected; waiting for EXP reset to confirm');}
-          else{state.currentLevel=level.value;state.pendingLevel=null;reports.push('Level '+level.value+' verified across scans');}
-        }else reports.push('Checking level '+level.value+' again…');
-      }else{state.identityCandidate.level=null;reports.push('Level unverified');}
+    const base=prepareIdentitySource('level');
+    const variants=[['White on orange',160],['Bright white',195],['Pure white',225]];
+    for(const [label,cutoff] of variants){
+      const crop=levelInk(base,cutoff);
+      if(!crop){details.push(label+': badge not located');continue;}
+      const result=await worker.recognize(crop);
+      const raw=String(result.data.text||'').trim();
+      const digits=raw.replace(/\D/g,'');
+      const value=/^\d{1,3}$/.test(digits)?Number(digits):null;
+      const valid=Number.isInteger(value)&&value>=1&&value<=100?value:null;
+      details.push(`${label}: ${JSON.stringify(raw)} => ${valid===null?'?':valid} (${Math.round(Number(result.data.confidence)||0)}%)`);
+      if(valid!==null)votes.set(valid,(votes.get(valid)||0)+1);
     }
-    if(!state.identityLockName){
-      const name=await recognizeIdentity('name',worker);details.push('NAME',...(name.details||[]));
-      if(name.value!==null){
-        const old=state.characterName;
-        if(old!==null&&name.value.toLowerCase()!==old.toLowerCase()){reports.push('Name changed unexpectedly; unverified');}
-        else if(confirmIdentity('name',name.value)){
-          state.characterName=name.value;reports.push('Name '+name.value+' verified across scans');
-        }else reports.push('Checking name '+name.value+' again…');
-      }else{state.identityCandidate.name=null;reports.push('Name unverified');}
-    }
+    const winners=[...votes.entries()].sort((a,b)=>b[1]-a[1]);
+    if(winners[0]&&winners[0][1]>=2&&(!winners[1]||winners[0][1]>winners[1][1]))
+      return {value:winners[0][0],status:'Matched in multiple passes',details};
+    return {value:null,status:'Level OCR inconclusive',details};
   }finally{
-    await worker.setParameters({tessedit_char_whitelist:'0123456789.,()% ',tessedit_pageseg_mode:Tesseract.PSM.SINGLE_LINE});
-    state.identityChecked=Date.now();state.identityReads++;
+    await worker.setParameters({tessedit_char_whitelist:'0123456789,.',tessedit_pageseg_mode:Tesseract.PSM.SINGLE_LINE});
   }
-  $('identityStatus').textContent=reports.join(' · ')||'Manual values locked';
-  state.lastOCRNote=details.join('\n');
+}
+async function updateLevel(worker){
+  if(state.identityLockLevel){$('levelStatus').textContent='Manual override';return;}
+  let result;
+  try{result=await recognizeLevel(worker);}
+  catch(err){result={value:null,status:'Level OCR error',details:[String(err.message||err)]};}
+  state.identityChecked=Date.now();state.levelReads++;
+  state.lastOCRNote=result.details.join('\n');
+  $('levelStatus').textContent=result.status;
+  if(result.value===null){state.levelCandidate=null;renderStats();return;}
+  const previous=state.levelCandidate;
+  const count=previous?.value===result.value?previous.count+1:1;
+  state.levelCandidate={value:result.value,count};
+  if(count<2){$('levelStatus').textContent=`Rechecking level ${result.value}…`;return;}
+  if(state.currentLevel===null){
+    state.currentLevel=result.value;state.accountedLevel=result.value;
+    const requirement=expRequirement(state.currentLevel);
+    state.currentPct=requirement!==null && state.currentExp!==null && state.currentExp<requirement?100*state.currentExp/requirement:null;
+    if(state.levelUps===0 && requirement!==null)state.pctGained=100*state.expGained/requirement;
+    $('levelStatus').textContent=`Level ${result.value} confirmed`;
+  }else if(result.value===state.currentLevel+1){
+    state.pendingLevel=result.value;
+    $('levelStatus').textContent=`Level ${result.value} detected; waiting for EXP reset`;
+  }else if(result.value!==state.currentLevel){
+    $('levelStatus').textContent='Level disagrees with current; use manual override';
+  }else{$('levelStatus').textContent=`Level ${result.value} confirmed`;}
   renderStats();
 }
 function duration(sec){const s=Math.max(0,Math.floor(sec));const h=Math.floor(s/3600);return h?`${h}h ${String(Math.floor(s%3600/60)).padStart(2,'0')}m`:`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;}
@@ -505,7 +452,7 @@ function renderStats(){
   $('gained').textContent=fmt(state.expGained);
   $('pctGained').textContent=fmtPct(state.pctGained);
   $('levelUps').textContent=String(state.levelUps);
-  $('characterName').textContent=state.characterName||'Name not detected';
+  $('levelSource').textContent=state.currentLevel===null?'Select your level if auto-detection fails':state.identityLockLevel?'Manual level · saved':'Level detected from game HUD';
   $('characterLevel').textContent=state.currentLevel===null?'—':String(state.currentLevel);
   const needed=expRequirement(state.currentLevel);
   $('requiredExp').textContent=needed===null?'—':fmt(needed);
@@ -527,9 +474,8 @@ function renderStats(){
     $('rolling').textContent=fmt(state.gains.reduce((a,g)=>a+g.amount,0));
   }
 }
-function record(expReading,pctReading){
+function record(expReading){
   const exp=expReading.value;
-  const screenPct=pctReading.value;
   // Confirm an OCR-detected new level only after the EXP counter resets.
   // Prevents a misread level from changing the EXP requirement prematurely.
   const proposedLevel=(Number.isSafeInteger(exp)&&state.pendingLevel===state.currentLevel+1&&
@@ -569,9 +515,7 @@ function record(expReading,pctReading){
     }
   }
   const computed=needed===null?null:100*exp/needed;
-  if(computed!==null && screenPct!==null && Math.abs(computed-screenPct)>0.08){
-    note.push('On-screen % OCR ('+fmtPct(screenPct)+') disagrees with EXP-derived '+fmtPct(computed)+'; using calculated %.');
-  }
+
   if(needed===null)note.push(levelCap?'Level requirement unavailable; % not calculated.':'Waiting for confirmed level; % not calculated.');
   if(levelUp){state.levelUps++;state.identityChecked=0;}
   if(proposedLevel!==state.currentLevel){state.currentLevel=proposedLevel;state.pendingLevel=null;}
@@ -585,83 +529,103 @@ function record(expReading,pctReading){
     if(Number.isFinite(gainPercent))state.pctGained+=gainPercent;
   }
   state.lastExp=exp;state.currentExp=exp;
-  state.currentPct=computed;state.lastPct=computed;
+  state.currentPct=computed;
   if(state.currentLevel!==null)state.accountedLevel=state.currentLevel;
   if(state.sessionStart===null)state.sessionStart=now;
-  state.lastScreenPct=screenPct;
-  badge(note.length?'% OCR mismatch':'EXP accepted');
-  setStatus(note.join(' ')||'EXP updated. Progress calculated from the level requirement.',note.length?'warn':'good');
+
+  badge(needed===null?'EXP read · set level':'EXP accepted');
+  setStatus(needed===null?'EXP read. Set or confirm level to calculate percentage.':'EXP updated. Progress is calculated from the level EXP requirement.','good');
   renderStats();
 }
 async function scan(){
   if(!state.running||state.busy||!state.stream||!state.regions.exp)return;
   const myCycle=state.cycle;
-  state.busy=true;const began=performance.now();
-  badge('Reading…');
+  state.busy=true;const began=performance.now();badge('Reading EXP…');
   try{
     if(state.autoAnchor&&state.frameDims&&
-      (state.frameDims.w!==video.videoWidth||state.frameDims.h!==video.videoHeight)){
-      await detectHUD();
-      setStatus('Window capture size changed. EXP HUD located again.','good');
+       (state.frameDims.w!==video.videoWidth||state.frameDims.h!==video.videoHeight)){
+      await detectHUD();setStatus('Window size changed; EXP HUD located again.');
     }
     const worker=await getWorker();
     if(!state.running||myCycle!==state.cycle)return;
-    // Read identity on first scan and then every ~30 seconds, to save CPU.
-    if(!state.identityChecked||Date.now()-state.identityChecked>((!state.currentLevel||!state.characterName)?12000:30000)){
-      await updateIdentity(worker);
-    }
-    // Each field uses independently chosen OCR processing and validation.
+    // EXP is the priority. Do not wait for level OCR before updating session gains.
     const exp=await recognizeArea('exp',worker);
-    const pct=(state.identityReads%4===0||Date.now()-state.pctCheckAt>20000)
-      ?await recognizeArea('pct',worker)
-      :{value:null,status:'Calculated from EXP (OCR cross-check skipped)',details:[]};
-    if(pct.details.length)state.pctCheckAt=Date.now();
     if(!state.running||myCycle!==state.cycle)return;
     $('expStatus').textContent=exp.status;
-    $('pctStatus').textContent=pct.status;
     $('lastScan').textContent=new Date().toLocaleTimeString();
     $('scanDuration').textContent=((performance.now()-began)/1000).toFixed(1)+'s';
-    $('ocrDetails').textContent=['CHARACTER:',state.lastOCRNote,'','EXP:',...exp.details.map(t=>`${t.name}: ${JSON.stringify(t.raw)} → ${t.candidate===null?'?':fmt(t.candidate)} (${t.confidence}% OCR confidence)`),'','ON-SCREEN PERCENT (CROSS-CHECK ONLY):',...pct.details.map(t=>`${t.name}: ${JSON.stringify(t.raw)} → ${t.candidate===null?'?':fmtPct(t.candidate)} (${t.confidence}% OCR confidence)`)].join('\n');
-    record(exp,pct);
+    record(exp);
+    $('ocrDetails').textContent=[
+      'EXP:',...exp.details.map(t=>`${t.name}: ${JSON.stringify(t.raw)} => ${t.candidate===null?'?':fmt(t.candidate)} (${t.confidence}% confidence)`),
+      '', 'LEVEL:',state.lastOCRNote||'Level OCR has not run yet.'];
+    if(!state.identityLockLevel&&(!state.identityChecked||Date.now()-state.identityChecked>(state.currentLevel===null?12000:30000))){
+      await updateLevel(worker);
+      if(!state.running||myCycle!==state.cycle)return;
+      $('ocrDetails').textContent+=`\n\nLevel OCR: ${state.lastOCRNote||'unavailable'}`;
+    }
+    $('scanDuration').textContent=((performance.now()-began)/1000).toFixed(1)+'s';
   }catch(e){
-    $('expStatus').textContent='Error';$('ocrDetails').textContent=String(e?.stack||e);
-    badge('OCR error');setStatus('Screen reading failed: '+(e.message||String(e)),'warn');
+    $('expStatus').textContent='OCR error';$('ocrDetails').textContent=String(e?.stack||e);
+    badge('OCR error');setStatus('Could not read EXP: '+(e.message||String(e)),'warn');
   }finally{state.busy=false;}
 }
 function startTracking(){
   if(!state.stream||!state.regions.exp)return;
   state.running=true;state.cycle++;refreshButtons();badge('Starting…');
-  setStatus((state.detectorNote?state.detectorNote+' ':'')+'Reading EXP and %. First OCR scan may take longer while the OCR engine loads.');
+  setStatus((state.detectorNote?state.detectorNote+' ':'')+'Reading EXP. Level OCR runs separately, and % is calculated from EXP.');
   void scan();state.interval=setInterval(()=>{void scan();},5000);
 }
 $('startBtn').addEventListener('click',startTracking);
 $('zoom').addEventListener('input',()=>{$('zoomOutput').textContent=$('zoom').value+'×';});
 $('threshold').addEventListener('input',()=>{$('thresholdOutput').textContent=$('threshold').value;});
+function setManualLevel(raw){
+  const value=String(raw||'').trim();
+  if(!/^\d{1,3}$/.test(value)||Number(value)<1||Number(value)>99){
+    setStatus('Enter a level from 1 to 99 to calculate EXP %.','warn');return false;
+  }
+  const next=Number(value),old=state.currentLevel;
+  // Correcting the level establishes a new safe EXP baseline; it never fakes gains.
+  state.currentLevel=next;state.accountedLevel=next;state.pendingLevel=null;
+  state.identityLockLevel=true;state.levelCandidate=null;
+  // The EXP baseline is still valid when adding the first known level.
+  // Only changing an already-known level requires discarding the old delta baseline.
+  if(old!==null&&old!==next){state.lastExp=null;state.currentPct=null;}
+  const needed=expRequirement(next);
+  if(state.currentExp!==null&&state.currentExp>=needed){
+    // A larger EXP reading for the previous level is not valid at this level.
+    state.currentExp=null;state.lastExp=null;
+  }
+  state.currentPct=state.currentExp===null?null:state.currentExp/needed*100;
+  if(old===null && state.levelUps===0)state.pctGained=100*state.expGained/needed;
+  $('quickLevel').value=String(next);
+  renderStats();badge('Level set');
+  setStatus(`Level ${next} selected. ${old!==null&&old!==next?'EXP gain baseline reset safely; ':''}Progress uses ${fmt(needed)} EXP to next level.`,'good');
+  return true;
+}
+$('setLevelBtn').addEventListener('click',()=>{setManualLevel($('quickLevel').value);});
+$('quickLevel').addEventListener('keydown',event=>{
+  if(event.key==='Enter'){event.preventDefault();setManualLevel($('quickLevel').value);}
+});
+$('autoLevelBtn').addEventListener('click',()=>{
+  state.identityLockLevel=false;state.identityChecked=0;state.levelCandidate=null;
+  $('levelStatus').textContent='Auto-detection enabled';
+  setStatus('Level auto-detection enabled. It will require matching OCR readings.','good');
+});
 $('applyManual').addEventListener('click',()=>{
-  const requestedName=$('manualName').value.trim();
-  const requestedLevel=$('manualLevel').value.trim();
-  if(requestedName&& !/^[A-Za-z0-9_]{3,24}$/.test(requestedName)){setStatus('Enter a 3–24 character name using letters, digits, or underscore.','warn');return;}
-  if(requestedLevel && (!/^\d{1,3}$/.test(requestedLevel)||Number(requestedLevel)<1||Number(requestedLevel)>100)){setStatus('Enter a level between 1 and 100.','warn');return;}
-
-  // Stop scans before applying a correction so an in-flight read cannot overwrite it.
-  pause();
   const expRaw=$('manualExp').value.replace(/[\s,]/g,'').trim();
-  const pctRaw=$('manualPct').value.replace('%','').trim();
-  if(!expRaw&&!pctRaw&&!requestedName&&!requestedLevel){setStatus('Enter something to correct.','warn');return;}
-  const n=expRaw?Number(expRaw):null,p=pctRaw?Number(pctRaw):null;
-  if(expRaw&&(!/^\d+$/.test(expRaw)||!Number.isSafeInteger(n))){setStatus('Enter EXP as whole digits only.','warn');return;}
-  if(pctRaw&&(!Number.isFinite(p)||p<0||p>100)){setStatus('Percentage must be between 0 and 100.','warn');return;}
-  if(requestedName){state.characterName=requestedName;state.identityLockName=true;state.identityCandidate.name=null;}
-  if(requestedLevel){state.currentLevel=Number(requestedLevel);state.accountedLevel=state.currentLevel;state.identityLockLevel=true;state.identityCandidate.level=null;state.pendingLevel=null;}
-  if(n!==null){state.lastExp=n;state.currentExp=n;}
-  if(p!==null)state.lastScreenPct=p;
-  const required=expRequirement(state.currentLevel);
-  state.currentPct=required!==null&&state.currentExp!==null?100*state.currentExp/required:null;
-  state.lastPct=state.currentPct;
-  if(n!==null&&state.currentLevel!==null)state.accountedLevel=state.currentLevel;
+  if(!/^\d+$/.test(expRaw)||!Number.isSafeInteger(Number(expRaw))){
+    setStatus('Enter the full current EXP as digits.','warn');return;
+  }
+  const exp=Number(expRaw),needed=expRequirement(state.currentLevel);
+  if(needed!==null&&exp>=needed){
+    setStatus(`EXP must be below the level ${state.currentLevel} requirement of ${fmt(needed)}. Check your level.`, 'warn');return;
+  }
+  // Discard a pending level-up and reset the raw-EXP baseline, avoiding artificial gains.
+  state.lastExp=exp;state.currentExp=exp;state.pendingLevel=null;
+  state.currentPct=needed===null?null:100*exp/needed;
   if(state.sessionStart===null)state.sessionStart=Date.now();
-  renderStats();setStatus('Manual values saved as the new baseline; no artificial gain added.','good');badge('Manual correction');
-  $('manualExp').value='';$('manualPct').value='';$('manualName').value='';$('manualLevel').value='';
+  $('manualExp').value='';renderStats();badge('EXP corrected');
+  setStatus('Current EXP corrected; no artificial gain added.','good');
 });
 setInterval(()=>{
   if(state.sessionStart!==null)$('elapsed').textContent=duration((Date.now()-state.sessionStart)/1000);

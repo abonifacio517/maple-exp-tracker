@@ -23,3 +23,15 @@ footer{margin-top:27px;border-top:1px solid #263440;padding-top:16px;display:fle
 .more-stats .detail-help a{color:var(--yellow)}
 @media(max-width:1000px){.lower-layout .right-panels{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:650px){.lower-layout .right-panels{grid-template-columns:1fr}.character-card{padding:12px}.track-scale{font-size:10px}}
+
+/* V7 — level information first, no character-name OCR */
+.level-card{gap:20px;align-items:center}
+.level-title{font-size:24px;font-weight:700;letter-spacing:-.035em;margin:2px 0 3px}
+.level-title strong{color:var(--yellow);font-size:30px;font-variant-numeric:tabular-nums}
+.character-details small{font-size:11px;color:var(--muted)}
+.quick-level{display:flex;flex-direction:column;gap:6px;min-width:185px;margin-left:auto}
+.quick-level label{font-size:11px;color:var(--muted)}
+.quick-level-controls{display:flex;gap:7px}
+.quick-level-controls input{width:90px;min-width:0;background:var(--soft);border:1px solid var(--stroke);border-radius:9px;padding:9px 10px;color:var(--ink);font:inherit;font-variant-numeric:tabular-nums}
+.quick-level-controls .button{white-space:nowrap}
+@media(max-width:520px){.level-card{flex-wrap:wrap}.quick-level{width:100%;margin-left:0}}

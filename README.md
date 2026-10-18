@@ -1,24 +1,17 @@
-# Maple EXP Tracker v6 — Accuracy update
+# Maple EXP Tracker v7 — EXP-first tracking
 
-A static website for tracking MapleStory Classic World EXP from a user-approved, shared game window. All capture processing runs inside the browser; no game memory, packet access, or game inputs.
+A simple screen-only MapleStory Classic World EXP tracker. The browser reads the EXP number (approximately every 5 seconds) and attempts to recognize the orange level badge. **Character names and screen percentages are not OCR-read.**
 
-## New in v6
+Level percentage is calculated as `current EXP / EXP_TO_NEXT[level] * 100`. If level detection is unverified, the percentage is blank rather than guessed; users can type their current level in the main dashboard and select **Set level**.
 
-- The orange **level badge** is isolated by color, and the **white level digits** are isolated for OCR. The old approach read the orange background instead of the digits.
-- The **character name** is cropped from the second row under the class name, so the class name is excluded.
-- Name and level each require multiple matching OCR processing passes, plus matching readings on two separate screen captures before the dashboard accepts them.
-- On-screen percentage is now *only a cross-check*. Progress is computed as `100 × current EXP / EXP needed for the confirmed character level`, using the bundled MeowDB EXP table.
-- If the displayed percentage OCR disagrees (e.g., 2.60% versus computed 7.60%), the tracker keeps the calculated percentage and shows a warning.
-- Implausible EXP readings (decreases without a confirmed level-up, exceeding required EXP, or very large jumps) are rejected rather than incorporated in EXP/hour.
-- A detected new level is provisional until an EXP counter reset confirms it.
-- No game preview is rendered. EXP scans are attempted every 5 seconds; identity rechecks are less frequent to reduce OCR overhead. OCR scans may take longer than five seconds on slower computers; scans do not overlap.
+The EXP table for levels 1–99 is bundled in `exp-table.js`, based on https://meowdb.com/msclassic/guides/exp-table-level-1-to-100 (level 34 requires 155,540 EXP to reach 35).
 
 ## Deploy
 
-Publish `index.html`, `styles.css`, `app.js`, and `exp-table.js` at the repository root with Netlify's publish directory set to the repository root. Build command: blank (static HTML, no build necessary).
+Publish the contents of this folder to any static host, including Netlify. No build command is needed. Host the four files `index.html`, `styles.css`, `app.js`, and `exp-table.js`. Requires HTTPS for window sharing, internet access for Tesseract.js, and an unminimized shared MapleStory window.
 
-## Important accuracy limitation
+## Limitations
 
-This reduces common errors but does not guarantee perfect recognition. A game screenshot may contain too few pixels to tell apart some digits. The tracker errs toward refusing uncertain readings, so stats can pause if OCR cannot verify a number. Check the diagnostic section and use manual correction for the rare cases where OCR is ambiguous.
+No general-purpose OCR system can guarantee flawless small-font recognition. This tracker requires multi-pass matching for EXP and repeats level readings before confirming a detected level. Uncertain readings are ignored; the last accepted reading remains visible. After manually changing the level, the EXP baseline is reset to avoid fake gains. A manual level entry locks level auto-detection until it is re-enabled in Scan details. Level-ups and manual corrections should be verified against the game.
 
-The EXP requirement table is bundled in `exp-table.js` and sourced from https://meowdb.com/msclassic/guides/exp-table-level-1-to-100.
+No game injection, reading process memory, packet capture, or game automation. This does not guarantee compliance with Nexon's third-party rules.
