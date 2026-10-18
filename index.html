@@ -48,13 +48,13 @@
           <div class="metric metric-current">
             <span class="metric-label">Current EXP</span>
             <strong id="currentExp">—</strong>
-            <small>Full value read from the game</small>
+            <small>Accepted OCR reading; suspicious values are rejected</small>
           </div>
         </div>
 
         <div class="mini-grid">
           <div class="mini-stat"><span>EXP gained</span><strong id="gained">0</strong></div>
-          <div class="mini-stat"><span>Level %</span><strong id="currentPct">—</strong></div>
+          <div class="mini-stat"><span>Level % (calculated)</span><strong id="currentPct">—</strong></div>
           <div class="mini-stat"><span>Time to level</span><strong id="eta">—</strong></div>
           <div class="mini-stat"><span>Session time</span><strong id="elapsed">00:00</strong></div>
         </div>
@@ -72,12 +72,12 @@
             <button class="button ghost" id="resetBtn">Reset session</button>
           </div>
         </div>
-        <p class="connection-hint">Share MapleStory's window. Only EXP, level, and character name regions are captured for OCR—there is no live game preview. Reads every 5 seconds; identity checks roughly every 30 seconds.</p>
+        <p class="connection-hint">Share MapleStory's window. Only EXP, level, and character name regions are captured for OCR—there is no live game preview. EXP scans every 5 seconds. Level and name are checked more often until verified, then about every 30 seconds.</p>
       </section>
 
       <section class="lower-layout">
         <aside class="right-panels">
-          <section class="panel more-stats"><h2>More session details</h2><div class="data-row"><span>EXP gained, last 5 min</span><strong id="rolling">0</strong></div><div class="data-row"><span>Level % gained</span><strong id="pctGained">0.00%</strong></div><div class="data-row"><span>Level % per hour</span><strong id="pctHour">—</strong></div><div class="data-row"><span>Detected level-ups</span><strong id="levelUps">0</strong></div><div class="data-row"><span>EXP to next level</span><strong id="requiredExp">—</strong></div><div class="data-row"><span>Character OCR</span><strong id="identityStatus">Waiting</strong></div><p class="detail-help">Level requirements from <a href="https://meowdb.com/msclassic/guides/exp-table-level-1-to-100" target="_blank" rel="noopener noreferrer">MeowDB Classic EXP table</a>, levels 1–99. The level and name are read from the bottom-left game HUD.</p></section>
+          <section class="panel more-stats"><h2>More session details</h2><div class="data-row"><span>EXP gained, last 5 min</span><strong id="rolling">0</strong></div><div class="data-row"><span>Level % gained</span><strong id="pctGained">0.00%</strong></div><div class="data-row"><span>Level % per hour</span><strong id="pctHour">—</strong></div><div class="data-row"><span>Detected level-ups</span><strong id="levelUps">0</strong></div><div class="data-row"><span>EXP to next level</span><strong id="requiredExp">—</strong></div><div class="data-row"><span>Character OCR</span><strong id="identityStatus">Waiting</strong></div><p class="detail-help">Level requirements from <a href="https://meowdb.com/msclassic/guides/exp-table-level-1-to-100" target="_blank" rel="noopener noreferrer">MeowDB Classic EXP table</a>, levels 1–99. Level and name are verified using repeated reads of the bottom-left HUD. Level % is calculated from EXP and the table, not copied from on-screen OCR.</p></section>
 
           <details class="panel expandable settings-panel"><summary>OCR settings <span class="chevron">⌄</span></summary>
             <p class="detail-help">Only adjust these if EXP is being read incorrectly. Default settings are tuned for small MapleStory digits.</p>
@@ -89,13 +89,13 @@
           </details>
 
           <details class="panel expandable diagnostics-panel"><summary>Scan details & correction <span class="chevron">⌄</span></summary>
-            <div class="data-row"><span>Last scan</span><strong id="lastScan">—</strong></div><div class="data-row"><span>Scan duration</span><strong id="scanDuration">—</strong></div><div class="data-row"><span>EXP read</span><strong id="expStatus">Waiting</strong></div><div class="data-row"><span>Percentage read</span><strong id="pctStatus">Waiting</strong></div>
+            <div class="data-row"><span>Last scan</span><strong id="lastScan">—</strong></div><div class="data-row"><span>Scan duration</span><strong id="scanDuration">—</strong></div><div class="data-row"><span>EXP read</span><strong id="expStatus">Waiting</strong></div><div class="data-row"><span>Screen % cross-check</span><strong id="pctStatus">Waiting</strong></div>
             <pre id="ocrDetails">OCR has not started.</pre>
-            <p class="detail-help">If a number or name is misread, enter the correct value below. Level and name corrections stay in effect until you reset the session or share a different game window.</p>
+            <p class="detail-help">Unverified reads are not added to progress. Level percentage is calculated from EXP and the level table. If a number or name is misread, enter the correct value below. Level and name corrections stay in effect until you reset the session or share a different game window.</p>
             <label class="correction-label">Character name<input id="manualName" type="text" maxlength="24" placeholder="e.g. Vanrion"></label>
             <label class="correction-label">Character level<input id="manualLevel" type="number" min="1" max="100" placeholder="e.g. 34"></label>
             <label class="correction-label">Correct EXP<input id="manualExp" type="text" inputmode="numeric" placeholder="e.g. 1234567"></label>
-            <label class="correction-label">Correct level %<input id="manualPct" type="text" inputmode="decimal" placeholder="e.g. 42.35"></label>
+            <label class="correction-label">On-screen % (diagnostic only)<input id="manualPct" type="text" inputmode="decimal" placeholder="e.g. 42.35"></label>
             <button class="button" id="applyManual">Apply correction</button>
           </details>
         </aside>
@@ -104,7 +104,7 @@
 
     <footer>
       <span>Runs in your browser · No game injection, memory reading, or automatic gameplay.</span>
-      <span>Screen-sharing permission is requested each session; OCR uses <a href="https://github.com/naptha/tesseract.js" target="_blank" rel="noopener noreferrer">Tesseract.js</a>. Name and level OCR may require manual correction for unusual fonts. EXP requirements are bundled locally and don't use a live third-party service.</span>
+      <span>Screen-sharing permission is requested each session; OCR uses <a href="https://github.com/naptha/tesseract.js" target="_blank" rel="noopener noreferrer">Tesseract.js</a>. Uncertain OCR values are withheld; check the diagnostics for rejected readings. EXP requirements are bundled locally and don't use a live third-party service.</span>
     </footer>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>

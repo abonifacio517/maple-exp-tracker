@@ -1,19 +1,24 @@
-# Maple EXP — Web Tracker v5.0
+# Maple EXP Tracker v6 — Accuracy update
 
-Static browser-only MapleStory Classic World EXP tracker. The site recognizes EXP and percentage every ~5 seconds in a screen-shared MapleStory window. A separate OCR pass every ~30 seconds reads the character's **name** and **level** from the bottom-left HUD, and can use EXP + percentage to infer the correct level when the orange badge's digits are hard to read.
+A static website for tracking MapleStory Classic World EXP from a user-approved, shared game window. All capture processing runs inside the browser; no game memory, packet access, or game inputs.
 
-## Changes in v5.0
+## New in v6
 
-- No visible preview or continuously drawn game canvas. Screen capture is requested at 1 FPS; only the EXP/percentage/level/name crops are processed at scan time. Auto HUD detection analyzes one full frame on connection and when you ask to locate HUD again, or the capture size changes.
-- Level requirement data built into `exp-table.js`, from [MeowDB — Classic EXP table levels 1–100](https://meowdb.com/msclassic/guides/exp-table-level-1-to-100). Every level 1–99 has a required EXP amount; level 100 has no next level in the referenced table.
-- Full current EXP / EXP-to-next-level readout, remaining EXP, and percentage fill bar. Level/name OCR results display above the bar. If OCR fails, open **Scan details & correction** and enter a name or level manually.
-- EXP and percentage are checked against the level's EXP requirement when available. Inconsistent OCR readings are rejected rather than counted.
-- Handles detected level-up EXP counter resets by adding remaining previous-level EXP plus EXP on the new level.
+- The orange **level badge** is isolated by color, and the **white level digits** are isolated for OCR. The old approach read the orange background instead of the digits.
+- The **character name** is cropped from the second row under the class name, so the class name is excluded.
+- Name and level each require multiple matching OCR processing passes, plus matching readings on two separate screen captures before the dashboard accepts them.
+- On-screen percentage is now *only a cross-check*. Progress is computed as `100 × current EXP / EXP needed for the confirmed character level`, using the bundled MeowDB EXP table.
+- If the displayed percentage OCR disagrees (e.g., 2.60% versus computed 7.60%), the tracker keeps the calculated percentage and shows a warning.
+- Implausible EXP readings (decreases without a confirmed level-up, exceeding required EXP, or very large jumps) are rejected rather than incorporated in EXP/hour.
+- A detected new level is provisional until an EXP counter reset confirms it.
+- No game preview is rendered. EXP scans are attempted every 5 seconds; identity rechecks are less frequent to reduce OCR overhead. OCR scans may take longer than five seconds on slower computers; scans do not overlap.
 
 ## Deploy
 
-Connect this repository's `main` branch to Netlify as a static website. Publish directory: repository root. Build command: none. Website files: `index.html`, `styles.css`, `exp-table.js`, and `app.js`.
+Publish `index.html`, `styles.css`, `app.js`, and `exp-table.js` at the repository root with Netlify's publish directory set to the repository root. Build command: blank (static HTML, no build necessary).
 
-## Privacy and limitations
+## Important accuracy limitation
 
-All screenshot cropping and OCR happen in your browser; no game memory access, injection, or game input automation. The browser asks permission every time you share the game window; keep it visible and unminimized. The OCR engine is loaded from a public CDN. Character recognition is best-effort and may need a manual correction. Automatic HUD detection is tuned against the user's supplied screenshot; other HUD layouts may fail. Using a screen-only tracker does not guarantee compliance with the game's software rules.
+This reduces common errors but does not guarantee perfect recognition. A game screenshot may contain too few pixels to tell apart some digits. The tracker errs toward refusing uncertain readings, so stats can pause if OCR cannot verify a number. Check the diagnostic section and use manual correction for the rare cases where OCR is ambiguous.
+
+The EXP requirement table is bundled in `exp-table.js` and sourced from https://meowdb.com/msclassic/guides/exp-table-level-1-to-100.
