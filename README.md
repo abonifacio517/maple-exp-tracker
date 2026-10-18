@@ -1,22 +1,32 @@
-# Maple EXP Tracker — Alpha 0.2.3
+# Maple EXP Tracker — Alpha 0.2.4
 
-## Improved level detection
-- Corrected the level crop position: the previous reference box missed the orange level badge by over 100 pixels.
-- Uses orange-badge pixel templates first; supplied digit samples include **3** and **4** from the user's screenshot. Other glyphs invoke a separate level-only OCR worker.
-- Level recognition is independent of EXP and mesos OCR. The initial level must match in two separate captures before use.
-- An unknown or conflicting digit is **not** guessed. Manual Set level remains available. You can optionally save a verified level digit sample in Scan details after entering your exact visible level.
-- EXP scanning stays at 5 seconds, mesos scanning stays at 2 seconds, and percentage is still computed using EXP / level requirement.
-- No game injection, memory read, client file access, or automatic gameplay actions.
+## Expanded automatic level detection (1–100)
 
-## Live test limitations
-- Tested against the user's level-34 close-up and full-window screenshots, plus scaled crops and a wrong-location rejection.
-- Only two level glyph templates are available initially. New digits can trigger OCR fallback; this still requires validation against the live MapleStory HUD.
-- Screen-only capture is not an explicit guarantee of compliance with game rules.
+The screen-only tracker now recognizes level badges through three stages:
 
-## Mesos responsiveness (Alpha 0.2.2)
-- Inventory balance is recognized by a separate Tesseract OCR worker rather than waiting for the EXP scan to finish.
-- The application attempts a meso scan every 2 seconds while tracking. The first capture initializes the worker and may take longer.
-- It accepts a new balance only after two independent consecutive readable frames match; unclear readings preserve the last confirmed number.
-- The number crop excludes the adjacent `MESOS` word. Capture remains screen-only with user permission.
-- When the inventory is hidden, the tracker keeps the last confirmed balance and searches periodically for the window to reappear.
-- EXP scanning is unchanged at 5-second intervals; potion tracking is unchanged in this patch.
+1. **Actual MapleStory pixel templates**: fast and accurate for digits already learned. The bundled reference images currently supply digits **3** and **4**, confirmed against the supplied screenshot of level 34.
+2. **Independent level-only OCR**: for unfamiliar digits, three white-glyph preprocessing passes must agree. If the whole-number read is inconclusive, each badge glyph gets its own isolated OCR passes. This reader uses a separate Tesseract worker and does not change EXP or mesos OCR settings.
+3. **Learned pixels**: after three successive, consistent level readings from separate screen captures, the tracker can store new digit shapes locally for future runs. The manual verified-template button remains available if a digit fails OCR.
+
+Levels **1–100 are supported in the recognition and validation logic**, including one-, two- and three-digit levels. EXP requirements continue to cover levels 1–99; level 100 is a cap without a next-level percentage.
+
+## Protections
+
+- Two independent agreeing level reads are required to update the dashboard.
+- While playing, automatic recognition may repeat the current level or detect **current level + 1**; implausible jumps are rejected.
+- After a detected level increase, the tracker waits for the EXP counter to reset before changing the EXP requirement and counting a level-up.
+- An unverified digit leaves the last confirmed level unchanged. A manual level override remains available.
+- Nothing reads game memory, process data, files or packets or sends inputs to the game.
+
+## Existing systems unchanged
+
+- EXP: every 5 seconds, pixel-template recognition and conservative OCR backup.
+- Mesos: independent OCR loop, approximately every 2 seconds, with two-frame confirmation.
+- Potions: experimental hotbar recognition with verified manual snapshots available.
+- No continuous game preview or server-side screenshot upload.
+
+## Testing limitation
+
+The level-34 **pixel templates** were validated using actual supplied screenshots and multiple crop sizes. New-level fallbacks were tested with deterministic synthetic/mocked OCR for **1, 9, 10, 35, 80, 99 and 100** and level continuity checks. **We do not yet have real badge screenshots of all numerals 0–9**, so actual accuracy at other levels cannot be guaranteed until live tested. The tracker should prefer a visible unverified state to silently accepting an unsupported digit.
+
+To test: refresh the published site, re-share the MapleStory game window, click **Try auto-detecting level again** if manual level mode is active, and wait for two reads. If the new level is not recognized, check Scan details and use Set level / Save verified level-digit sample.

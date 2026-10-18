@@ -49,29 +49,34 @@ function mapleLevelGlyphs(canvas) {
   }
   return {glyphs,reason:'Badge digits segmented'};
 }
+function mapleLevelMatchSingle(sample){
+  const scores=[];
+  for(const [digit,variants] of Object.entries(MAPLE_LEVEL_DIGIT_ATLAS)){
+    for(const template of variants){
+      let overlap=0,union=0,agree=0;
+      for(let k=0;k<160;k++){
+        const a=sample.bits[k]==='1',b=template.bits[k]==='1';
+        if(a&&b)overlap++;if(a||b)union++;if(a===b)agree++;
+      }
+      const iou=union?overlap/union:0;
+      const penalty=Math.min(.24,Math.abs(sample.w/sample.h-template.w/template.h)*.20);
+      scores.push({digit,score:iou*.75+agree/160*.25-penalty});
+    }
+  }
+  scores.sort((a,b)=>b.score-a.score);
+  const best=scores[0],other=scores.find(s=>s.digit!==best?.digit);
+  if(best && best.score>=.87 && (!other||best.score-other.score>=.11))
+    return {digit:best.digit,confidence:Math.round(best.score*100)};
+  return {digit:null,confidence:Math.round((best?.score||0)*100)};
+}
 function mapleLevelPixelMatch(source){
   const parsed=mapleLevelGlyphs(source);
   if(!parsed.glyphs) return {value:null,confidence:0,reason:parsed.reason};
   const chars=[],scores=[];
   for(const sample of parsed.glyphs){
-    const matches=[];
-    for(const [digit,variants] of Object.entries(MAPLE_LEVEL_DIGIT_ATLAS)){
-      for(const template of variants){
-        let overlap=0,union=0,agree=0;
-        for(let k=0;k<160;k++){
-          const a=sample.bits[k]==='1',b=template.bits[k]==='1';
-          if(a&&b)overlap++;if(a||b)union++;if(a===b)agree++;
-        }
-        const iou=union?overlap/union:0;
-        const aspectPenalty=Math.min(.24,Math.abs(sample.w/sample.h-template.w/template.h)*.20);
-        matches.push({digit,score:iou*.75+agree/160*.25-aspectPenalty});
-      }
-    }
-    matches.sort((a,b)=>b.score-a.score);
-    const best=matches[0],runner=matches.find(m=>m.digit!==best?.digit);
-    if(!best||best.score<.87||(runner&&best.score-runner.score<.11))
-      return {value:null,confidence:Math.round((best?.score||0)*100),reason:'Unknown or ambiguous level digit; checking with dedicated OCR'};
-    chars.push(best.digit);scores.push(best.score);
+    const match=mapleLevelMatchSingle(sample);
+    if(match.digit===null)return {value:null,confidence:match.confidence,reason:'Unknown or ambiguous level digit; checking with dedicated OCR'};
+    chars.push(match.digit);scores.push(match.confidence/100);
   }
   const value=Number(chars.join(''));
   if(!Number.isInteger(value)||value<1||value>100)

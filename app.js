@@ -375,7 +375,11 @@ function orangeBadgeBounds(source){
   if(xs.length<Math.max(35,w*h*0.035))return null;
   const left=Math.min(...xs),right=Math.max(...xs),top=Math.min(...ys),bottom=Math.max(...ys);
   // Ignore unrelated orange UI details; badge must have substantial area.
-  if(right-left<w*.35||bottom-top<h*.3)return null;
+  // The badge occupies a small fraction of the level crop at many UI scales.
+  // The old 35%-width/30%-height cutoffs rejected valid badges, meaning
+  // the fallback OCR could never see an otherwise detectable orange label.
+  if(right-left<Math.max(12,w*.16)||bottom-top<Math.max(8,h*.14)||
+     right-left>w*.92||bottom-top>h*.92)return null;
   return {x:Math.max(0,left-1),y:Math.max(0,top-2),
     w:Math.min(w-1,right+1)-Math.max(0,left-1)+1,
     h:Math.min(h-1,bottom+2)-Math.max(0,top-2)+1};
@@ -415,33 +419,94 @@ async function getLevelWorker(){
   })();
   try{return await state.levelWorkerPromise;}finally{state.levelWorkerPromise=null;}
 }
+// Draw a single segmented level digit at OCR-friendly size. It uses only
+// already shared screen pixels, and never reads MapleStory files or processes.
+function singleLevelGlyphImage(glyph,invert=false){
+  const source=document.createElement('canvas');source.width=10;source.height=16;
+  const cx=source.getContext('2d'),data=cx.createImageData(10,16);
+  for(let i=0;i<160;i++){
+    const fg=glyph.bits[i]==='1';const v=fg?(invert?255:0):(invert?0:255);
+    const k=i*4;data.data[k]=data.data[k+1]=data.data[k+2]=v;data.data[k+3]=255;
+  }
+  cx.putImageData(data,0,0);
+  const out=document.createElement('canvas'),scale=14,pad=26;
+  out.width=10*scale+2*pad;out.height=16*scale+2*pad;
+  const ctx=out.getContext('2d');ctx.fillStyle=invert?'#000':'#fff';ctx.fillRect(0,0,out.width,out.height);
+  ctx.imageSmoothingEnabled=false;ctx.drawImage(source,pad,pad,10*scale,16*scale);
+  return out;
+}
+function plausibleLevel(n){
+  if(!Number.isInteger(n)||n<1||n>100)return false;
+  // Once a level is confirmed, a passive screen read may only repeat that
+  // level or report the very next level; anything else requires manual review.
+  if(state.currentLevel!==null && n!==state.currentLevel && n!==state.currentLevel+1)return false;
+  // The next-level EXP requirement is an independent sanity check for initial
+  // detection (a stale EXP value should not silently select a wrong level).
+  const requirement=expRequirement(n);
+  if(state.currentLevel===null&&state.currentExp!==null&&requirement!==null&&state.currentExp>=requirement)return false;
+  return true;
+}
 async function recognizeLevel(){
   if(!state.regions.level)return {value:null,status:'Level badge not located',details:['Try Find HUD again.']};
   const base=prepareIdentitySource('level');
   const template=mapleLevelPixelMatch(base);
   if(template.value!==null){
-    return {value:template.value,status:`Pixel template match (${template.confidence}%)`,details:[template.reason+' => '+template.value]};
+    // Known shapes are fast: no OCR is initialized or run for this level.
+    if(!plausibleLevel(template.value))return {value:null,status:'Unexpected level; not accepted',details:[`Pixel match ${template.value} conflicts with current level or EXP` ]};
+    return {value:template.value,method:'templates',status:`Pixel template match (${template.confidence}%)`,details:[template.reason+' => '+template.value]};
   }
-  // Only unknown digit shapes use the separate level-only OCR worker.
-  // This cannot change the EXP or mesos OCR worker settings.
-  const details=[`Pixel template: ${template.reason}`];
+  const segmented=mapleLevelGlyphs(base);
+  const details=[`Pixel templates: ${template.reason}`];
+  if(!segmented.glyphs)return {value:null,status:'Could not segment orange level digits',details:[...details,segmented.reason]};
   const w=await getLevelWorker();
   const votes=new Map();
-  for(const [label,cutoff] of [['White digits',170],['Bright white digits',200],['Very bright digits',220]]){
+  // Whole-number OCR is inexpensive, and often reads a new level even when
+  // the per-digit template set is incomplete. Multiple preprocessing passes
+  // must agree rather than trusting the first recognizable number.
+  await w.setParameters({tessedit_char_whitelist:'0123456789',tessedit_pageseg_mode:Tesseract.PSM.SINGLE_WORD});
+  for(const [label,cutoff] of [['White',170],['Bright',200],['Very bright',220]]){
     const crop=levelInk(base,cutoff);
-    if(!crop){details.push(label+': badge not found');continue;}
+    if(!crop){details.push(`${label}: orange badge not found`);continue;}
     const result=await w.recognize(crop);
-    const raw=String(result.data.text||'').trim();
-    const digits=raw.replace(/\D/g,'');
-    const value=/^\d{1,3}$/.test(digits)?Number(digits):null;
-    const valid=Number.isInteger(value)&&value>=1&&value<=100?value:null;
-    details.push(`${label}: ${JSON.stringify(raw)} => ${valid===null?'?':valid} (${Math.round(Number(result.data.confidence)||0)}%)`);
-    if(valid!==null)votes.set(valid,(votes.get(valid)||0)+1);
+    const raw=String(result.data.text||'').trim(),digits=raw.replace(/\D/g,'');
+    const candidate=/^\d{1,3}$/.test(digits)?Number(digits):null;
+    const conf=Math.round(Number(result.data.confidence)||0);
+    details.push(`${label}: ${JSON.stringify(raw)} => ${candidate===null?'?':candidate} (${conf}%)`);
+    if(candidate!==null&&String(candidate).length===segmented.glyphs.length&&plausibleLevel(candidate)){
+      const v=votes.get(candidate)||{n:0,confidence:0};v.n++;v.confidence+=conf;votes.set(candidate,v);
+    }
   }
-  const sorted=[...votes.entries()].sort((a,b)=>b[1]-a[1]);
-  if(sorted[0]&&sorted[0][1]>=2&&(!sorted[1]||sorted[0][1]>sorted[1][1]))
-    return {value:sorted[0][0],status:'Level OCR agreement (2+ passes)',details};
-  return {value:null,status:'Unverified level — retrying',details};
+  const whole=[...votes.entries()].sort((a,b)=>b[1].n-a[1].n);
+  const full=whole[0]&&whole[0][1].n>=2&&(!whole[1]||whole[0][1].n>whole[1][1].n)?whole[0][0]:null;
+  // A successful whole-number consensus can initialize any level (1..100).
+  // OCR text is NOT written directly into the digit-template library.
+  if(full!==null){
+    return {value:full,method:'ocr-consensus',status:`Level ${full}: OCR agreement (${whole[0][1].n}/3)`,details};
+  }
+  // If text OCR struggled, isolate each glyph and recognize one digit at a
+  // time. This is also important for narrow '1' glyphs and three-digit 100.
+  const chars=[];
+  await w.setParameters({tessedit_char_whitelist:'0123456789',tessedit_pageseg_mode:Tesseract.PSM.SINGLE_CHAR});
+  try{
+    for(let i=0;i<segmented.glyphs.length;i++){
+      const known=mapleLevelMatchSingle(segmented.glyphs[i]);
+      if(known.digit!==null){chars.push(known.digit);details.push(`Digit ${i+1}: ${known.digit} (pixel template)`);continue;}
+      const seen=[];
+      for(const invert of [false,true]){
+        const output=await w.recognize(singleLevelGlyphImage(segmented.glyphs[i],invert));
+        const raw=String(output.data.text||'').replace(/\D/g,'');
+        seen.push(raw.length===1?raw:null);
+      }
+      details.push(`Digit ${i+1} (isolated): ${seen.map(c=>c??'?').join(' / ')}`);
+      if(!seen[0]||seen[0]!==seen[1])return {value:null,status:'Unfamiliar level digit; retrying',details};
+      chars.push(seen[0]);
+    }
+  }finally{
+    await w.setParameters({tessedit_char_whitelist:'0123456789',tessedit_pageseg_mode:Tesseract.PSM.SINGLE_WORD});
+  }
+  const result=Number(chars.join(''));
+  if(!plausibleLevel(result))return {value:null,status:'Unverified level; retrying',details};
+  return {value:result,method:'per-digit-consensus',status:'Isolated glyph recognition',details};
 }
 async function updateLevel(){
   if(state.identityLockLevel){$('levelStatus').textContent='Manual override';return;}
@@ -458,6 +523,14 @@ async function updateLevel(){
   const count=previous?.value===result.value?previous.count+1:1;
   state.levelCandidate={value:result.value,count};
   if(count<2){$('levelStatus').textContent=`Rechecking level ${result.value}…`;return;}
+  // Never train on one lucky OCR guess. After THREE independent matching
+  // screen captures, cache each new level glyph for subsequent visits.
+  // A manually entered level is intentionally exempt from automatic training.
+  if(count===3 && !state.identityLockLevel && result.method!=='templates' &&
+     typeof saveVerifiedLevelTemplate==='function'){
+    const learned=saveVerifiedLevelTemplate(prepareIdentitySource('level'),result.value);
+    if(learned.ok)state.lastOCRNote+='\n'+learned.reason;
+  }
   if(state.currentLevel===null){
     state.currentLevel=result.value;state.accountedLevel=result.value;
     const requirement=expRequirement(state.currentLevel);
