@@ -1,4 +1,4 @@
-# Maple EXP Tracker — Alpha 0.2.6
+# Maple EXP Tracker — Alpha 0.2.7
 
 A screen-only, browser-based MapleStory Classic World training tracker. No injection, client memory access, packets, or input automation. Passive capture still does **not** guarantee compliance with Nexon's terms; ask Nexon for official confirmation if needed.
 
@@ -37,3 +37,11 @@ The profit estimate is withheld in the default mode until both consumable choice
 - Screenshot templates are tied to the visual size and appearance of the selected hotbar, not game memory. Browser capture cannot guarantee a frame when MapleStory is minimized.
 - No media is sent to our server; screenshots and OCR are processed within the browser. OCR engine files are fetched from a third-party CDN to run locally.
 - NiaDB prices can change and do not include special discounts, other sources of consumables, or player-trade values.
+
+## Alpha 0.2.7 potion reference calibration
+
+- Six real hotbar images supplied by the player teach the numeric quantity region of HP slot (Orange Potion: 48, 47, 46, 45, 44, 43) and MP slot (Lemon: 113, 112, 111, 110, 109, 108).
+- The dynamic pixel mask ignores potion art and only compares pixels that differ between these captures. The matcher is strict and refuses to guess the closest number if a value is not one of the references.
+- An exact-match starting count can initialize after three consecutive independent captures; other consumables or quantities require the existing OCR/manual fallback.
+- The 4x3 hotbar coordinates are relative to the located movable hotbar and work with the new closer crop.
+- Different hotbar skins, graphics settings, scaling, or item sprites may require new calibration. All changes are screen-only.

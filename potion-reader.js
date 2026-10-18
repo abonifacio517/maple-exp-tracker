@@ -83,10 +83,45 @@ function renderPotionPrices(){
   }
 }
 function potionRect(hotbar,kind){
-  // Slots use the same hotbar sprite irrespective of where the player moves it.
-  // Tight bottom band excludes the numeric hotkeys (1/2) in the upper corners.
-  return kind==='hp'?relativeRect(hotbar,8,38,48,19):relativeRect(hotbar,61,38,48,19);
+  // Exact 4x3 hotbar sprite coordinates, tied to the located (possibly moving)
+  // hotbar rather than screen coordinates. Excludes the top-left hotkey label.
+  const ref=POTION_SEQUENCE_REFERENCES[kind];
+  const [x,y,w,h]=ref.rect;
+  return relativeRect(hotbar,x,y,w,h);
 }
+function potionSequenceMatch(kind,raw){
+  // A learned *whole-count* reference is never extrapolated to an unseen count.
+  // If OCR sees a previously unseen number, it must pass normal confirmation.
+  const ref=POTION_SEQUENCE_REFERENCES[kind];
+  if(!ref||$(kind+'PotionSelect').value!==ref.item)return null;
+  const [w,h]=ref.size;
+  const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
+  const ctx=canvas.getContext('2d',{willReadFrequently:true});
+  ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(raw,0,0,w,h);
+  const px=ctx.getImageData(0,0,w,h).data;
+  const measured=new Uint8Array(ref.coords.length);
+  for(let i=0;i<ref.coords.length;i++){
+    const j=ref.coords[i]*4;
+    measured[i]=((px[j]*77+px[j+1]*150+px[j+2]*29)/256)>>2;
+  }
+  const ranked=[];
+  for(const sample of ref.samples){
+    let difference=0;
+    for(let i=0;i<measured.length;i++)difference+=Math.abs(measured[i]-sample.g[i]);
+    ranked.push({value:sample.v,score:difference/measured.length*4});
+  }
+  ranked.sort((a,b)=>a.score-b.score);
+  const best=ranked[0],second=ranked[1];
+  // Strict distance + separation to avoid assigning an unseen number to the
+  // closest reference by force. The raw capture is never upscaled from 0 pixels.
+  if(best&&best.score<7.5&&(!second||second.score-best.score>5.5)){
+    return {value:best.value,confidence:99,source:'sequence',
+      note:`verified reference ${best.value} (difference ${best.score.toFixed(1)})`};
+  }
+  return null;
+}
+
 function potionSourceData(rect,frame){
   if(!rect||rect.x<0||rect.y<0||rect.x+rect.w>frame.width||rect.y+rect.h>frame.height)return null;
   const c=document.createElement('canvas');c.width=rect.w;c.height=rect.h;
@@ -182,6 +217,8 @@ async function getPotionWorker(){
   try{return await potionWorkerPromise;}finally{potionWorkerPromise=null;}
 }
 async function readPotionImage(kind,raw){
+  const known=potionSequenceMatch(kind,raw);
+  if(known)return known;
   const remembered=potionPatternLookup(kind,raw);
   if(remembered)return remembered;
   const worker=await getPotionWorker(),passes=[];
@@ -206,9 +243,19 @@ function handlePotionReading(kind,result,canvas){
   const value=result.value;
   if(value===null||value===undefined){extras.pending[kind]=null;return `${kind.toUpperCase()}: ${result.note}`;}
   if(current===null){
-    // Never automatically trust a one-digit subset of a multi-digit stack.
-    extras.pending[kind]=null;
-    return `${kind.toUpperCase()}: read ${fmt(value)}; confirm starting count manually for reliable tracking.`;
+    // Only a strict pixel match to the supplied full-count reference may set
+    // the baseline automatically, after 3 distinct frames. Generic OCR alone
+    // cannot set a baseline (a missing hundreds digit is too dangerous).
+    const prev=extras.pending[kind];
+    extras.pending[kind]=prev?.value===value?{value,count:prev.count+1}:{value,count:1};
+    if(result.source==='sequence'&&extras.pending[kind].count>=3){
+      extras[kind+'Current']=value;extras.potionWhen=new Date();
+      extras.pending[kind]=null;storePotionSample(kind,value,canvas);
+      return `${kind.toUpperCase()}: auto-confirmed starting count ${fmt(value)} from screenshot references`;
+    }
+    return result.source==='sequence'?
+      `${kind.toUpperCase()}: confirming starting ${fmt(value)} (${extras.pending[kind].count}/3 frames)`:
+      `${kind.toUpperCase()}: read ${fmt(value)}; confirm starting count manually for reliable tracking.`;
   }
   const change=Math.abs(value-current);
   // At a 1.25-second poll a missing hundreds digit produces enormous false use.
@@ -216,7 +263,7 @@ function handlePotionReading(kind,result,canvas){
   if(change>maxDifference){extras.pending[kind]=null;return `${kind.toUpperCase()}: ignored ${fmt(current)} → ${fmt(value)} (implausibly large; confirm manually if real).`;}
   const previous=extras.pending[kind];
   extras.pending[kind]=previous?.value===value?{value,count:previous.count+1}:{value,count:1};
-  const confirmations=result.note?.startsWith('calibrated pixel')?2:3;
+  const confirmations=result.source==='sequence'||result.note?.startsWith('calibrated pixel')?2:3;
   if(extras.pending[kind].count>=confirmations){
     acceptPotion(kind,value);
     storePotionSample(kind,value,canvas);
