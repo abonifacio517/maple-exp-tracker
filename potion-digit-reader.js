@@ -31,10 +31,11 @@ function potionDigitMatch(kind,raw){
     // The atlas stores luma/2; this ~6/127 threshold is stricter than generic
     // OCR and guards against an unseen numeral being mapped to a nearby one.
     if(!first||first.err>6 || (second&&second.err-first.err<3.5))return null;
-    byPlace[place]=first;
+    byPlace[place]={...first,gap:second?second.err-first.err:100};
   }
   const value=(byPlace.hundreds?.digit||0)*100+(byPlace.tens?.digit||0)*10+byPlace.ones.digit;
   const error=Math.max(...Object.values(byPlace).map(x=>x.err));
-  return {value,confidence:99,source:'digit-templates',
-    note:`independent pixel digits ${value}, max error ${(error*2).toFixed(1)}/255`};
+  const minGap=Math.min(...Object.values(byPlace).map(x=>x.gap));
+  return {value,confidence:99,source:'digit-templates',matchError:error,matchGap:minGap,
+    note:`pixel digits ${value}, max error ${(error*2).toFixed(1)}/255`};
 }

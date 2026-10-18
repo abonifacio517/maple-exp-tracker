@@ -1,8 +1,11 @@
 'use strict';
 // Separate potion reader. Screen pixels only; no game-client hooks, memory reads or input.
 // OCR is advisory until verified; users can label exact stack images to calibrate.
-const POTION_MS=1250;
-let potionTimer=null,potionGeneration=0,potionWorker=null,potionWorkerPromise=null,potionBusy=false;
+const POTION_MS=1400;
+let potionTimer=null,potionGeneration=0,potionBusy=false;
+// Separate HP and MP OCR workers prevent a difficult HP digit from blocking MP.
+const potionWorkers={hp:null,mp:null},potionWorkerPromises={hp:null,mp:null};
+const potionAlign={hp:null,mp:null};
 const potionPatterns={hp:[],mp:[]};
 const potionSamples={hp:null,mp:null};
 function potionPrice(kind){
@@ -60,7 +63,7 @@ function populatePotionMenus(){
       // Counts of a new item are NOT comparable with the old item's stack.
       if(previous!==select.value&&extras[kind+'Current']!==null){
         extras[kind+'Current']=null;extras.pending[kind]=null;
-        potionSamples[kind]=null;
+        potionSamples[kind]=null;potionAlign[kind]=null;
         extras.potionStatus=`${kind.toUpperCase()} potion changed · confirm its starting stack`;
       }
       // Even if no sample exists, require verification before treating readings as usage.
@@ -88,6 +91,44 @@ function potionRect(hotbar,kind){
   const ref=POTION_SEQUENCE_REFERENCES[kind];
   const [x,y,w,h]=ref.rect;
   return relativeRect(hotbar,x,y,w,h);
+}
+// Tiny on-screen digits are very sensitive to the hotbar sprite's detected
+// origin. Scan nearby crops on the SAME frame, but only accept a very good,
+// unambiguous game-font match. A wrong offset should never manufacture usage.
+function potionLocatedDigits(kind,frame,hotbar){
+  const base=potionRect(hotbar,kind);
+  const preferred=potionAlign[kind];
+  const shifts=[...(preferred?[preferred]:[]),
+    ...[-3,-2,-1,0,1,2,3,4,5,6,7,8].flatMap(dy=>[0,-1,1,-2,2,-3,3,4,5,6,7].map(dx=>({dx,dy})))];
+  let best=null,second=null;
+  const seen=new Set();
+  for(const {dx,dy} of shifts){
+    const key=dx+','+dy;if(seen.has(key))continue;seen.add(key);
+    const raw=potionSourceData({...base,x:base.x+dx,y:base.y+dy},frame);
+    if(!raw)continue;
+    const match=potionDigitMatch(kind,raw);
+    if(!match)continue;
+    const result={...match,dx,dy,raw};
+    // After calibration, matching at the previously confirmed offset is enough.
+    // This reduces repeated full offset searches and CPU usage considerably.
+    if(preferred&&preferred.dx===dx&&preferred.dy===dy&&result.matchError<1&&result.matchGap>3){
+      result.note+=` · aligned (${dx},${dy})`;
+      return {reading:result,raw};
+    }
+    if(!best||result.matchError<best.matchError){
+      if(best&&best.value!==result.value&&(!second||best.matchError<second.matchError))second=best;
+      best=result;
+    }else if(result.value!==best.value&&(!second||result.matchError<second.matchError))second=result;
+  }
+  if(!best||second&&(second.matchError-best.matchError<2))return null;
+  potionAlign[kind]={dx:best.dx,dy:best.dy};
+  best.note+=` · aligned (${best.dx},${best.dy})`;
+  return {reading:best,raw:best.raw};
+}
+function potionAlignedCrop(kind,frame,hotbar){
+  const base=potionRect(hotbar,kind);
+  const {dx=0,dy=0}=potionAlign[kind]||{};
+  return potionSourceData({...base,x:base.x+dx,y:base.y+dy},frame);
 }
 function potionSequenceMatch(kind,raw){
   // A learned *whole-count* reference is never extrapolated to an unseen count.
@@ -205,16 +246,17 @@ function potionProcessedImage(raw,mode){
   ctx.drawImage(source,pad,pad,w*factor,h*factor);
   return canvas;
 }
-async function getPotionWorker(){
-  if(potionWorker)return potionWorker;
-  if(potionWorkerPromise)return potionWorkerPromise;
+async function getPotionWorker(kind){
+  if(potionWorkers[kind])return potionWorkers[kind];
+  if(potionWorkerPromises[kind])return potionWorkerPromises[kind];
   if(!window.Tesseract)throw Error('Potion OCR library unavailable');
-  potionWorkerPromise=(async()=>{
+  potionWorkerPromises[kind]=(async()=>{
     const w=await Tesseract.createWorker('eng');
-    await w.setParameters({tessedit_char_whitelist:'0123456789',tessedit_pageseg_mode:Tesseract.PSM.SINGLE_WORD});
-    potionWorker=w;return w;
+    await w.setParameters({tessedit_char_whitelist:'0123456789',tessedit_pageseg_mode:Tesseract.PSM.SINGLE_LINE});
+    potionWorkers[kind]=w;return w;
   })();
-  try{return await potionWorkerPromise;}finally{potionWorkerPromise=null;}
+  try{return await potionWorkerPromises[kind];}
+  finally{potionWorkerPromises[kind]=null;}
 }
 async function readPotionImage(kind,raw){
   const digits=potionDigitMatch(kind,raw);
@@ -223,21 +265,21 @@ async function readPotionImage(kind,raw){
   if(known)return known;
   const remembered=potionPatternLookup(kind,raw);
   if(remembered)return remembered;
-  const worker=await getPotionWorker(),passes=[];
-  for(const mode of ['raw','smooth','contrast','binary']){
+  const worker=await getPotionWorker(kind),passes=[];
+  for(const mode of ['raw','binary']){
     const out=await worker.recognize(potionProcessedImage(raw,mode));
     const text=String(out.data.text||'').trim().replace(/\s+/g,'');
     const value=/^\d{1,4}$/.test(text)?Number(text):null;
     const confidence=Number(out.data.confidence)||0;
     passes.push({value,confidence,mode,raw:text});
-    if(value!==null&&confidence>=90)break;
+    // Two independent image treatments improve reliability; do not stop on a lucky single read.
   }
   const viable=passes.filter(p=>p.value!==null&&p.confidence>=55);
   const counts=new Map();for(const p of viable){let r=counts.get(p.value)||{votes:0,best:0};r.votes++;r.best=Math.max(r.best,p.confidence);counts.set(p.value,r);}
   const ranking=[...counts].sort((a,b)=>b[1].votes-a[1].votes||b[1].best-a[1].best);
   const best=ranking[0],conflict=ranking[1]&&best[1].votes===ranking[1][1].votes;
-  const accepted=best&&!conflict&&(best[1].votes>=2||best[1].best>=88)?best[0]:null;
-  return {value:accepted,confidence:best?.[1]?.best||0,
+  const accepted=best&&!conflict&&(best[1].votes>=2||best[1].best>=90)?best[0]:null;
+  return {value:accepted,confidence:best?.[1]?.best||0,agreement:best?.[1]?.votes||0,source:'ocr',
     note:passes.map(p=>`${p.mode}:${p.raw||'?'}(${Math.round(p.confidence)}%)`).join(' / ')+(accepted===null?' · uncertain':'')};
 }
 function handlePotionReading(kind,result,canvas){
@@ -250,17 +292,18 @@ function handlePotionReading(kind,result,canvas){
     // an explicit baseline so a missing hundreds digit cannot become profit.
     const trusted=result.source==='sequence'||result.source==='digit-templates'||
       result.note?.startsWith('calibrated pixel');
-    if(!trusted){extras.pending[kind]=null;
-      return `${kind.toUpperCase()}: OCR sees ${fmt(value)} · confirm starting count manually (no verified pixel pattern).`;
+    if(!trusted&&!(result.source==='ocr'&&result.confidence>=88&&result.agreement>=2)){
+      extras.pending[kind]=null;
+      return `${kind.toUpperCase()}: OCR suggests ${fmt(value)} but digit length is unverified; waiting for a strong reading (or set count manually).`;
     }
     const prev=extras.pending[kind];
     extras.pending[kind]=prev?.value===value?{value,count:prev.count+1}:{value,count:1};
-    if(extras.pending[kind].count>=3){
+    if(extras.pending[kind].count>=(trusted?3:4)){
       extras[kind+'Current']=value;extras.potionWhen=new Date();extras.lastError='';
       extras.pending[kind]=null;storePotionSample(kind,value,canvas);
       return `${kind.toUpperCase()}: starting stack ${fmt(value)} confirmed automatically (${result.note})`;
     }
-    return `${kind.toUpperCase()}: verifying starting ${fmt(value)} (${extras.pending[kind].count}/3 frames)`;
+    return `${kind.toUpperCase()}: verifying starting ${fmt(value)} (${extras.pending[kind].count}/${trusted?3:4} frames)`;
   }
   const change=Math.abs(value-current);
   // At a 1.25-second poll a missing hundreds digit produces enormous false use.
@@ -281,23 +324,36 @@ async function potionScan(generation){
   potionBusy=true;
   try{
     const now=Date.now();const frame=framePixels();
-    if(extras.hotbar && !activeInventoryAnchor(frame,extras.hotbar))extras.hotbar=null;
+    if(extras.hotbar && !activeInventoryAnchor(frame,extras.hotbar)){
+      extras.hotbar=null;potionAlign.hp=null;potionAlign.mp=null;
+    }
     if(!extras.hotbar && (now-extras.lastHotFind>=5000)){
       extras.lastHotFind=now;extras.hotbar=findVisualAnchor(frame,'hotbar');
     }
     const hotbar=extras.hotbar;
     if(!hotbar){extras.potionStatus='Hotbar not detected · waiting for it to be visible';return;}
-    const images={hp:potionSourceData(potionRect(hotbar,'hp'),frame),mp:potionSourceData(potionRect(hotbar,'mp'),frame)};
-    if(!images.hp||!images.mp){extras.potionStatus='Hotbar partly off-screen';return;}
-    for(const kind of ['hp','mp']){
-      potionSamples[kind]={item:$(kind+'PotionSelect').value,lastCanvas:images[kind]};
+    // Use the same frozen frame for both potions. Fast pixel matching searches
+    // nearby offsets; an isolated HP and MP OCR worker is used only if needed.
+    const jobs=await Promise.all(['hp','mp'].map(async kind=>{
+      const located=potionLocatedDigits(kind,frame,hotbar);
+      const raw=located?.raw||potionAlignedCrop(kind,frame,hotbar);
+      if(!raw)return {kind,raw:null,reading:{value:null,note:'Quantity crop outside capture'}};
+      potionSamples[kind]={item:$(kind+'PotionSelect').value,lastCanvas:raw};
+      const reading=located?.reading||await readPotionImage(kind,raw);
+      return {kind,raw,reading};
+    }));
+    if(generation!==potionGeneration||!state.running)return;
+    const details=document.querySelector('.diagnostics-panel');
+    if(details?.open)for(const {kind,raw} of jobs){
+      const preview=$(kind+'PotionCrop');
+      if(!preview||!raw)continue;
+      if(preview.width!==raw.width||preview.height!==raw.height){preview.width=raw.width;preview.height=raw.height;}
+      const cx=preview.getContext('2d',{willReadFrequently:true});cx.imageSmoothingEnabled=false;
+      cx.clearRect(0,0,preview.width,preview.height);cx.drawImage(raw,0,0);
     }
-    extras.potionStatus='Hotbar located · checking stack quantities';
     const messages=[];
-    for(const kind of ['hp','mp']){
-      const reading=await readPotionImage(kind,images[kind]);
-      if(generation!==potionGeneration||!state.running)return;
-      messages.push(handlePotionReading(kind,reading,images[kind]));
+    for(const {kind,raw,reading} of jobs){
+      messages.push(raw?handlePotionReading(kind,reading,raw):`${kind.toUpperCase()}: ${reading.note}`);
     }
     extras.lastPotionAttempt=Date.now();
     const unsure=messages.some(m=>/ignored|uncertain|verifying|confirm starting count|not available/.test(m));
@@ -312,7 +368,7 @@ async function potionScan(generation){
 function beginPotionWatch(){
   if(potionTimer!==null)return;
   const generation=++potionGeneration;
-  extras.lastHotFind=0;
+  extras.lastHotFind=0;potionAlign.hp=null;potionAlign.mp=null;
   void potionScan(generation);
   potionTimer=setInterval(()=>void potionScan(generation),POTION_MS);
 }

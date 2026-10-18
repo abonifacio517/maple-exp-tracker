@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0c1117">
   <meta name="description" content="A lightweight, browser-based MapleStory EXP tracker that reads your on-screen EXP every five seconds.">
-  <title>Maple EXP — Alpha 0.2.8</title>
+  <title>Maple EXP — Alpha 0.2.9</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -15,7 +15,7 @@
         <span class="brand-mark" aria-hidden="true">✦</span>
         <div><h1>Maple <span>EXP</span></h1><p>Classic World training tracker</p></div>
       </div>
-      <div class="header-right"><span class="header-note">Alpha 0.2.8 · Screen-only recognition</span><span class="state-pill" id="sharePill">Not sharing</span></div>
+      <div class="header-right"><span class="header-note">Alpha 0.2.9 · Screen-only recognition</span><span class="state-pill" id="sharePill">Not sharing</span></div>
     </header>
 
     <video id="video" autoplay muted playsinline hidden></video>
@@ -149,6 +149,11 @@
             <pre id="ocrDetails">OCR has not started.</pre>
             <p class="detail-help">Mesos scan diagnostic</p><pre id="mesoDebug">No snapshots yet</pre>
             <p class="detail-help">Potion scan diagnostic</p><pre id="potDebug">No snapshots yet</pre>
+            <p class="detail-help">Actual number crops (only drawn when this panel is open). These are the tiny regions used by the HP and MP readers, not a game preview.</p>
+            <div style="display:flex;flex-wrap:wrap;gap:12px;margin:8px 0 14px">
+              <div><span class="detail-help">HP quantity crop</span><div style="background:#0b1117;border:1px solid #3b4858;border-radius:6px;padding:6px"><canvas id="hpPotionCrop" width="39" height="24" style="display:block;width:156px;max-width:100%;height:auto;image-rendering:pixelated"></canvas></div></div>
+              <div><span class="detail-help">MP quantity crop</span><div style="background:#0b1117;border:1px solid #3b4858;border-radius:6px;padding:6px"><canvas id="mpPotionCrop" width="44" height="24" style="display:block;width:176px;max-width:100%;height:auto;image-rendering:pixelated"></canvas></div></div>
+            </div>
             <p class="detail-help">Unverified EXP reads are not added. Level % is calculated from current EXP and the level requirement. If the level is missing, use Set level above. Changing your level safely starts a new EXP baseline.</p>
             <label class="correction-label">Correct current EXP<input id="manualExp" type="text" inputmode="numeric" placeholder="e.g. 11821"></label>
             <button class="button ghost" id="autoLevelBtn">Try auto-detecting level again</button>
