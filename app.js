@@ -7,6 +7,7 @@ const state = {
   autoAnchor:null, autoScore:null, autoBusy:false, detectorNote:'', frameDims:null,
   running: false, busy: false, cycle: 0,
   interval: null, worker: null, workerPromise: null,
+  levelTimer: null, levelBusy: false, levelWorker: null, levelWorkerPromise: null,
   sessionStart:null, lastExp:null, currentExp:null, currentPct:null,
   expGained:0, pctGained:0, levelUps:0, gains:[], elapsedCache:0,
   scanStarted:0, currentLevel:null, identityChecked:0, identityLockLevel:false, accountedLevel:null, pendingLevel:null,
@@ -29,6 +30,7 @@ function refreshButtons(){
   $('sharePill').textContent=sharing?'● Sharing window':'Not sharing';
 }
 function pause(){state.running=false;state.cycle++;clearInterval(state.interval);state.interval=null;
+  clearInterval(state.levelTimer);state.levelTimer=null;
   if(typeof stopMesosWatch==='function')stopMesosWatch();refreshButtons();}
 function reset(){
   state.sessionStart=null;state.lastExp=null;state.currentExp=null;state.currentPct=null;
@@ -197,7 +199,9 @@ async function detectHUD(){
   // Distances are measured relative to the EXP logo from the user's reference screenshot.
   const rect=(dx,dy,w,h)=>({x:Math.round(anchor.x+dx*s),y:Math.round(anchor.y+dy*s),w:Math.round(w*s),h:Math.round(h*s)});
   const valid=r=>r.x>=0&&r.y>=0&&r.x+r.w<=frame.width&&r.y+r.h<=frame.height;
-  const level=rect(-494,4,50,30);
+  // In the reference screenshot the LV. orange badge starts about 611 pixels
+  // LEFT of the EXP logo (the old -494 box missed it completely).
+  const level=rect(-630,4,80,39);
   state.regions={exp:areas.exp,level:valid(level)?level:null};
   state.detectorNote=`EXP label matched (${Math.round(anchor.score*100)}%), green brackets found. Capture ${frame.width}×${frame.height}.`;
   refreshButtons();
@@ -399,37 +403,53 @@ function levelInk(source,cutoff=190){
   out.drawImage(mask,pad,pad,mask.width*scale,mask.height*scale);
   return result;
 }
-async function recognizeLevel(worker){
-  if(!state.regions.level)return {value:null,status:'Level badge not located',details:[]};
-  await worker.setParameters({tessedit_char_whitelist:'0123456789',tessedit_pageseg_mode:Tesseract.PSM.SINGLE_WORD});
-  const details=[],votes=new Map();
-  try{
-    const base=prepareIdentitySource('level');
-    const variants=[['White on orange',160],['Bright white',195],['Pure white',225]];
-    for(const [label,cutoff] of variants){
-      const crop=levelInk(base,cutoff);
-      if(!crop){details.push(label+': badge not located');continue;}
-      const result=await worker.recognize(crop);
-      const raw=String(result.data.text||'').trim();
-      const digits=raw.replace(/\D/g,'');
-      const value=/^\d{1,3}$/.test(digits)?Number(digits):null;
-      const valid=Number.isInteger(value)&&value>=1&&value<=100?value:null;
-      details.push(`${label}: ${JSON.stringify(raw)} => ${valid===null?'?':valid} (${Math.round(Number(result.data.confidence)||0)}%)`);
-      if(valid!==null)votes.set(valid,(votes.get(valid)||0)+1);
-    }
-    const winners=[...votes.entries()].sort((a,b)=>b[1]-a[1]);
-    if(winners[0]&&winners[0][1]>=2&&(!winners[1]||winners[0][1]>winners[1][1]))
-      return {value:winners[0][0],status:'Matched in multiple passes',details};
-    return {value:null,status:'Level OCR inconclusive',details};
-  }finally{
-    await worker.setParameters({tessedit_char_whitelist:'0123456789,.',tessedit_pageseg_mode:Tesseract.PSM.SINGLE_LINE});
-  }
+let levelWorkerUsed=false;
+async function getLevelWorker(){
+  if(state.levelWorker)return state.levelWorker;
+  if(state.levelWorkerPromise)return state.levelWorkerPromise;
+  if(!window.Tesseract)throw Error('OCR library unavailable');
+  state.levelWorkerPromise=(async()=>{
+    const w=await Tesseract.createWorker('eng');
+    await w.setParameters({tessedit_char_whitelist:'0123456789',tessedit_pageseg_mode:Tesseract.PSM.SINGLE_WORD});
+    state.levelWorker=w;return w;
+  })();
+  try{return await state.levelWorkerPromise;}finally{state.levelWorkerPromise=null;}
 }
-async function updateLevel(worker){
+async function recognizeLevel(){
+  if(!state.regions.level)return {value:null,status:'Level badge not located',details:['Try Find HUD again.']};
+  const base=prepareIdentitySource('level');
+  const template=mapleLevelPixelMatch(base);
+  if(template.value!==null){
+    return {value:template.value,status:`Pixel template match (${template.confidence}%)`,details:[template.reason+' => '+template.value]};
+  }
+  // Only unknown digit shapes use the separate level-only OCR worker.
+  // This cannot change the EXP or mesos OCR worker settings.
+  const details=[`Pixel template: ${template.reason}`];
+  const w=await getLevelWorker();
+  const votes=new Map();
+  for(const [label,cutoff] of [['White digits',170],['Bright white digits',200],['Very bright digits',220]]){
+    const crop=levelInk(base,cutoff);
+    if(!crop){details.push(label+': badge not found');continue;}
+    const result=await w.recognize(crop);
+    const raw=String(result.data.text||'').trim();
+    const digits=raw.replace(/\D/g,'');
+    const value=/^\d{1,3}$/.test(digits)?Number(digits):null;
+    const valid=Number.isInteger(value)&&value>=1&&value<=100?value:null;
+    details.push(`${label}: ${JSON.stringify(raw)} => ${valid===null?'?':valid} (${Math.round(Number(result.data.confidence)||0)}%)`);
+    if(valid!==null)votes.set(valid,(votes.get(valid)||0)+1);
+  }
+  const sorted=[...votes.entries()].sort((a,b)=>b[1]-a[1]);
+  if(sorted[0]&&sorted[0][1]>=2&&(!sorted[1]||sorted[0][1]>sorted[1][1]))
+    return {value:sorted[0][0],status:'Level OCR agreement (2+ passes)',details};
+  return {value:null,status:'Unverified level — retrying',details};
+}
+async function updateLevel(){
   if(state.identityLockLevel){$('levelStatus').textContent='Manual override';return;}
   let result;
-  try{result=await recognizeLevel(worker);}
+  const cycle=state.cycle;
+  try{result=await recognizeLevel();}
   catch(err){result={value:null,status:'Level OCR error',details:[String(err.message||err)]};}
+  if(!state.running||cycle!==state.cycle)return;
   state.identityChecked=Date.now();state.levelReads++;
   state.lastOCRNote=result.details.join('\n');
   $('levelStatus').textContent=result.status;
@@ -565,11 +585,6 @@ async function scan(){
     $('ocrDetails').textContent=[
       'EXP:',...exp.details.map(t=>`${t.name}: ${JSON.stringify(t.raw)} => ${t.candidate===null?'?':fmt(t.candidate)} (${t.confidence}% confidence)`),
       '', 'LEVEL:',state.lastOCRNote||'Level OCR has not run yet.'];
-    if(!state.identityLockLevel&&(!state.identityChecked||Date.now()-state.identityChecked>(state.currentLevel===null?12000:30000))){
-      await updateLevel(worker);
-      if(!state.running||myCycle!==state.cycle)return;
-      $('ocrDetails').textContent+=`\n\nLevel OCR: ${state.lastOCRNote||'unavailable'}`;
-    }
     if(typeof scanExtras==='function') {
       try{await scanExtras(worker);}catch(error){$('mesoDebug').textContent='Additional tracking error: '+(error.message||error);}
     }
@@ -579,11 +594,20 @@ async function scan(){
     badge('OCR error');setStatus('Could not read EXP: '+(e.message||String(e)),'warn');
   }finally{state.busy=false;}
 }
+async function scanLevelIndependently(){
+  if(!state.running||state.identityLockLevel||state.levelBusy||!state.regions.level)return;
+  if(state.identityChecked&&Date.now()-state.identityChecked<
+     (state.levelCandidate?.count===1?2000:state.currentLevel===null?8000:15000))return;
+  state.levelBusy=true;
+  try{await updateLevel();}catch(e){$('levelStatus').textContent='Level scan error';state.lastOCRNote=String(e.message||e);}
+  finally{state.levelBusy=false;}
+}
 function startTracking(){
   if(!state.stream||!state.regions.exp)return;
   state.running=true;state.cycle++;refreshButtons();badge('Starting…');
-  setStatus((state.detectorNote?state.detectorNote+' ':'')+'Reading EXP. Level OCR runs separately, and % is calculated from EXP.');
+  setStatus((state.detectorNote?state.detectorNote+' ':'')+'Reading EXP. The level uses separate pixel matching and OCR; % is calculated from EXP.');
   void scan();state.interval=setInterval(()=>{void scan();},5000);
+  void scanLevelIndependently();state.levelTimer=setInterval(()=>{void scanLevelIndependently();},4000);
   if(typeof beginMesosWatch==='function')beginMesosWatch();
 }
 $('startBtn').addEventListener('click',startTracking);
@@ -620,7 +644,17 @@ $('quickLevel').addEventListener('keydown',event=>{
 $('autoLevelBtn').addEventListener('click',()=>{
   state.identityLockLevel=false;state.identityChecked=0;state.levelCandidate=null;
   $('levelStatus').textContent='Auto-detection enabled';
-  setStatus('Level auto-detection enabled. It will require matching OCR readings.','good');
+  setStatus('Automatic level detection enabled. Pixel matching runs first, with separate OCR as fallback.','good');
+  void scanLevelIndependently();
+});
+$('teachLevelBtn').addEventListener('click',()=>{
+  if(!state.regions.level||video.readyState<2){setStatus('Share MapleStory first and allow automatic HUD detection.','warn');return;}
+  const entered=$('quickLevel').value.trim();
+  if(!/^\d{1,3}$/.test(entered)||Number(entered)<1||Number(entered)>100){
+    setStatus('Enter your exact visible level in the Set level field first.','warn');return;
+  }
+  const result=saveVerifiedLevelTemplate(prepareIdentitySource('level'),entered);
+  setStatus(result.reason,result.ok?'good':'warn');
 });
 $('applyManual').addEventListener('click',()=>{
   const expRaw=$('manualExp').value.replace(/[\s,]/g,'').trim();
@@ -644,6 +678,7 @@ setInterval(()=>{
 window.addEventListener('beforeunload',()=>{
   if(state.stream)state.stream.getTracks().forEach(t=>t.stop());
   if(state.worker)void state.worker.terminate();
+  if(state.levelWorker)void state.levelWorker.terminate();
   if(typeof disposeMesosWorker==='function')void disposeMesosWorker();
 });
 refreshButtons();

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0c1117">
   <meta name="description" content="A lightweight, browser-based MapleStory EXP tracker that reads your on-screen EXP every five seconds.">
-  <title>Maple EXP — Alpha 0.2.2</title>
+  <title>Maple EXP — Alpha 0.2.3</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -15,7 +15,7 @@
         <span class="brand-mark" aria-hidden="true">✦</span>
         <div><h1>Maple <span>EXP</span></h1><p>Classic World training tracker</p></div>
       </div>
-      <div class="header-right"><span class="header-note">Alpha 0.2.2 · Screen-only recognition</span><span class="state-pill" id="sharePill">Not sharing</span></div>
+      <div class="header-right"><span class="header-note">Alpha 0.2.3 · Screen-only recognition</span><span class="state-pill" id="sharePill">Not sharing</span></div>
     </header>
 
     <video id="video" autoplay muted playsinline hidden></video>
@@ -115,7 +115,7 @@
 
       <section class="lower-layout">
         <aside class="right-panels">
-          <section class="panel more-stats"><h2>More session details</h2><div class="data-row"><span>EXP gained, last 5 min</span><strong id="rolling">0</strong></div><div class="data-row"><span>Level % gained</span><strong id="pctGained">0.00%</strong></div><div class="data-row"><span>Level % per hour</span><strong id="pctHour">—</strong></div><div class="data-row"><span>Detected level-ups</span><strong id="levelUps">0</strong></div><div class="data-row"><span>EXP to next level</span><strong id="requiredExp">—</strong></div><div class="data-row"><span>Level OCR</span><strong id="levelStatus">Waiting</strong></div><p class="detail-help">Level requirements from <a href="https://meowdb.com/msclassic/guides/exp-table-level-1-to-100" target="_blank" rel="noopener noreferrer">MeowDB Classic EXP table</a>, levels 1–99. Level is checked against multiple OCR passes and can be overridden at any time. Level % is calculated from current EXP divided by the EXP requirement, never read from on-screen %.</p></section>
+          <section class="panel more-stats"><h2>More session details</h2><div class="data-row"><span>EXP gained, last 5 min</span><strong id="rolling">0</strong></div><div class="data-row"><span>Level % gained</span><strong id="pctGained">0.00%</strong></div><div class="data-row"><span>Level % per hour</span><strong id="pctHour">—</strong></div><div class="data-row"><span>Detected level-ups</span><strong id="levelUps">0</strong></div><div class="data-row"><span>EXP to next level</span><strong id="requiredExp">—</strong></div><div class="data-row"><span>Level recognition</span><strong id="levelStatus">Waiting</strong></div><p class="detail-help">Level requirements from <a href="https://meowdb.com/msclassic/guides/exp-table-level-1-to-100" target="_blank" rel="noopener noreferrer">MeowDB Classic EXP table</a>, levels 1–99. Orange-badge level digits are matched by pixels first, with separate OCR for unknown digits and a manual fallback. Level % is calculated from current EXP divided by the EXP requirement, never read from on-screen %.</p></section>
 
           <details class="panel expandable settings-panel"><summary>OCR settings <span class="chevron">⌄</span></summary>
             <p class="detail-help">Only adjust these if EXP is being read incorrectly. Default settings are tuned for small MapleStory digits.</p>
@@ -128,13 +128,14 @@
           </details>
 
           <details class="panel expandable diagnostics-panel"><summary>Scan details & correction <span class="chevron">⌄</span></summary>
-            <div class="data-row"><span>Last scan</span><strong id="lastScan">—</strong></div><div class="data-row"><span>Scan duration</span><strong id="scanDuration">—</strong></div><div class="data-row"><span>EXP read</span><strong id="expStatus">Waiting</strong></div><div class="data-row"><span>Level OCR</span><strong id="levelStatusDetail">See level status above</strong></div>
+            <div class="data-row"><span>Last scan</span><strong id="lastScan">—</strong></div><div class="data-row"><span>Scan duration</span><strong id="scanDuration">—</strong></div><div class="data-row"><span>EXP read</span><strong id="expStatus">Waiting</strong></div><div class="data-row"><span>Level recognition</span><strong id="levelStatusDetail">See level status above</strong></div>
             <pre id="ocrDetails">OCR has not started.</pre>
             <p class="detail-help">Mesos scan diagnostic</p><pre id="mesoDebug">No snapshots yet</pre>
             <p class="detail-help">Potion scan diagnostic</p><pre id="potDebug">No snapshots yet</pre>
             <p class="detail-help">Unverified EXP reads are not added. Level % is calculated from current EXP and the level requirement. If the level is missing, use Set level above. Changing your level safely starts a new EXP baseline.</p>
             <label class="correction-label">Correct current EXP<input id="manualExp" type="text" inputmode="numeric" placeholder="e.g. 11821"></label>
             <button class="button ghost" id="autoLevelBtn">Try auto-detecting level again</button>
+            <button class="button ghost" id="teachLevelBtn" title="Optional: teach the pixel matcher your exact visible level">Save verified level-digit sample</button>
             <button class="button" id="applyManual">Apply correction</button>
           </details>
         </aside>
@@ -151,6 +152,8 @@
   <script src="digit-atlas.js"></script>
   <script src="ui-anchors.js"></script>
   <script src="pixel-matcher.js"></script>
+  <script src="level-atlas.js"></script>
+  <script src="level-templates.js"></script>
   <script src="app.js"></script>
   <script src="extras.js"></script>
 </body>
