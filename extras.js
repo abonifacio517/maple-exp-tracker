@@ -106,7 +106,7 @@ async function recognizeSnapshot(rect,worker,kind='mesos'){
   const details=[],candidates=[];
   await worker.setParameters({
     tessedit_char_whitelist:'0123456789,',
-    tessedit_pageseg_mode:kind==='mesos'?Tesseract.PSM.SINGLE_LINE:Tesseract.PSM.SINGLE_WORD
+    tessedit_pageseg_mode:Tesseract.PSM.SINGLE_LINE
   });
   for(const mode of modes){
     const image=snapshotImage(rect,mode);
