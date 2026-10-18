@@ -1,24 +1,39 @@
-# Maple EXP Tracker — Alpha 0.2.5
+# Maple EXP Tracker — Alpha 0.2.6
 
-## Mesos locator reliability patch
+A screen-only, browser-based MapleStory Classic World training tracker. No injection, client memory access, packets, or input automation. Passive capture still does **not** guarantee compliance with Nexon's terms; ask Nexon for official confirmation if needed.
 
-The mesos display stays in the same *relative* area of the movable inventory, but the game window, inventory position and UI scaling can vary. This patch:
+## What's new
 
-- Locates the floating inventory using the existing visual title/header anchor.
-- Scans the inventory footer for the actual white mesos textbox, then uses its right edge and the first dark digit to define a tightly bounded OCR crop. Never uses an absolute screen coordinate for the balance.
-- Locates and reads the mesos field from **one frozen capture frame**, avoiding mismatches when the inventory moves between selection and image processing.
-- Reads the enhanced crops with raw, grayscale, and contrast-threshold variants, accepting only valid comma-grouped or plain integer numbers.
-- Requires two separate frames to agree before updating a balance. If the field is covered or text is unclear, holds the last confirmed balance.
-- Reacquires a moved inventory within the independent 2-second scan loop and shows the location/reading diagnostics in the Scan Details panel.
+- More focused interface, prioritizing EXP/hour, ETA to level and estimated grinding profit.
+- Separate manually selected HP and MP consumables with NPC price data from [MeowDB / NiaDB](https://meowdb.com/msclassic/npc-shops/item-efficiency/consumables), captured October 18, 2026. Both tables include relevant HP/MP food items. Entries marked not available in the game's current release were omitted.
+- Top-left hotbar slot is HP; the next slot to the right is MP. The quantities are checked by an independent browser OCR worker with a pixel-pattern shortcut for verified, previously calibrated stack images. Unfamiliar OCR results must agree across three frames. Values must also pass a plausible-change check. No guessed consumption is counted.
+- Verified starting potion counts can be entered under **Set / correct potion stack counts**. This helps reject partial digits such as misreading 123 as 2. You can manually enter counts later if OCR struggles; true decrements are recorded and restocks are not subtracted.
+- Actual cost of observed potions is accumulated at the NPC price selected **when each quantity decrease is counted**. Changing a consumable invalidates that slot's current baseline until you confirm the new stack; previous session costs remain.
+- Mesos balance changes are still confirmed separately through inventory snapshots, every ~2 seconds; EXP tracking remains every ~5 seconds.
 
-EXP OCR, level matching, potion tracking and the existing yellow EXP bar are unchanged. This is still a read-only screen-capture web application and does not access the game process, memory or send inputs.
+## Mesos profit accounting
 
-### Tested
+Default (potions stocked before session):
 
-- Header locator + relative footer OCR rectangle found the supplied inventory image at its original position, at x=280/y=100 in a larger test screen, and when scaled to 80% at x=410/y=125.
-- Tightly-cropped Tesseract sample tests read **427,993** and **466,629** from the user's supplied screenshots.
-- JavaScript syntax and number parsing checks passed.
+    Estimated grinding profit = current meso balance − starting meso balance − value of potions consumed
 
-### Still to test in MapleStory
+This reflects the economic cost of pre-stocked potions. If you **buy potions during this session**, those purchases already decrease your in-game balance. Switch to **Use balance change only** so the same purchased potions aren't subtracted twice. If your session mixes pre-stocked potions and in-session purchases, neither simple mode gives a fully accurate cost attribution without more information.
 
-The live browser-screen-sharing and Tesseract.js behavior still needs a real game test. The program may skip numbers if game scaling differs, the inventory is covered, or OCR is uncertain. Use the Mesos scan diagnostic to see **Inventory match**, **Mesos field**, and **OCR** outputs. The previous confirmed mesos amount will remain until the next verified reading.
+The profit estimate is withheld in the default mode until both consumable choices and starting stack counts are confirmed, and if any observed uses lacked a selected price. A negative result is red; a positive result is green. The last confirmed meso balance may be stale if the inventory has stayed closed, and usage during obscured frames or unobserved restocks may be missed.
+
+## How to use
+
+1. Publish the static files in this folder (no build command) from GitHub to Netlify, or upload to any HTTPS static host.
+2. Open the site in Chrome or Edge; click **Share game window**, choosing your MapleStory window.
+3. Select your HP and MP consumables from the dropdowns (source NPC prices are shown in the menu).
+4. Expand **Set / correct potion stack counts** and type the quantities visible in your first two hotbar slots to establish a safe starting point. Keep the hotbar visible.
+5. Open the inventory briefly at session start and later to update mesos. The website detects a floating inventory anywhere within the shared game window.
+6. Choose the profit accounting mode that matches how you acquired potions.
+7. Use the hidden **Scan details & correction** diagnostics if a reader has trouble.
+
+## Limitations / validation
+
+- The live EXP and mesos readers were previously tested by the user and are left logically intact. The newly added potion quantity reader has passed syntax, browser interface and calculation tests, but **has not been validated during live game play**. The provided screenshot's quantity digits are unusually difficult for Tesseract because they overlap artwork. Expect some automatic scans to be rejected. Manual correction remains necessary when digits are unclear.
+- Screenshot templates are tied to the visual size and appearance of the selected hotbar, not game memory. Browser capture cannot guarantee a frame when MapleStory is minimized.
+- No media is sent to our server; screenshots and OCR are processed within the browser. OCR engine files are fetched from a third-party CDN to run locally.
+- NiaDB prices can change and do not include special discounts, other sources of consumables, or player-trade values.

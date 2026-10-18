@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0c1117">
   <meta name="description" content="A lightweight, browser-based MapleStory EXP tracker that reads your on-screen EXP every five seconds.">
-  <title>Maple EXP — Alpha 0.2.5</title>
+  <title>Maple EXP — Alpha 0.2.6</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -15,7 +15,7 @@
         <span class="brand-mark" aria-hidden="true">✦</span>
         <div><h1>Maple <span>EXP</span></h1><p>Classic World training tracker</p></div>
       </div>
-      <div class="header-right"><span class="header-note">Alpha 0.2.5 · Screen-only recognition</span><span class="state-pill" id="sharePill">Not sharing</span></div>
+      <div class="header-right"><span class="header-note">Alpha 0.2.6 · Screen-only recognition</span><span class="state-pill" id="sharePill">Not sharing</span></div>
     </header>
 
     <video id="video" autoplay muted playsinline hidden></video>
@@ -55,47 +55,64 @@
             <small>Your average training speed</small>
           </div>
           <div class="metric metric-current">
-            <span class="metric-label">Current EXP</span>
-            <strong id="currentExp">—</strong>
-            <small>Confirmed reading · OCR + pixel-template checks</small>
+            <span class="metric-label">Estimated time to next level</span>
+            <strong id="eta">—</strong>
+            <small>Based on your current EXP/hour</small>
           </div>
         </div>
 
         <div class="mini-grid">
           <div class="mini-stat"><span>EXP gained</span><strong id="gained">0</strong></div>
           <div class="mini-stat"><span>Level % (calculated)</span><strong id="currentPct">—</strong></div>
-          <div class="mini-stat"><span>Time to level</span><strong id="eta">—</strong></div>
+          <div class="mini-stat"><span>Current EXP</span><strong id="currentExp">—</strong></div>
           <div class="mini-stat"><span>Session time</span><strong id="elapsed">00:00</strong></div>
         </div>
       </section>
 
 
-      <section class="extras-grid" aria-label="Mesos and potion tracking">
+      <section class="profit-panel panel" aria-label="Grinding profitability">
+        <div class="profit-title-row"><div><div class="eyebrow">YOUR MESOS</div><h2>Estimated grinding profit</h2></div><span id="profitBadge" class="profit-badge">Waiting for a balance</span></div>
+        <div class="profit-total"><strong id="netProfit" class="profit-unknown">—</strong><span class="profit-unit">mesos</span></div>
+        <div class="profit-breakdown">
+          <div><span>Mesos balance change</span><strong id="mesoDelta">—</strong></div>
+          <div><span>Potion value consumed</span><strong id="potionValue">0</strong></div>
+          <div><span>Mesos / hour (balance)</span><strong id="mesoPerHour">—</strong></div>
+        </div>
+        <p class="profit-help" id="profitExplanation">Open your inventory to establish a meso balance. Select your potion types and confirm starting stacks for accurate costs.</p>
+      </section>
+      <section class="extras-grid" aria-label="Mesos and consumables">
         <section class="panel extra-panel">
-          <div class="extra-head"><h2>Mesos</h2><span class="extra-tag">Inventory snapshots</span></div>
+          <div class="extra-head"><h2>Mesos balance</h2><span class="extra-tag">Inventory · ~2s</span></div>
           <div class="extra-stat"><span>Last confirmed balance</span><strong id="mesoBalance">—</strong></div>
-          <div class="extra-stat"><span>Net balance change</span><strong id="mesoDelta">—</strong></div><div class="extra-stat"><span>Net mesos / hour</span><strong id="mesoPerHour">—</strong></div>
           <p class="extra-hint" id="mesoScanStatus">Waiting for inventory</p>
-          <p class="detail-help">Move your inventory anywhere inside the shared game window. The tracker finds its white mesos box, scans about every 2 seconds and confirms changes across separate frames.</p>
-          <div class="manual-snapshot"><label>Manual meso balance<input id="manualMesoBalance" type="text" inputmode="numeric" placeholder="e.g. 427,993"></label><button id="setMesoSnapshot" class="button ghost">Save snapshot</button></div>
+          <details class="advanced-entry"><summary>Correct meso balance manually</summary>
+            <div class="manual-snapshot"><label>Balance<input id="manualMesoBalance" type="text" inputmode="numeric" placeholder="e.g. 466,629"></label><button id="setMesoSnapshot" class="button ghost">Save snapshot</button></div>
+          </details>
         </section>
         <section class="panel extra-panel">
-          <div class="extra-head"><h2>Potions</h2><span class="extra-tag">Hotbar top row</span></div>
-          <div class="stack-grid">
-            <div><span>HP · first slot</span><strong id="hpCount">—</strong><small><span id="hpUsed">0</span> observed decreases</small></div>
-            <div><span>MP · second slot</span><strong id="mpCount">—</strong><small><span id="mpUsed">0</span> observed decreases</small></div>
+          <div class="extra-head"><h2>HP / MP consumables</h2><span class="extra-tag">Top two hotbar slots</span></div>
+          <div class="potion-settings">
+            <div class="potion-row"><div class="potion-identity"><span class="potion-dot hp-dot"></span><strong>HP · slot 1</strong><span id="hpCount">—</span><small><span id="hpUsed">0</span> used</small></div>
+              <label>Consumable <select id="hpPotionSelect" aria-label="HP consumable"><option value="">Choose HP consumable…</option></select></label>
+              <p class="potion-price" id="hpPotionPrice">Select a consumable to set the NPC price.</p>
+            </div>
+            <div class="potion-row"><div class="potion-identity"><span class="potion-dot mp-dot"></span><strong>MP · slot 2</strong><span id="mpCount">—</span><small><span id="mpUsed">0</span> used</small></div>
+              <label>Consumable <select id="mpPotionSelect" aria-label="MP consumable"><option value="">Choose MP consumable…</option></select></label>
+              <p class="potion-price" id="mpPotionPrice">Select a consumable to set the NPC price.</p>
+            </div>
           </div>
-          <p class="extra-hint" id="potStatus">Searching for hotbar</p>
-          <p class="detail-help">Potion quantities overlap their icons, so automatic reading remains experimental. Set your starting HP/MP counts below once. Auto-read values must agree with that baseline; enter new counts to record decreases or restocks.</p>
-          <div class="manual-snapshot two"><label>HP count<input id="manualHPStack" type="text" inputmode="numeric" placeholder="HP"></label><label>MP count<input id="manualMPStack" type="text" inputmode="numeric" placeholder="MP"></label><button id="setPotionSnapshot" class="button ghost">Set counts</button></div>
+          <p class="extra-hint" id="potStatus">Looking for hotbar…</p>
+          <details class="advanced-entry" id="potionCalibration"><summary>Set / correct potion stack counts</summary>
+            <p class="detail-help">Enter the numbers you see in the first two hotbar slots to establish a verified starting point. The tracker then tries to read future changes automatically. It rejects numbers it cannot verify.</p>
+            <div class="manual-snapshot two"><label>HP count<input id="manualHPStack" type="text" inputmode="numeric" placeholder="HP"></label><label>MP count<input id="manualMPStack" type="text" inputmode="numeric" placeholder="MP"></label><button id="setPotionSnapshot" class="button ghost">Confirm stacks</button></div>
+          </details>
         </section>
       </section>
-      <section class="panel cost-panel">
-        <div><h2>Optional potion value</h2><p class="detail-help">Set a per-potion value in mesos to estimate the value consumed. This is <strong>not</strong> subtracted from your net meso balance (avoids double counting).</p></div>
-        <label>HP pot price <input id="hpPrice" type="number" min="0" max="100000000" value="0"></label>
-        <label>MP pot price <input id="mpPrice" type="number" min="0" max="100000000" value="0"></label>
-        <div><span class="metric-label">Value consumed</span><strong id="potionValue">0</strong></div>
-        <button class="button ghost" id="resetExtraBtn">Reset mesos & potions</button>
+      <section class="panel expense-options">
+        <div><h2>How should potion expenses count?</h2><p>Net balance already includes mesos spent in NPC shops. Avoid subtracting those purchases twice.</p></div>
+        <label class="expense-choice"><input type="radio" name="potionAccounting" value="preowned" checked><span><strong>Subtract consumed potion value</strong><small>For potions stocked before this session</small></span></label>
+        <label class="expense-choice"><input type="radio" name="potionAccounting" value="balance"><span><strong>Use balance change only</strong><small>For potions purchased during this session</small></span></label>
+        <div class="expense-bottom"><span>Prices: <a href="https://meowdb.com/msclassic/npc-shops/item-efficiency/consumables" target="_blank" rel="noopener noreferrer">MeowDB / NiaDB NPC shop list</a></span><button class="button ghost" id="resetExtraBtn">Reset meso & potion session</button></div>
       </section>
 
       <section class="action-panel panel" aria-label="Capture and tracking controls">
@@ -110,7 +127,7 @@
             <button class="button ghost" id="resetBtn">Reset session</button>
           </div>
         </div>
-        <p class="connection-hint">Share MapleStory's window. The EXP HUD, inventory mesos counter, and the first two hotbar slots are captured in small crops. There is no game preview. EXP scans every 5 seconds; mesos checks every 2 seconds when your inventory is visible. Potion checks remain experimental. The percentage is calculated from your EXP and the level table; the on-screen % is not read.</p>
+        <p class="connection-hint">Share MapleStory's window. The EXP HUD, inventory mesos counter, and the first two hotbar slots are captured in small crops. There is no game preview. EXP scans every 5 seconds; mesos checks every 2 seconds when your inventory is visible. Potions are checked separately with verified quantity reads. If recognition is uncertain, use the manual stack correction. The percentage is calculated from your EXP and the level table; the on-screen % is not read.</p>
       </section>
 
       <section class="lower-layout">
@@ -155,6 +172,8 @@
   <script src="level-atlas.js"></script>
   <script src="level-templates.js"></script>
   <script src="app.js"></script>
+  <script src="potion-catalog.js"></script>
   <script src="extras.js"></script>
+  <script src="potion-reader.js"></script>
 </body>
 </html>

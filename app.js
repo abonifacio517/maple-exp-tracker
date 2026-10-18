@@ -31,7 +31,8 @@ function refreshButtons(){
 }
 function pause(){state.running=false;state.cycle++;clearInterval(state.interval);state.interval=null;
   clearInterval(state.levelTimer);state.levelTimer=null;
-  if(typeof stopMesosWatch==='function')stopMesosWatch();refreshButtons();}
+  if(typeof stopMesosWatch==='function')stopMesosWatch();
+  if(typeof stopPotionWatch==='function')stopPotionWatch();refreshButtons();}
 function reset(){
   state.sessionStart=null;state.lastExp=null;state.currentExp=null;state.currentPct=null;
   state.currentLevel=null;state.identityChecked=0;state.identityLockLevel=false;state.accountedLevel=null;state.pendingLevel=null;
@@ -58,7 +59,7 @@ $('shareBtn').addEventListener('click',async()=>{
   if(!navigator.mediaDevices?.getDisplayMedia){setStatus('Screen sharing requires HTTPS and Chrome/Edge.','warn');return;}
   let stream=null;
   try{
-    stream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:2},audio:false});
+    stream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:5},audio:false});
     if(state.stream)stopSharing();
     state.stream=stream;video.srcObject=stream;await video.play();
     stream.getVideoTracks()[0].addEventListener('ended',()=>{if(state.stream===stream)stopSharing();},{once:true});
@@ -682,6 +683,7 @@ function startTracking(){
   void scan();state.interval=setInterval(()=>{void scan();},5000);
   void scanLevelIndependently();state.levelTimer=setInterval(()=>{void scanLevelIndependently();},4000);
   if(typeof beginMesosWatch==='function')beginMesosWatch();
+  if(typeof beginPotionWatch==='function')beginPotionWatch();
 }
 $('startBtn').addEventListener('click',startTracking);
 $('zoom').addEventListener('input',()=>{$('zoomOutput').textContent=$('zoom').value+'×';});

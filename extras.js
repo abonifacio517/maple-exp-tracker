@@ -3,7 +3,7 @@
 // video frames; never accesses MapleStory processes, memory, files, or controls.
 const extras={inventory:null,hotbar:null,lastFind:0,inventoryOpen:false,
   mesosStart:null,mesosCurrent:null,mesoPending:null,mesoWhen:null,mesoStartWhen:null,mesoBusy:false,mesoStatus:'',
-  hpCurrent:null,mpCurrent:null,hpUsed:0,mpUsed:0,
+  hpCurrent:null,mpCurrent:null,hpUsed:0,mpUsed:0,hpCost:0,mpCost:0,hpUnpriced:0,mpUnpriced:0,
   pending:{hp:null,mp:null},potionWhen:null,lastError:'',lastMesoAttempt:0,lastPotionAttempt:0,turn:0,lastInvFind:0,lastHotFind:0};
 function anchorMatcher(spec,s,kind){
   const pts=spec.points.filter((p,i)=>i%(kind==='hotbar'?5:2)===0).map(([x,y,v])=>[Math.round(x*s),Math.round(y*s),v]);
@@ -152,11 +152,12 @@ function showExtraStats(){
   $('mpCount').textContent=extras.mpCurrent===null?'—':fmt(extras.mpCurrent);
   $('hpUsed').textContent=fmt(extras.hpUsed);
   $('mpUsed').textContent=fmt(extras.mpUsed);
-  const hpPrice=Number($('hpPrice').value)||0,mpPrice=Number($('mpPrice').value)||0;
-  $('potionValue').textContent=fmt(Math.round(extras.hpUsed*hpPrice+extras.mpUsed*mpPrice));
-  $('potStatus').textContent=extras.hotbar?
-    (extras.potionWhen?'Hotbar found · checked '+extras.potionWhen.toLocaleTimeString():'Hotbar found · set starting counts below for verification'):
-    'Searching for hotbar (first two top slots)';
+  $('potionValue').textContent=fmt(Math.round(extras.hpCost+extras.mpCost));
+  const latest=extras.potionWhen?'Last verified '+extras.potionWhen.toLocaleTimeString():null;
+  $('potStatus').textContent=extras.potionStatus||(extras.hotbar?
+    (latest||'Hotbar found · confirm initial stack counts for accuracy'):
+    'Looking for hotbar in your shared game window');
+  if(typeof renderPotionFinancials==='function')renderPotionFinancials();
 }
 function acceptMesos(value){
   if(!Number.isSafeInteger(value)||value<0||value>1000000000000)return false;
@@ -185,18 +186,19 @@ function acceptPotion(kind,value){
       extras.lastError=`${kind.toUpperCase()}: rejected sudden ${old} → ${value} (${used} items). Use manual correction if this was real.`;
       return false;
     }
-    extras[kind+'Used']+=used;
+    recordPotionConsumption(kind,used);
   }
   extras[kind+'Current']=value;extras.potionWhen=new Date();
   extras.lastError='';return true;
 }
 function resetExtras(){
   if(typeof stopMesosWatch==='function')stopMesosWatch();
+  if(typeof stopPotionWatch==='function')stopPotionWatch();
   Object.assign(extras,{inventory:null,hotbar:null,lastFind:0,inventoryOpen:false,
     mesosStart:null,mesosCurrent:null,mesoPending:null,mesoWhen:null,mesoStartWhen:null,mesoBusy:false,mesoStatus:'',
-    hpCurrent:null,mpCurrent:null,hpUsed:0,mpUsed:0,pending:{hp:null,mp:null},
+    hpCurrent:null,mpCurrent:null,hpUsed:0,mpUsed:0,hpCost:0,mpCost:0,hpUnpriced:0,mpUnpriced:0,pending:{hp:null,mp:null},
     potionWhen:null,lastError:'',lastMesoAttempt:0,lastPotionAttempt:0,turn:0,lastInvFind:0,lastHotFind:0});
-  if(state.running && state.stream)beginMesosWatch();
+  if(state.running && state.stream){beginMesosWatch();if(typeof beginPotionWatch==='function')beginPotionWatch();}
   showExtraStats();
 }
 // Dedicated mesos capture loop. An independent OCR worker prevents long EXP
@@ -413,36 +415,9 @@ function stopMesosWatch(){
   ++mesosGeneration;
 }
 
-// Potion readings remain tied to the existing five-second EXP scan. This patch
-// intentionally does not modify the experimental hotbar counting algorithm.
-async function scanExtras(worker){
-  if(!state.running||!state.stream)return;
-  const now=Date.now();extras.turn++;
-  const frame=framePixels();
-  if(now-extras.lastHotFind>15000){
-    extras.hotbar=activeInventoryAnchor(frame,extras.hotbar)?extras.hotbar:findVisualAnchor(frame,'hotbar');
-    extras.lastHotFind=now;
-  }
-  const hb=extras.hotbar;
-  if(hb&&now-extras.lastPotionAttempt>4500){
-    const hp=await recognizeSnapshot(relativeRect(hb,10,40,13,14),worker,'potion');
-    const mp=await recognizeSnapshot(relativeRect(hb,66,40,34,14),worker,'potion');
-    extras.lastPotionAttempt=Date.now();
-    if(hp?.value!==null&&hp?.value!==undefined)acceptPotion('hp',hp.value);else extras.pending.hp=null;
-    if(mp?.value!==null&&mp?.value!==undefined)acceptPotion('mp',mp.value);else extras.pending.mp=null;
-    $('potDebug').textContent=`HP ${hp?.note||'unreadable'}\nMP ${mp?.note||'unreadable'}\nConfirmations: HP ${extras.pending.hp?.count||0}/2 · MP ${extras.pending.mp?.count||0}/2`;
-  }
-  if(extras.lastError)$('potDebug').textContent+='\n'+extras.lastError;
-  showExtraStats();
-}
-for(const field of ['hpPrice','mpPrice']){
-  const saved=localStorage.getItem('mapleAlpha_'+field);
-  if(saved!==null&&Number.isFinite(Number(saved)))$(field).value=saved;
-  $(field).addEventListener('input',()=>{
-    const val=Math.max(0,Math.min(100000000,Math.floor(Number($(field).value)||0)));
-    localStorage.setItem('mapleAlpha_'+field,String(val));showExtraStats();
-  });
-}
+// Alpha 0.2.6: independent potion worker and pixel calibration live in potion-reader.js.
+// No potion OCR should ever change the dedicated EXP worker's parameters.
+async function scanExtras(){return;}
 $('resetExtraBtn').addEventListener('click',()=>{
   resetExtras();setStatus('Mesos and potion counters reset; EXP session unchanged.','good');
 });
@@ -474,10 +449,12 @@ $('setPotionSnapshot').addEventListener('click',()=>{
   // These are explicitly observed stack snapshots: count decreases between
   // confirmed snapshots contribute to uses. Restocks do not subtract uses.
   // Larger jumps are allowed here because a person typed and verified them.
-  if(extras.hpCurrent!==null&&hp<extras.hpCurrent)extras.hpUsed+=extras.hpCurrent-hp;
-  if(extras.mpCurrent!==null&&mp<extras.mpCurrent)extras.mpUsed+=extras.mpCurrent-mp;
+  if(extras.hpCurrent!==null&&hp<extras.hpCurrent)recordPotionConsumption('hp',extras.hpCurrent-hp);
+  if(extras.mpCurrent!==null&&mp<extras.mpCurrent)recordPotionConsumption('mp',extras.mpCurrent-mp);
   extras.hpCurrent=hp;extras.mpCurrent=mp;extras.pending={hp:null,mp:null};
   extras.potionWhen=new Date();extras.lastError='';
+  extras.potionStatus='Manual counts confirmed · watching changes';
+  if(typeof storePotionSample==='function'){storePotionSample('hp',hp);storePotionSample('mp',mp);}
   $('manualHPStack').value='';$('manualMPStack').value='';
-  $('potDebug').textContent='Manual stacks saved. Observed decreases were counted; increases treated as restocks.';showExtraStats();
+  $('potDebug').textContent='Verified stack counts saved. Decreases were counted; increases treated as restocks.';showExtraStats();
 });
