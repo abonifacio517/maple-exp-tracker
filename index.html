@@ -1,5 +1,4 @@
 <!doctype html>
-<!-- Netlify redeploy requested after repository visibility changed to public. -->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -19,6 +18,7 @@
       <div class="header-right"><span class="header-note">On-screen OCR · Every 5 seconds</span><span class="state-pill" id="sharePill">Not sharing</span></div>
     </header>
 
+    <video id="video" autoplay muted playsinline hidden></video>
     <main>
       <section class="dashboard panel" aria-label="Live training dashboard">
         <div class="dashboard-top">
@@ -29,11 +29,15 @@
           <span class="reading-pill" id="readingBadge">Idle</span>
         </div>
 
+        <div class="character-card">
+          <div class="character-details"><span class="character-overline">CURRENT CHARACTER</span><div class="character-name" id="characterName">Detecting character…</div></div>
+          <div class="level-chip">LV. <strong id="characterLevel">—</strong></div>
+        </div>
         <div class="level-row"><span>Progress to next level</span><strong id="progressLabel">—</strong></div>
         <div class="exp-track" role="progressbar" aria-label="Progress toward next level" aria-valuemin="0" aria-valuemax="100">
           <div class="exp-fill" id="progressBar"></div>
         </div>
-        <div class="track-scale"><span>0%</span><span>100%</span></div>
+        <div class="track-scale"><span id="expFraction">— / — EXP</span><span id="expRemaining">— remaining</span></div>
 
         <div class="metrics">
           <div class="metric metric-major">
@@ -63,32 +67,17 @@
             <button class="button primary" id="shareBtn">Share game window</button>
             <button class="button" id="startBtn" disabled>Resume</button>
             <button class="button" id="pauseBtn" disabled>Pause</button>
+            <button class="button subtle" id="autoDetectBtn" disabled>Find HUD again</button>
+            <button class="button ghost" id="stopShareBtn" disabled>Stop sharing</button>
             <button class="button ghost" id="resetBtn">Reset session</button>
           </div>
         </div>
-        <p class="connection-hint">Select your MapleStory window in the browser prompt. The tracker finds the EXP HUD and starts automatically.</p>
+        <p class="connection-hint">Share MapleStory's window. Only EXP, level, and character name regions are captured for OCR—there is no live game preview. Reads every 5 seconds; identity checks roughly every 30 seconds.</p>
       </section>
 
       <section class="lower-layout">
-        <div class="preview-panel panel">
-          <div class="panel-title"><div><h2>Game preview</h2><p>Highlighted regions show what the tracker is reading.</p></div><button class="button subtle" id="autoDetectBtn" disabled>Find EXP again</button></div>
-          <div class="viewer" id="viewer"><canvas id="view" aria-label="Preview of the captured game window with highlighted EXP areas"></canvas>
-            <div class="empty-view" id="emptyView"><span class="preview-icon" aria-hidden="true">▣</span><strong>No window shared</strong><p>Click “Share game window” to start.</p></div>
-          </div>
-          <video id="video" autoplay muted playsinline hidden></video>
-          <div class="areas">
-            <div><span class="area-dot exp-dot"></span><span>EXP</span><strong id="expAreaStatus">Not found</strong></div>
-            <div><span class="area-dot pct-dot"></span><span>Level %</span><strong id="pctAreaStatus">Not found</strong></div>
-          </div>
-          <div class="preview-actions"><button class="button ghost" id="stopShareBtn" disabled>Stop sharing</button></div>
-          <details class="expandable manualFallback"><summary>Can't find EXP? Select manually <span class="chevron">⌄</span></summary>
-            <p class="detail-help">Automatic detection is recommended. If it misses your HUD, choose a field below and draw its area on the preview.</p>
-            <div class="selectionBtns"><button class="button greenBtn" id="selectExp" disabled>EXP digits</button><button class="button blueBtn" id="selectPct" disabled>Percentage</button><button class="button" id="exitManual" disabled>Back to auto</button></div>
-          </details>
-        </div>
-
         <aside class="right-panels">
-          <section class="panel more-stats"><h2>More session details</h2><div class="data-row"><span>EXP gained, last 5 min</span><strong id="rolling">0</strong></div><div class="data-row"><span>Level % gained</span><strong id="pctGained">0.00%</strong></div><div class="data-row"><span>Level % per hour</span><strong id="pctHour">—</strong></div><div class="data-row"><span>Detected level-ups</span><strong id="levelUps">0</strong></div></section>
+          <section class="panel more-stats"><h2>More session details</h2><div class="data-row"><span>EXP gained, last 5 min</span><strong id="rolling">0</strong></div><div class="data-row"><span>Level % gained</span><strong id="pctGained">0.00%</strong></div><div class="data-row"><span>Level % per hour</span><strong id="pctHour">—</strong></div><div class="data-row"><span>Detected level-ups</span><strong id="levelUps">0</strong></div><div class="data-row"><span>EXP to next level</span><strong id="requiredExp">—</strong></div><div class="data-row"><span>Character OCR</span><strong id="identityStatus">Waiting</strong></div><p class="detail-help">Level requirements from <a href="https://meowdb.com/msclassic/guides/exp-table-level-1-to-100" target="_blank" rel="noopener noreferrer">MeowDB Classic EXP table</a>, levels 1–99. The level and name are read from the bottom-left game HUD.</p></section>
 
           <details class="panel expandable settings-panel"><summary>OCR settings <span class="chevron">⌄</span></summary>
             <p class="detail-help">Only adjust these if EXP is being read incorrectly. Default settings are tuned for small MapleStory digits.</p>
@@ -102,7 +91,9 @@
           <details class="panel expandable diagnostics-panel"><summary>Scan details & correction <span class="chevron">⌄</span></summary>
             <div class="data-row"><span>Last scan</span><strong id="lastScan">—</strong></div><div class="data-row"><span>Scan duration</span><strong id="scanDuration">—</strong></div><div class="data-row"><span>EXP read</span><strong id="expStatus">Waiting</strong></div><div class="data-row"><span>Percentage read</span><strong id="pctStatus">Waiting</strong></div>
             <pre id="ocrDetails">OCR has not started.</pre>
-            <p class="detail-help">If a number was read incorrectly, pause the tracker and correct it below. Corrections set the new baseline without adding artificial gains.</p>
+            <p class="detail-help">If a number or name is misread, enter the correct value below. Level and name corrections stay in effect until you reset the session or share a different game window.</p>
+            <label class="correction-label">Character name<input id="manualName" type="text" maxlength="24" placeholder="e.g. Vanrion"></label>
+            <label class="correction-label">Character level<input id="manualLevel" type="number" min="1" max="100" placeholder="e.g. 34"></label>
             <label class="correction-label">Correct EXP<input id="manualExp" type="text" inputmode="numeric" placeholder="e.g. 1234567"></label>
             <label class="correction-label">Correct level %<input id="manualPct" type="text" inputmode="decimal" placeholder="e.g. 42.35"></label>
             <button class="button" id="applyManual">Apply correction</button>
@@ -113,10 +104,11 @@
 
     <footer>
       <span>Runs in your browser · No game injection, memory reading, or automatic gameplay.</span>
-      <span>Screen-sharing permission is requested each session; OCR uses <a href="https://github.com/naptha/tesseract.js" target="_blank" rel="noopener noreferrer">Tesseract.js</a>. Some small digits may still need manual correction.</span>
+      <span>Screen-sharing permission is requested each session; OCR uses <a href="https://github.com/naptha/tesseract.js" target="_blank" rel="noopener noreferrer">Tesseract.js</a>. Name and level OCR may require manual correction for unusual fonts. EXP requirements are bundled locally and don't use a live third-party service.</span>
     </footer>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="exp-table.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

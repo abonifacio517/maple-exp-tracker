@@ -1,22 +1,19 @@
-# Maple EXP — Live Tracker (v4.0)
+# Maple EXP — Web Tracker v5.0
 
-A minimal browser-based MapleStory Classic World EXP tracker. The dashboard automatically identifies the EXP readout and level percentage in a shared MapleStory window, then attempts OCR about every five seconds.
+Static browser-only MapleStory Classic World EXP tracker. The site recognizes EXP and percentage every ~5 seconds in a screen-shared MapleStory window. A separate OCR pass every ~30 seconds reads the character's **name** and **level** from the bottom-left HUD, and can use EXP + percentage to infer the correct level when the orange badge's digits are hard to read.
 
-## Install / deploy
+## Changes in v5.0
 
-This is a static site (no build step). Publish `index.html`, `styles.css`, and `app.js` in the same root directory. Netlify can deploy this repository directly with the publish directory set to `.` and no build command.
+- No visible preview or continuously drawn game canvas. Screen capture is requested at 1 FPS; only the EXP/percentage/level/name crops are processed at scan time. Auto HUD detection analyzes one full frame on connection and when you ask to locate HUD again, or the capture size changes.
+- Level requirement data built into `exp-table.js`, from [MeowDB — Classic EXP table levels 1–100](https://meowdb.com/msclassic/guides/exp-table-level-1-to-100). Every level 1–99 has a required EXP amount; level 100 has no next level in the referenced table.
+- Full current EXP / EXP-to-next-level readout, remaining EXP, and percentage fill bar. Level/name OCR results display above the bar. If OCR fails, open **Scan details & correction** and enter a name or level manually.
+- EXP and percentage are checked against the level's EXP requirement when available. Inconsistent OCR readings are rejected rather than counted.
+- Handles detected level-up EXP counter resets by adding remaining previous-level EXP plus EXP on the new level.
 
-## Using it
+## Deploy
 
-1. Open the site in up-to-date Chrome or Edge on a desktop computer (HTTPS required for window sharing).
-2. Click **Share game window** and select your MapleStory window.
-3. Leave the game EXP bar visible. Auto-detection locates EXP and percentage; OCR attempts a read every five seconds.
-4. Keep the share active and check the preview/scan status. If HUD detection fails, use **Find EXP again** or open the manual fallback selector.
-5. Advanced OCR controls and scan diagnostics are collapsible.
+Connect this repository's `main` branch to Netlify as a static website. Publish directory: repository root. Build command: none. Website files: `index.html`, `styles.css`, `exp-table.js`, and `app.js`.
 
-## Notes
+## Privacy and limitations
 
-- OCR and screenshots are processed in your own browser. The page loads Tesseract.js and OCR assets from third-party CDNs; the code itself has no upload endpoint.
-- Screen capture requires your permission each session. Minimized game windows may not produce fresh frames.
-- Small fonts can be misread; the software rejects conflicting OCR results and allows manual correction. Accuracy is not guaranteed.
-- Does not inject into the game or read memory or network packets. This alone does not guarantee compliance with the game's rules.
+All screenshot cropping and OCR happen in your browser; no game memory access, injection, or game input automation. The browser asks permission every time you share the game window; keep it visible and unminimized. The OCR engine is loaded from a public CDN. Character recognition is best-effort and may need a manual correction. Automatic HUD detection is tuned against the user's supplied screenshot; other HUD layouts may fail. Using a screen-only tracker does not guarantee compliance with the game's software rules.
