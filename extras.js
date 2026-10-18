@@ -2,7 +2,7 @@
 // Optional net-mesos and consumable measurements. Works only with browser-provided
 // video frames; never accesses MapleStory processes, memory, files, or controls.
 const extras={inventory:null,hotbar:null,lastFind:0,inventoryOpen:false,
-  mesosStart:null,mesosCurrent:null,mesoPending:null,mesoWhen:null,mesoStartWhen:null,
+  mesosStart:null,mesosCurrent:null,mesoPending:null,mesoWhen:null,mesoStartWhen:null,mesoBusy:false,mesoStatus:'',
   hpCurrent:null,mpCurrent:null,hpUsed:0,mpUsed:0,
   pending:{hp:null,mp:null},potionWhen:null,lastError:'',lastMesoAttempt:0,lastPotionAttempt:0,turn:0,lastInvFind:0,lastHotFind:0};
 function anchorMatcher(spec,s,kind){
@@ -136,9 +136,9 @@ function showExtraStats(){
     `${extras.mesosCurrent-extras.mesosStart>=0?'+':''}${fmt(extras.mesosCurrent-extras.mesosStart)}`;
   const hours=extras.mesoWhen&&extras.mesoStartWhen?(extras.mesoWhen-extras.mesoStartWhen)/3600000:0;
   $('mesoPerHour').textContent=hours>1/3600?fmt(Math.round((extras.mesosCurrent-extras.mesosStart)/hours)):'—';
-  $('mesoScanStatus').textContent=extras.inventoryOpen?
-    (extras.mesoWhen?'Inventory visible · confirmed '+extras.mesoWhen.toLocaleTimeString():extras.mesoPending?'Inventory found · confirming '+fmt(extras.mesoPending.value)+'…':'Inventory found · unreadable balance (see diagnostics)'):
-    (extras.mesoWhen?'Inventory closed · last confirmed '+extras.mesoWhen.toLocaleTimeString():'Waiting for inventory');
+  $('mesoScanStatus').textContent=extras.mesoStatus || (extras.inventoryOpen?
+    (extras.mesoWhen?'Inventory open · last confirmed '+extras.mesoWhen.toLocaleTimeString():extras.mesoPending?'Confirming '+fmt(extras.mesoPending.value)+'…':'Inventory open · reading balance…'):
+    (extras.mesoWhen?'Inventory closed · last confirmed '+extras.mesoWhen.toLocaleTimeString():'Waiting for inventory'));
   $('hpCount').textContent=extras.hpCurrent===null?'—':fmt(extras.hpCurrent);
   $('mpCount').textContent=extras.mpCurrent===null?'—':fmt(extras.mpCurrent);
   $('hpUsed').textContent=fmt(extras.hpUsed);
@@ -182,42 +182,138 @@ function acceptPotion(kind,value){
   extras.lastError='';return true;
 }
 function resetExtras(){
+  if(typeof stopMesosWatch==='function')stopMesosWatch();
   Object.assign(extras,{inventory:null,hotbar:null,lastFind:0,inventoryOpen:false,
-    mesosStart:null,mesosCurrent:null,mesoPending:null,mesoWhen:null,mesoStartWhen:null,
+    mesosStart:null,mesosCurrent:null,mesoPending:null,mesoWhen:null,mesoStartWhen:null,mesoBusy:false,mesoStatus:'',
     hpCurrent:null,mpCurrent:null,hpUsed:0,mpUsed:0,pending:{hp:null,mp:null},
     potionWhen:null,lastError:'',lastMesoAttempt:0,lastPotionAttempt:0,turn:0,lastInvFind:0,lastHotFind:0});
+  if(state.running && state.stream)beginMesosWatch();
   showExtraStats();
 }
+// Dedicated mesos capture loop. An independent OCR worker prevents long EXP
+// and level-recognition passes from delaying inventory snapshots. Video capture
+// is still performed solely through the browser's user-approved screen share.
+const MESO_SCAN_MS=2000;
+let mesosTimer=null,mesosGeneration=0,mesosWorker=null,mesosWorkerPromise=null;
+async function getMesosWorker(){
+  if(mesosWorker)return mesosWorker;
+  if(mesosWorkerPromise)return mesosWorkerPromise;
+  if(!window.Tesseract)throw Error('Text recognition library unavailable.');
+  mesosWorkerPromise=(async()=>{
+    const worker=await Tesseract.createWorker('eng');
+    await worker.setParameters({tessedit_char_whitelist:'0123456789,',
+      tessedit_pageseg_mode:Tesseract.PSM.SINGLE_LINE});
+    mesosWorker=worker;return worker;
+  })();
+  try{return await mesosWorkerPromise;}
+  finally{mesosWorkerPromise=null;}
+}
+async function disposeMesosWorker(){
+  const worker=mesosWorker;mesosWorker=null;
+  if(worker)await worker.terminate();
+}
+function activeInventoryAnchor(frame,hit){
+  return !!(hit&&hit.x>=0&&hit.y>=0&&hit.x+hit.m.w<=frame.width&&hit.y+hit.m.h<=frame.height&&
+    anchorScore(frame,hit.m,hit.x,hit.y)>.77);
+}
+// Keep the comma and ALL digits; exclude the word MESOS to the right.
+// Coordinates are relative to the MapleStory inventory sprite (338x469).
+function mesoNumberArea(inv){return relativeRect(inv,188,427,81,25);}
+async function readMesosFast(worker,rect){
+  const first=snapshotImage(rect,'raw');
+  if(!first)return {value:null,note:'Counter is outside the shared frame.'};
+  const out=await worker.recognize(first);
+  const raw=String(out.data.text||'').trim();
+  const digits=raw.replace(/[,\s]/g,'');
+  const confidence=Math.round(Number(out.data.confidence)||0);
+  const valid=/^\d{1,3}(?:,\d{3})*$|^\d{1,12}$/.test(raw) && /^\d+$/.test(digits);
+  const value=valid&&Number.isSafeInteger(Number(digits))&&Number(digits)<=1e12&&confidence>=56?Number(digits):null;
+  if(value!==null)return {value,note:`OCR ${JSON.stringify(raw)} (${confidence}% confidence).`};
+  // One alternative only when necessary; never accept an unverifiable fragment.
+  const alternate=snapshotImage(rect,'gray');
+  if(!alternate)return {value:null,note:'Number area not available.'};
+  const alt=await worker.recognize(alternate);
+  const aRaw=String(alt.data.text||'').trim(),aDigits=aRaw.replace(/[,\s]/g,'');
+  const aConf=Math.round(Number(alt.data.confidence)||0);
+  const aValid=(/^\d{1,3}(?:,\d{3})*$|^\d{1,12}$/).test(aRaw)&& /^\d+$/.test(aDigits);
+  const aValue=aValid&&Number.isSafeInteger(Number(aDigits))&&Number(aDigits)<=1e12&&aConf>=65?Number(aDigits):null;
+  return {value:aValue,note:`Raw ${JSON.stringify(raw)} (${confidence}%), gray ${JSON.stringify(aRaw)} (${aConf}%).`};
+}
+async function scanMesos(generation){
+  if(!state.running||!state.stream||!video.videoWidth||extras.mesoBusy||generation!==mesosGeneration)return;
+  extras.mesoBusy=true;
+  try{
+    const now=Date.now();
+    const frame=framePixels();
+    const previous=extras.inventory;
+    if(!activeInventoryAnchor(frame,previous))extras.inventory=null;
+    if(!extras.inventory && now-extras.lastInvFind>=3000){
+      extras.lastInvFind=now;
+      extras.inventory=findVisualAnchor(frame,'inventory');
+    }
+    const inv=extras.inventory;
+    extras.inventoryOpen=!!inv;
+    if(!inv){
+      extras.mesoPending=null;
+      extras.mesoStatus=extras.mesoWhen?'Inventory closed · last confirmed '+extras.mesoWhen.toLocaleTimeString():
+        'Waiting for inventory · checking again shortly';
+      return;
+    }
+    extras.mesoStatus='Inventory found · reading…';
+    showExtraStats();
+    const workerInit=Date.now();
+    const worker=await getMesosWorker();
+    if(generation!==mesosGeneration||!state.running)return;
+    // Loading OCR can take several seconds on first use. Never read an old
+    // counter coordinate if the inventory has closed in the meantime.
+    if(Date.now()-workerInit>1000 && !activeInventoryAnchor(framePixels(),inv)){
+      extras.inventory=null;extras.inventoryOpen=false;extras.mesoPending=null;
+      extras.mesoStatus='Inventory closed while OCR initialized · waiting to reopen';
+      return;
+    }
+    const read=await readMesosFast(worker,mesoNumberArea(inv));
+    if(generation!==mesosGeneration||!state.running)return;
+    extras.lastMesoAttempt=Date.now();
+    if(read.value!==null){
+      const accepted=acceptMesos(read.value);
+      extras.mesoStatus=accepted?`Confirmed ${fmt(read.value)} · ${new Date().toLocaleTimeString()}`:
+        `Verifying ${fmt(read.value)} · another capture in ~2s`;
+    }else{
+      extras.mesoPending=null;
+      extras.mesoStatus=extras.mesoWhen?'Unclear reading · keeping last confirmed balance':'Inventory visible · could not read balance';
+    }
+    $('mesoDebug').textContent=`Inventory match ${Math.round(inv.score*100)}% · Mesos: ${read.note}\n`+
+      (extras.mesoPending?`Matching frames: ${Math.min(extras.mesoPending.count,2)}/2`:'No confirmed candidate')+
+      '\nNext mesos scan: ~2 seconds (EXP scanning independently).';
+  }catch(error){
+    extras.mesoStatus='Mesos scan issue · keeping last confirmed balance';
+    $('mesoDebug').textContent='Mesos scan: '+String(error?.message||error);
+  }finally{extras.mesoBusy=false;showExtraStats();}
+}
+function beginMesosWatch(){
+  if(mesosTimer!==null)return;
+  const generation=++mesosGeneration;
+  extras.lastInvFind=0;extras.mesoStatus='Looking for inventory · 2-second scan interval';
+  void scanMesos(generation);
+  mesosTimer=setInterval(()=>void scanMesos(generation),MESO_SCAN_MS);
+}
+function stopMesosWatch(){
+  if(mesosTimer!==null){clearInterval(mesosTimer);mesosTimer=null;}
+  ++mesosGeneration;
+}
+
+// Potion readings remain tied to the existing five-second EXP scan. This patch
+// intentionally does not modify the experimental hotbar counting algorithm.
 async function scanExtras(worker){
   if(!state.running||!state.stream)return;
-  const now=Date.now();
-  extras.turn++;
-  // Only a still frame is examined, not a continuously rendered preview.
+  const now=Date.now();extras.turn++;
   const frame=framePixels();
-  function anchorStillVisible(hit){
-    return hit && hit.x+hit.m.w<=frame.width && hit.y+hit.m.h<=frame.height
-      && anchorScore(frame,hit.m,hit.x,hit.y)>.77;
-  }
-  if(now-extras.lastInvFind>4500){
-    extras.inventory=anchorStillVisible(extras.inventory)?extras.inventory:findVisualAnchor(frame,'inventory');
-    extras.lastInvFind=now;
-  }
   if(now-extras.lastHotFind>15000){
-    extras.hotbar=anchorStillVisible(extras.hotbar)?extras.hotbar:findVisualAnchor(frame,'hotbar');
+    extras.hotbar=activeInventoryAnchor(frame,extras.hotbar)?extras.hotbar:findVisualAnchor(frame,'hotbar');
     extras.lastHotFind=now;
   }
-  const inv=extras.inventory;
-  extras.inventoryOpen=!!inv;
-  if(inv&&now-extras.lastMesoAttempt>4500){
-    const crop=relativeRect(inv,196,427,75,27);
-    const read=await recognizeSnapshot(crop,worker,'mesos');extras.lastMesoAttempt=Date.now();
-    if(read?.value!==null&&read?.value!==undefined)acceptMesos(read.value);
-    else extras.mesoPending=null;
-    $('mesoDebug').textContent=(read?.note||'No readable mesos detected')+'\n' +(extras.mesoPending?`Independent captures agreeing: ${extras.mesoPending.count}/2`: 'Waiting for a clean candidate');
-  }else if(!inv){extras.mesoPending=null;}
   const hb=extras.hotbar;
-  if(hb&&(!inv||extras.turn%2===0)&&now-extras.lastPotionAttempt>4500){
-    // Tight glyph rows reduce potion artwork getting into the crop.
+  if(hb&&now-extras.lastPotionAttempt>4500){
     const hp=await recognizeSnapshot(relativeRect(hb,10,40,13,14),worker,'potion');
     const mp=await recognizeSnapshot(relativeRect(hb,66,40,34,14),worker,'potion');
     extras.lastPotionAttempt=Date.now();

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0c1117">
   <meta name="description" content="A lightweight, browser-based MapleStory EXP tracker that reads your on-screen EXP every five seconds.">
-  <title>Maple EXP — Alpha 0.2.1</title>
+  <title>Maple EXP — Alpha 0.2.2</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -15,7 +15,7 @@
         <span class="brand-mark" aria-hidden="true">✦</span>
         <div><h1>Maple <span>EXP</span></h1><p>Classic World training tracker</p></div>
       </div>
-      <div class="header-right"><span class="header-note">Alpha 0.2.1 · Screen-only recognition</span><span class="state-pill" id="sharePill">Not sharing</span></div>
+      <div class="header-right"><span class="header-note">Alpha 0.2.2 · Screen-only recognition</span><span class="state-pill" id="sharePill">Not sharing</span></div>
     </header>
 
     <video id="video" autoplay muted playsinline hidden></video>
@@ -76,7 +76,7 @@
           <div class="extra-stat"><span>Last confirmed balance</span><strong id="mesoBalance">—</strong></div>
           <div class="extra-stat"><span>Net balance change</span><strong id="mesoDelta">—</strong></div><div class="extra-stat"><span>Net mesos / hour</span><strong id="mesoPerHour">—</strong></div>
           <p class="extra-hint" id="mesoScanStatus">Waiting for inventory</p>
-          <p class="detail-help">Open your inventory until two separate scans confirm its balance. A manual snapshot can be used if OCR cannot read it.</p>
+          <p class="detail-help">Leave inventory open for about 4 seconds: mesos are checked independently every 2 seconds. A manual snapshot can be used if OCR cannot read it.</p>
           <div class="manual-snapshot"><label>Manual meso balance<input id="manualMesoBalance" type="text" inputmode="numeric" placeholder="e.g. 427,993"></label><button id="setMesoSnapshot" class="button ghost">Save snapshot</button></div>
         </section>
         <section class="panel extra-panel">
@@ -110,7 +110,7 @@
             <button class="button ghost" id="resetBtn">Reset session</button>
           </div>
         </div>
-        <p class="connection-hint">Share MapleStory's window. The EXP HUD, inventory mesos counter, and the first two hotbar slots are captured in small crops. There is no game preview. EXP scans are attempted every 5 seconds; other counts may take longer to confirm. The percentage is calculated from your EXP and the level table; the on-screen % is not read.</p>
+        <p class="connection-hint">Share MapleStory's window. The EXP HUD, inventory mesos counter, and the first two hotbar slots are captured in small crops. There is no game preview. EXP scans every 5 seconds; mesos checks every 2 seconds when your inventory is visible. Potion checks remain experimental. The percentage is calculated from your EXP and the level table; the on-screen % is not read.</p>
       </section>
 
       <section class="lower-layout">

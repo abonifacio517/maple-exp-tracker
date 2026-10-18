@@ -28,7 +28,8 @@ function refreshButtons(){
   $('pauseBtn').disabled=!state.running;
   $('sharePill').textContent=sharing?'● Sharing window':'Not sharing';
 }
-function pause(){state.running=false;state.cycle++;clearInterval(state.interval);state.interval=null;refreshButtons();}
+function pause(){state.running=false;state.cycle++;clearInterval(state.interval);state.interval=null;
+  if(typeof stopMesosWatch==='function')stopMesosWatch();refreshButtons();}
 function reset(){
   state.sessionStart=null;state.lastExp=null;state.currentExp=null;state.currentPct=null;
   state.currentLevel=null;state.identityChecked=0;state.identityLockLevel=false;state.accountedLevel=null;state.pendingLevel=null;
@@ -55,7 +56,7 @@ $('shareBtn').addEventListener('click',async()=>{
   if(!navigator.mediaDevices?.getDisplayMedia){setStatus('Screen sharing requires HTTPS and Chrome/Edge.','warn');return;}
   let stream=null;
   try{
-    stream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:1},audio:false});
+    stream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:2},audio:false});
     if(state.stream)stopSharing();
     state.stream=stream;video.srcObject=stream;await video.play();
     stream.getVideoTracks()[0].addEventListener('ended',()=>{if(state.stream===stream)stopSharing();},{once:true});
@@ -583,6 +584,7 @@ function startTracking(){
   state.running=true;state.cycle++;refreshButtons();badge('Starting…');
   setStatus((state.detectorNote?state.detectorNote+' ':'')+'Reading EXP. Level OCR runs separately, and % is calculated from EXP.');
   void scan();state.interval=setInterval(()=>{void scan();},5000);
+  if(typeof beginMesosWatch==='function')beginMesosWatch();
 }
 $('startBtn').addEventListener('click',startTracking);
 $('zoom').addEventListener('input',()=>{$('zoomOutput').textContent=$('zoom').value+'×';});
@@ -642,5 +644,6 @@ setInterval(()=>{
 window.addEventListener('beforeunload',()=>{
   if(state.stream)state.stream.getTracks().forEach(t=>t.stop());
   if(state.worker)void state.worker.terminate();
+  if(typeof disposeMesosWorker==='function')void disposeMesosWorker();
 });
 refreshButtons();

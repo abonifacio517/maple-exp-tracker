@@ -1,4 +1,4 @@
-# Maple EXP Tracker — Alpha 0.2.1
+# Maple EXP Tracker — Alpha 0.2.2
 
 Small corrective update to Alpha 0.2.0. EXP recognition is unchanged.
 
@@ -21,3 +21,11 @@ Small corrective update to Alpha 0.2.0. EXP recognition is unchanged.
 ## Accuracy and policy
 
 No pixel recognition approach can guarantee perfect readings. This update refuses ambiguous values and does not backfill unobserved spending or potion use. We do not access client processes, memory, packets, or controls. Passive screen capture still does not itself guarantee compliance with MapleStory Worlds policies. All image analysis happens in your browser after the game window is explicitly shared. The Tesseract.js library is loaded from a CDN.
+
+## Mesos responsiveness (Alpha 0.2.2)
+- Inventory balance is recognized by a separate Tesseract OCR worker rather than waiting for the EXP scan to finish.
+- The application attempts a meso scan every 2 seconds while tracking. The first capture initializes the worker and may take longer.
+- It accepts a new balance only after two independent consecutive readable frames match; unclear readings preserve the last confirmed number.
+- The number crop excludes the adjacent `MESOS` word. Capture remains screen-only with user permission.
+- When the inventory is hidden, the tracker keeps the last confirmed balance and searches periodically for the window to reappear.
+- EXP scanning is unchanged at 5-second intervals; potion tracking is unchanged in this patch.
