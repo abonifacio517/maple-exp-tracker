@@ -146,7 +146,7 @@ function showExtraStats(){
   const hpPrice=Number($('hpPrice').value)||0,mpPrice=Number($('mpPrice').value)||0;
   $('potionValue').textContent=fmt(Math.round(extras.hpUsed*hpPrice+extras.mpUsed*mpPrice));
   $('potStatus').textContent=extras.hotbar?
-    (extras.potionWhen?'Hotbar found · checked '+extras.potionWhen.toLocaleTimeString():'Hotbar found · unreadable stacks; use manual counts below'):
+    (extras.potionWhen?'Hotbar found · checked '+extras.potionWhen.toLocaleTimeString():'Hotbar found · set starting counts below for verification'):
     'Searching for hotbar (first two top slots)';
 }
 function acceptMesos(value){
@@ -167,7 +167,10 @@ function acceptPotion(kind,value){
   // image filters of the same frame, must agree before a new count is accepted.
   extras.pending[kind]=p?.value===value?{value,count:p.count+1}:{value,count:1};
   if(extras.pending[kind].count<2)return false;
-  if(old!==null&&value<old){
+  // Without a known baseline, OCR can consistently misread part of a stacked
+  // multi-digit count (e.g. 123 as 2). Ask for one explicit starting count.
+  if(old===null){extras.lastError='Confirm starting potion quantities below before automatic updates can be trusted.';return false;}
+  if(value<old){
     const used=old-value;
     if(used>Math.max(15,Math.ceil(old*.20))){
       extras.lastError=`${kind.toUpperCase()}: rejected sudden ${old} → ${value} (${used} items). Use manual correction if this was real.`;

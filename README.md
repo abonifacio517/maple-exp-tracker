@@ -6,7 +6,7 @@ Small corrective update to Alpha 0.2.0. EXP recognition is unchanged.
 
 - Mesos: keeps the inventory-window detector and reads an unaltered, tightly cropped number (with a grayscale comparison). Requires the same recognized balance in **two independent screen captures** before showing it as confirmed.
 - Mesos fallback: type and save a verified balance manually if OCR has no reliable candidate. Later snapshots update the net balance change.
-- Potions: tries tighter crops of the item-count overlays with darker-pixel processing. It rejects low-confidence OCR and large unexpected count drops instead of silently counting them as usage.
+- Potions: tries tighter crops of the item-count overlays with darker-pixel processing. Because a multi-digit number could be partially read, **the potion tracker requires you to set a first verified count** before accepting automatic updates. It rejects low-confidence OCR and implausible sudden drops.
 - Potion fallback: type the actual HP and MP quantities into their fields whenever you open the tracker or need to update them. A lower amount than a previously confirmed count is added to **observed usage**; a higher amount is considered a restock. Changes that happened between unobserved inventory transactions cannot be reconstructed.
 - Replaced indefinite 'verifying' messages with diagnostic hints, including tentative mesos readings and detailed OCR outputs under **Scan details & correction**.
 
