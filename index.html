@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0c1220">
+  <title>Maple EXP Tracker — Auto HUD v3</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div><div class="eyebrow"><span class="glow"></span> AUTO HUD DETECTION · VERSION 3.0</div><h1>Maple <span>EXP</span> Tracker</h1><p>Share your MapleStory window. The tracker finds the EXP bar and its number automatically.</p></div>
+      <div class="privacy">◉ Screenshots stay on your computer</div>
+    </header>
+    <section class="bodygrid">
+      <div class="leftstack">
+        <section class="panel capturePanel">
+          <div class="sectiontop"><div><h2><span class="numtag">01</span> Auto-find MapleStory EXP</h2><p>Just share the MapleStory window. We locate the EXP label and green percentage brackets for you.</p></div><div class="pill" id="sharePill">Not sharing</div></div>
+          <div class="toolbar">
+            <button id="shareBtn" class="primary">▣ Share game window</button>
+            <button id="stopShareBtn" disabled>Stop sharing</button><button id="autoDetectBtn" disabled>◎ Find EXP again</button>
+          </div>
+          <div class="viewer" id="viewer"><canvas id="view" aria-label="Game window preview highlighting automatically detected EXP and percentage"></canvas><div id="emptyView" class="emptyView"><div class="emptyIcon">▣</div><strong>Game preview</strong><p>Click “Share game window” and choose MapleStory. The tracker will look for the EXP bar automatically.</p></div></div>
+          <video id="video" autoplay muted playsinline hidden></video>
+          <details class="manualFallback"><summary>Manual area selection (only if automatic detection fails)</summary><p class="small">If the game HUD looks different, click a selection button and drag a box in the preview.</p><div class="selectionBtns"><button id="selectExp" disabled class="greenBtn">Draw EXP digits</button><button id="selectPct" disabled class="blueBtn">Draw % digits</button><button id="exitManual" disabled>Return to automatic</button></div></details>
+          <div class="fieldHints"><div><span class="indicator green"></span><strong>EXP area</strong><span id="expAreaStatus">Not selected</span></div><div><span class="indicator blue"></span><strong>Percentage area</strong><span id="pctAreaStatus">Not selected</span></div></div>
+          <div class="tip"><strong>No boxes to draw:</strong> In automatic mode, green brackets in the MapleStory HUD tell the tracker where EXP ends and the percentage begins. The box follows the shared game window when you move it. If the HUD changes, click <strong>Find EXP again</strong>.</div>
+          <div class="controls"><button id="startBtn" disabled class="primary strong">▶ Start tracking</button><button id="pauseBtn" disabled>Ⅱ Pause</button><button id="resetBtn">↺ Reset session</button></div>
+          <div class="liveStatus"><span id="statusDot"></span><span id="statusText">Waiting for screen sharing.</span></div>
+        </section>
+        <section class="panel tuningPanel">
+          <div class="sectiontop"><div><h2><span class="numtag">02</span> EXP recognition</h2><p>Automatically separates the digits from the green-bracketed percentage, then checks several OCR passes.</p></div><span class="pill soft">5-second scans</span></div>
+          <div class="settingRow"><label for="ocrMode">Recognition mode</label><select id="ocrMode"><option value="accuracy" selected>Highest accuracy (multiple passes)</option><option value="balanced">Balanced (faster)</option></select></div>
+          <div class="settingRow"><label for="inkMode">Text appearance</label><select id="inkMode"><option value="auto" selected>Auto detect</option><option value="light">Light letters on dark background</option><option value="dark">Dark letters on light background</option></select></div>
+          <div class="settingRow"><label for="zoom">Image enlargement <output id="zoomOutput">6×</output></label><input id="zoom" type="range" min="3" max="10" value="6"></div>
+          <div class="settingRow"><label for="threshold">Threshold adjustment <output id="thresholdOutput">0</output></label><input id="threshold" type="range" min="-50" max="50" value="0" step="5"></div>
+          <p class="small">Start with <strong>6×</strong> enlargement for the MapleStory pixel font shown in your screenshot. Increasing zoom cannot recreate missing source pixels. Enlarging cannot recover pixels that were never captured.</p>
+          <div class="previewGrid"><div><div class="previewTitle">EXP OCR input <span id="expPreviewLabel">—</span></div><div class="cropWrap"><canvas id="expCrop"></canvas></div></div><div><div class="previewTitle">Percentage OCR input <span id="pctPreviewLabel">—</span></div><div class="cropWrap"><canvas id="pctCrop"></canvas></div></div></div>
+          <div class="small muted">OCR downloads once from a CDN and runs locally in your browser. The first reading may take longer. Keep the MapleStory window visible (not minimized).</div>
+        </section>
+        <section class="panel diagnosticsPanel"><details><summary>▤ OCR details and manual correction <span>click to expand</span></summary>
+          <div class="detailGrid"><div><span>Last scan</span><strong id="lastScan">—</strong></div><div><span>Scan duration</span><strong id="scanDuration">—</strong></div><div><span>EXP read</span><strong id="expStatus">Waiting</strong></div><div><span>Percent read</span><strong id="pctStatus">Waiting</strong></div></div>
+          <pre id="ocrDetails">OCR has not started.</pre>
+          <p class="small">If OCR mistakes a digit, pause and enter the correct current values below. Corrections reset the reading baseline without adding artificial EXP to your total. To undo previously counted bad gains, reset the session.</p>
+          <div class="manual"><label>Correct current EXP<input id="manualExp" inputmode="numeric" placeholder="e.g. 1234567"></label><label>Correct level %<input id="manualPct" inputmode="decimal" placeholder="e.g. 42.35"></label><button id="applyManual">Set current values</button></div>
+        </details></section>
+      </div>
+      <div class="rightstack">
+        <section class="panel statsPanel"><div class="sectiontop"><div><h2><span class="numtag">03</span> Training dashboard</h2><p>Only accepted OCR results contribute to gains.</p></div><span id="readingBadge" class="pill">Idle</span></div>
+          <div class="heroStat"><span>EXP per hour</span><strong id="perHour">0</strong><small>Average since first accepted EXP reading</small></div>
+          <div class="statGrid"><div class="stat"><span>Current EXP</span><strong id="currentExp">—</strong><small>Full EXP number</small></div><div class="stat"><span>EXP gained</span><strong id="gained">0</strong><small>Current session</small></div><div class="stat"><span>EXP / last 5 min</span><strong id="rolling">0</strong><small>Rolling accepted gains</small></div><div class="stat"><span>Level progress</span><strong id="currentPct">—</strong><small>Percentage in parentheses</small></div></div>
+          <div class="progressTop"><span>Progress to next level</span><strong id="progressLabel">—</strong></div><div class="progress"><div id="progressBar"></div></div>
+          <div class="statRows"><div><span>Level % gained this session</span><strong id="pctGained">0.00%</strong></div><div><span>Level % per hour</span><strong id="pctHour">—</strong></div><div><span>ETA to next level</span><strong id="eta">—</strong></div><div><span>Session time</span><strong id="elapsed">00:00</strong></div><div><span>Detected level-ups</span><strong id="levelUps">0</strong></div><div><span>OCR scan interval</span><strong>Every 5 seconds</strong></div></div>
+        </section>
+        <section class="panel howPanel"><h2>Best results</h2><ol><li>Play MapleStory in <strong>windowed mode</strong> with the bottom EXP HUD visible.</li><li>Share the <strong>game window</strong>, not this website tab.</li><li>The tracker <strong>automatically locates the EXP label</strong> and the green brackets around the percentage.</li><li>Check the green and blue highlights. A warning means the HUD or digits were not detected confidently.</li><li>If detection fails, click <strong>Find EXP again</strong>, then optionally use the manual fallback hidden above.</li></ol><p class="small">Readings can still be wrong, especially at very small font sizes. Check them against the game and use manual correction if needed.</p></section>
+      </div>
+    </section>
+    <footer>Privacy: Game screenshots stay in your browser and are processed locally using <a href="https://github.com/naptha/tesseract.js" target="_blank" rel="noopener noreferrer">Tesseract.js</a>. Downloading the OCR library requires internet access. Browser capture asks permission each session and may pause if the shared window is minimized. No injection, game memory access, or automatic game inputs. Screen-only operation does not guarantee compliance with game rules.</footer>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
