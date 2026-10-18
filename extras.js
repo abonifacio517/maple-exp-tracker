@@ -224,7 +224,21 @@ async function disposeMesosWorker(){
   if(worker)await worker.terminate();
 }
 function activeInventoryAnchor(frame,hit){
-  return !!(hit&&hit.x>=0&&hit.y>=0&&hit.x+hit.m.w<=frame.width&&hit.y+hit.m.h<=frame.height&&
+  if(!hit)return false;
+  if(hit.footer){
+    // A partially clipped inventory is fine if the meso textbox/footer is
+    // still fully visible. Do not require the whole 338x469 inventory sprite.
+    const pixel=(dx,dy)=>{
+      const x=Math.round(hit.x+dx*hit.s),y=Math.round(hit.y+dy*hit.s);
+      if(x<0||y<0||x>=frame.width||y>=frame.height)return null;
+      const i=(y*frame.width+x)*4,d=frame.data;return [d[i],d[i+1],d[i+2]];
+    };
+    const white=(x,y)=>{const v=pixel(x,y);return !!v&&v.every(a=>a>235);};
+    const rails=[450,451,452].map(y=>pixel(80,y)),label=pixel(280,446);
+    return white(75,440)&&white(170,440)&&rails.some(rail=>rail&&rail[0]<100&&rail[2]>rail[1]+20)&&
+      ((label&&label[2]>label[0]+12)||(!label&&hit.x+285*hit.s>=frame.width));
+  }
+  return !!(hit.x>=0&&hit.y>=0&&hit.x+hit.m.w<=frame.width&&hit.y+hit.m.h<=frame.height&&
     anchorScore(frame,hit.m,hit.x,hit.y)>.77);
 }
 // The inventory moves freely. Locate the white counter box *inside* the
@@ -349,41 +363,40 @@ async function scanMesos(generation){
     const now=Date.now();
     const frame=framePixels();
     const previous=extras.inventory;
-    if(!activeInventoryAnchor(frame,previous))extras.inventory=null;
+    if(!activeInventoryAnchor(frame,previous)){extras.inventory=null;extras.lastInvFind=0;}
     if(!extras.inventory && now-extras.lastInvFind>=1800){
       extras.lastInvFind=now;
-      extras.inventory=findVisualAnchor(frame,'inventory');
+      extras.inventory=findInventoryFooter(frame)||findVisualAnchor(frame,'inventory');
     }
     const inv=extras.inventory;
     extras.inventoryOpen=!!inv;
     if(!inv){
       extras.mesoPending=null;
-      extras.mesoStatus=extras.mesoWhen?'Inventory closed · last confirmed '+extras.mesoWhen.toLocaleTimeString():
-        'Waiting for inventory · checking again shortly';
+      extras.mesoStatus=extras.mesoWhen?'Inventory footer not visible · last confirmed '+extras.mesoWhen.toLocaleTimeString():
+        'Waiting for visible inventory footer · checking again shortly';
       return;
     }
     extras.mesoStatus='Inventory found · reading…';
     showExtraStats();
-    const workerInit=Date.now();
     const worker=await getMesosWorker();
     if(generation!==mesosGeneration||!state.running)return;
-    // Loading OCR can take several seconds on first use. Never read an old
-    // counter coordinate if the inventory has closed in the meantime.
-    if(Date.now()-workerInit>1000 && !activeInventoryAnchor(framePixels(),inv)){
-      extras.inventory=null;extras.inventoryOpen=false;extras.mesoPending=null;
-      extras.mesoStatus='Inventory closed while OCR initialized · waiting to reopen';
-      return;
-    }
+    // Reacquire from the new frozen frame below. Inventory may have moved
+    // while the OCR worker loaded, so don't reject a stale screen coordinate.
     // Locate AND OCR on the SAME captured frame. The player may move the
     // inventory between two live video reads; never use a stale rectangle.
     const frozen=framePixels();
-    if(!activeInventoryAnchor(frozen,inv)){
+    // Window can move while OCR initializes. Reacquire the footer from this
+    // precise frozen frame instead of using the previous window coordinates.
+    let freshInv=inv;
+    if(!activeInventoryAnchor(frozen,freshInv))freshInv=findInventoryFooter(frozen);
+    if(!freshInv){
       extras.inventory=null;extras.inventoryOpen=false;extras.mesoPending=null;
       extras.lastInvFind=0;
-      extras.mesoStatus='Inventory moved or closed · locating it again';
+      extras.mesoStatus='Inventory moved or footer obscured · searching again';
       return;
     }
-    const field=locateMesosField(frozen,inv);
+    extras.inventory=freshInv;
+    const field=locateMesosField(frozen,freshInv);
     const read=field.rect?await readMesosFast(worker,field.rect,frozen):{value:null,note:field.note};
     if(generation!==mesosGeneration||!state.running)return;
     extras.lastMesoAttempt=Date.now();
@@ -395,7 +408,7 @@ async function scanMesos(generation){
       extras.mesoPending=null;
       extras.mesoStatus=field.rect?(extras.mesoWhen?'OCR uncertain · showing last confirmed balance':'Mesos digits unclear · checking again'):'Inventory found · number field obstructed or unreadable';
     }
-    $('mesoDebug').textContent=`Inventory match ${Math.round(inv.score*100)}% · Mesos field: ${field.note}\nOCR: ${read.note}\n`+
+    $('mesoDebug').textContent=`Inventory match ${Math.round(freshInv.score*100)}% · Mesos field: ${field.note}\nOCR: ${read.note}\n`+
       (extras.mesoPending?`Matching frames: ${Math.min(extras.mesoPending.count,2)}/2`:'No confirmed candidate')+
       '\nNext mesos scan: ~2 seconds (EXP scanning independently).';
   }catch(error){

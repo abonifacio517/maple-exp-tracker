@@ -217,6 +217,8 @@ async function getPotionWorker(){
   try{return await potionWorkerPromise;}finally{potionWorkerPromise=null;}
 }
 async function readPotionImage(kind,raw){
+  const digits=potionDigitMatch(kind,raw);
+  if(digits)return digits;
   const known=potionSequenceMatch(kind,raw);
   if(known)return known;
   const remembered=potionPatternLookup(kind,raw);
@@ -243,19 +245,22 @@ function handlePotionReading(kind,result,canvas){
   const value=result.value;
   if(value===null||value===undefined){extras.pending[kind]=null;return `${kind.toUpperCase()}: ${result.note}`;}
   if(current===null){
-    // Only a strict pixel match to the supplied full-count reference may set
-    // the baseline automatically, after 3 distinct frames. Generic OCR alone
-    // cannot set a baseline (a missing hundreds digit is too dangerous).
+    // A strong, game-specific digit/sequence match can establish the first
+    // count automatically. Unknown numbers read by generic OCR still require
+    // an explicit baseline so a missing hundreds digit cannot become profit.
+    const trusted=result.source==='sequence'||result.source==='digit-templates'||
+      result.note?.startsWith('calibrated pixel');
+    if(!trusted){extras.pending[kind]=null;
+      return `${kind.toUpperCase()}: OCR sees ${fmt(value)} · confirm starting count manually (no verified pixel pattern).`;
+    }
     const prev=extras.pending[kind];
     extras.pending[kind]=prev?.value===value?{value,count:prev.count+1}:{value,count:1};
-    if(result.source==='sequence'&&extras.pending[kind].count>=3){
-      extras[kind+'Current']=value;extras.potionWhen=new Date();
+    if(extras.pending[kind].count>=3){
+      extras[kind+'Current']=value;extras.potionWhen=new Date();extras.lastError='';
       extras.pending[kind]=null;storePotionSample(kind,value,canvas);
-      return `${kind.toUpperCase()}: auto-confirmed starting count ${fmt(value)} from screenshot references`;
+      return `${kind.toUpperCase()}: starting stack ${fmt(value)} confirmed automatically (${result.note})`;
     }
-    return result.source==='sequence'?
-      `${kind.toUpperCase()}: confirming starting ${fmt(value)} (${extras.pending[kind].count}/3 frames)`:
-      `${kind.toUpperCase()}: read ${fmt(value)}; confirm starting count manually for reliable tracking.`;
+    return `${kind.toUpperCase()}: verifying starting ${fmt(value)} (${extras.pending[kind].count}/3 frames)`;
   }
   const change=Math.abs(value-current);
   // At a 1.25-second poll a missing hundreds digit produces enormous false use.
@@ -263,7 +268,7 @@ function handlePotionReading(kind,result,canvas){
   if(change>maxDifference){extras.pending[kind]=null;return `${kind.toUpperCase()}: ignored ${fmt(current)} → ${fmt(value)} (implausibly large; confirm manually if real).`;}
   const previous=extras.pending[kind];
   extras.pending[kind]=previous?.value===value?{value,count:previous.count+1}:{value,count:1};
-  const confirmations=result.source==='sequence'||result.note?.startsWith('calibrated pixel')?2:3;
+  const confirmations=result.source==='sequence'||/^(calibrated pixel|independent pixel digits|verified reference)/.test(result.note||'')?2:3;
   if(extras.pending[kind].count>=confirmations){
     acceptPotion(kind,value);
     storePotionSample(kind,value,canvas);
