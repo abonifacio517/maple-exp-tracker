@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0c1117">
   <meta name="description" content="A lightweight, browser-based MapleStory EXP tracker that reads your on-screen EXP every five seconds.">
-  <title>Maple EXP — Live Tracker</title>
+  <title>Maple EXP — Alpha 0.2.0</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -15,7 +15,7 @@
         <span class="brand-mark" aria-hidden="true">✦</span>
         <div><h1>Maple <span>EXP</span></h1><p>Classic World training tracker</p></div>
       </div>
-      <div class="header-right"><span class="header-note">On-screen OCR · Every 5 seconds</span><span class="state-pill" id="sharePill">Not sharing</span></div>
+      <div class="header-right"><span class="header-note">Alpha 0.2.0 · Screen-only recognition</span><span class="state-pill" id="sharePill">Not sharing</span></div>
     </header>
 
     <video id="video" autoplay muted playsinline hidden></video>
@@ -57,7 +57,7 @@
           <div class="metric metric-current">
             <span class="metric-label">Current EXP</span>
             <strong id="currentExp">—</strong>
-            <small>Accepted OCR reading; suspicious values are rejected</small>
+            <small>Confirmed reading · OCR + pixel-template checks</small>
           </div>
         </div>
 
@@ -67,6 +67,33 @@
           <div class="mini-stat"><span>Time to level</span><strong id="eta">—</strong></div>
           <div class="mini-stat"><span>Session time</span><strong id="elapsed">00:00</strong></div>
         </div>
+      </section>
+
+
+      <section class="extras-grid" aria-label="Mesos and potion tracking">
+        <section class="panel extra-panel">
+          <div class="extra-head"><h2>Mesos</h2><span class="extra-tag">Inventory snapshots</span></div>
+          <div class="extra-stat"><span>Last confirmed balance</span><strong id="mesoBalance">—</strong></div>
+          <div class="extra-stat"><span>Net balance change</span><strong id="mesoDelta">—</strong></div><div class="extra-stat"><span>Net mesos / hour</span><strong id="mesoPerHour">—</strong></div>
+          <p class="extra-hint" id="mesoScanStatus">Waiting for inventory</p>
+          <p class="detail-help">Open your inventory and keep it visible until a balance is verified. Closing it retains the last confirmed amount; purchases and trades affect the net change.</p>
+        </section>
+        <section class="panel extra-panel">
+          <div class="extra-head"><h2>Potions</h2><span class="extra-tag">Hotbar top row</span></div>
+          <div class="stack-grid">
+            <div><span>HP · first slot</span><strong id="hpCount">—</strong><small><span id="hpUsed">0</span> observed decreases</small></div>
+            <div><span>MP · second slot</span><strong id="mpCount">—</strong><small><span id="mpUsed">0</span> observed decreases</small></div>
+          </div>
+          <p class="extra-hint" id="potStatus">Searching for hotbar</p>
+          <p class="detail-help">Counts are snapshots. Stacks replaced or restocked between scans can make usage incomplete.</p>
+        </section>
+      </section>
+      <section class="panel cost-panel">
+        <div><h2>Optional potion value</h2><p class="detail-help">Set a per-potion value in mesos to estimate the value consumed. This is <strong>not</strong> subtracted from your net meso balance (avoids double counting).</p></div>
+        <label>HP pot price <input id="hpPrice" type="number" min="0" max="100000000" value="0"></label>
+        <label>MP pot price <input id="mpPrice" type="number" min="0" max="100000000" value="0"></label>
+        <div><span class="metric-label">Value consumed</span><strong id="potionValue">0</strong></div>
+        <button class="button ghost" id="resetExtraBtn">Reset mesos & potions</button>
       </section>
 
       <section class="action-panel panel" aria-label="Capture and tracking controls">
@@ -81,7 +108,7 @@
             <button class="button ghost" id="resetBtn">Reset session</button>
           </div>
         </div>
-        <p class="connection-hint">Share MapleStory's window. Only the EXP digits and the orange level badge are read. There is no game preview. EXP scans are attempted every 5 seconds. The percentage is calculated from your EXP and the level table; the on-screen % is not read.</p>
+        <p class="connection-hint">Share MapleStory's window. The EXP HUD, inventory mesos counter, and the first two hotbar slots are captured in small crops. There is no game preview. EXP scans are attempted every 5 seconds; other counts may take longer to confirm. The percentage is calculated from your EXP and the level table; the on-screen % is not read.</p>
       </section>
 
       <section class="lower-layout">
@@ -94,12 +121,15 @@
             <div class="control-field"><label for="inkMode">Text color</label><select id="inkMode"><option value="auto" selected>Auto detect</option><option value="light">Light on dark</option><option value="dark">Dark on light</option></select></div>
             <div class="control-field"><label for="zoom">Enlargement <output id="zoomOutput">6×</output></label><input id="zoom" type="range" min="3" max="10" value="6"></div>
             <div class="control-field"><label for="threshold">Contrast threshold <output id="thresholdOutput">0</output></label><input id="threshold" type="range" min="-50" max="50" step="5" value="0"></div>
+            <div class="template-trainer"><label for="templateExpInput">Teach the tracker an exact EXP number (optional)</label><div class="template-trainer-row"><input id="templateExpInput" type="text" inputmode="numeric" placeholder="e.g. 10,629"><button class="button" id="teachDigitsBtn">Calibrate digits</button></div><p id="templateStatus" class="detail-help">Type the number you can actually see in-game. This saves only local pixel patterns in your browser and never trains from an unconfirmed OCR guess.</p></div>
             <div class="crop-grid"><div><span>EXP OCR view <small id="expPreviewLabel">—</small></span><div class="crop"><canvas id="expCrop"></canvas></div></div></div>
           </details>
 
           <details class="panel expandable diagnostics-panel"><summary>Scan details & correction <span class="chevron">⌄</span></summary>
             <div class="data-row"><span>Last scan</span><strong id="lastScan">—</strong></div><div class="data-row"><span>Scan duration</span><strong id="scanDuration">—</strong></div><div class="data-row"><span>EXP read</span><strong id="expStatus">Waiting</strong></div><div class="data-row"><span>Level OCR</span><strong id="levelStatusDetail">See level status above</strong></div>
             <pre id="ocrDetails">OCR has not started.</pre>
+            <p class="detail-help">Mesos scan diagnostic</p><pre id="mesoDebug">No snapshots yet</pre>
+            <p class="detail-help">Potion scan diagnostic</p><pre id="potDebug">No snapshots yet</pre>
             <p class="detail-help">Unverified EXP reads are not added. Level % is calculated from current EXP and the level requirement. If the level is missing, use Set level above. Changing your level safely starts a new EXP baseline.</p>
             <label class="correction-label">Correct current EXP<input id="manualExp" type="text" inputmode="numeric" placeholder="e.g. 11821"></label>
             <button class="button ghost" id="autoLevelBtn">Try auto-detecting level again</button>
@@ -111,11 +141,15 @@
 
     <footer>
       <span>Runs in your browser · No game injection, memory reading, or automatic gameplay.</span>
-      <span>Screen-sharing permission is requested each session; OCR uses <a href="https://github.com/naptha/tesseract.js" target="_blank" rel="noopener noreferrer">Tesseract.js</a>. Uncertain OCR values are withheld; check the diagnostics for rejected readings. EXP requirements are bundled locally and don't use a live third-party service.</span>
+      <span>Screen-sharing permission is requested each session; EXP uses pixel templates with conservative OCR fallback, while other counts use OCR. OCR uses <a href="https://github.com/naptha/tesseract.js" target="_blank" rel="noopener noreferrer">Tesseract.js</a>. Uncertain OCR values are withheld; check the diagnostics for rejected readings. EXP requirements are bundled locally and don't use a live third-party service.</span>
     </footer>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="exp-table.js"></script>
+  <script src="digit-atlas.js"></script>
+  <script src="ui-anchors.js"></script>
+  <script src="pixel-matcher.js"></script>
   <script src="app.js"></script>
+  <script src="extras.js"></script>
 </body>
 </html>

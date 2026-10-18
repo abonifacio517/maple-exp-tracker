@@ -35,3 +35,12 @@ footer{margin-top:27px;border-top:1px solid #263440;padding-top:16px;display:fle
 .quick-level-controls input{width:90px;min-width:0;background:var(--soft);border:1px solid var(--stroke);border-radius:9px;padding:9px 10px;color:var(--ink);font:inherit;font-variant-numeric:tabular-nums}
 .quick-level-controls .button{white-space:nowrap}
 @media(max-width:520px){.level-card{flex-wrap:wrap}.quick-level{width:100%;margin-left:0}}
+
+/* Alpha 0.2.0 compact supplemental metrics */
+.extras-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:18px 0}
+.extra-panel{padding:22px;min-width:0}.extra-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}.extra-tag{font-size:10px;color:#b7c6d1;background:#23303a;border:1px solid #3a4a57;border-radius:30px;padding:5px 9px}
+.extra-stat{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:8px 0;border-bottom:1px solid #293641}.extra-stat span,.stack-grid span,.metric-label{color:var(--muted);font-size:12px}.extra-stat strong,.stack-grid strong{font-size:22px;font-weight:780;font-variant-numeric:tabular-nums;letter-spacing:-.025em;overflow-wrap:anywhere}.extra-hint{font-size:12px;color:#d5c58c;margin:12px 0 6px}.stack-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.stack-grid>div{padding:12px;border-radius:10px;background:#121920;border:1px solid #2b3a44}.stack-grid strong{display:block;margin:6px 0}.stack-grid small{font-size:11px;color:#a1b5c3}
+.cost-panel{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:18px;padding:16px 20px}.cost-panel>div:first-child{flex:2 1 240px}.cost-panel label{color:#bbc8d2;font-size:12px;display:flex;flex-direction:column;gap:5px;flex:0 1 100px}.cost-panel input{background:#0e151b;border:1px solid #465765;color:#f2f6f8;padding:7px;width:100%;border-radius:7px}.cost-panel strong{display:block;font-size:20px}.cost-panel .button{font-size:12px}
+@media(max-width:700px){.extras-grid{grid-template-columns:1fr}.cost-panel{align-items:flex-start}}
+
+.template-trainer{padding:12px;border:1px solid #34444e;background:#111b22;border-radius:10px;margin:14px 0}.template-trainer>label{font-size:12px;color:#bbcdd8;display:block;margin-bottom:6px}.template-trainer-row{display:flex;gap:8px}.template-trainer input{flex:1;min-width:0;padding:9px;border:1px solid #40525f;color:#fff;background:#10161e;border-radius:7px}.template-trainer p{margin:8px 0 0}

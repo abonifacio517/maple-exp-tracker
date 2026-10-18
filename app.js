@@ -34,6 +34,7 @@ function reset(){
   state.currentLevel=null;state.identityChecked=0;state.identityLockLevel=false;state.accountedLevel=null;state.pendingLevel=null;
   state.levelCandidate=null;state.levelReads=0;state.lastOCRNote='';
   state.expGained=0;state.pctGained=0;state.levelUps=0;state.gains=[];
+  if(typeof resetExtras==='function')resetExtras();
   $('currentExp').textContent='—';$('currentPct').textContent='—';$('perHour').textContent='0';
   $('gained').textContent='0';$('rolling').textContent='0';$('pctGained').textContent='0.00%';
   $('pctHour').textContent='—';$('eta').textContent='—';$('elapsed').textContent='00:00';
@@ -47,6 +48,7 @@ function stopSharing(){
   pause();if(state.stream)state.stream.getTracks().forEach(t=>t.stop());
   state.stream=null;video.srcObject=null;
   state.regions={exp:null,level:null};state.autoAnchor=null;state.frameDims=null;
+  if(typeof resetExtras==='function')resetExtras();
   refreshButtons();setStatus('Sharing stopped.');
 }
 $('shareBtn').addEventListener('click',async()=>{
@@ -319,6 +321,7 @@ async function getWorker(){
 }
 async function recognizeArea(key,worker){
   if(!state.regions[key])return {value:null,status:'No box selected',details:[]};
+  const template=key==='exp'&&typeof expTemplateRead==='function'?expTemplateRead():null;
   const source=prepareCrop(key,false);
   const variants=[['High contrast',()=>enhance(source,'binary')],['Grayscale',()=>enhance(source,'gray')],['Adjusted threshold',()=>enhance(source,'alternate')],['Pixel-sharp',()=>enhance(prepareCrop(key,true),'gray')]];
   const max=$('ocrMode').value==='accuracy'?4:3;
@@ -336,11 +339,14 @@ async function recognizeArea(key,worker){
       const item=votes.get(voteKey)||{value:candidate,count:0};item.count++;
       votes.set(voteKey,item);
       if(item.count>=2){
-        return {value:item.value,status:`Confirmed (${item.count} matching OCR passes)`,details:tries};
+        // A strong template match must agree with OCR; conflicts get withheld.
+        if(template?.value!==null&&template?.value!==undefined&&template.confidence>=86&&template.value!==item.value)
+          return {value:null,status:'Pixel templates and OCR disagree; rejected',details:[...tries,{name:'Pixel templates',raw:template.text||template.reason,candidate:template.value,confidence:template.confidence}]};
+        return {value:item.value,status:template?.value===item.value?'OCR + pixel templates agree':`Confirmed (${item.count} OCR passes; templates incomplete)`,details:[...tries,{name:'Pixel templates',raw:template?.text||template?.reason||'Unavailable',candidate:template?.value??null,confidence:template?.confidence||0}]};
       }
     }
   }
-  return {value:null,status:'Uncertain — conflicting or missing OCR reads',details:tries};
+  return {value:null,status:'Uncertain — conflicting or missing readings',details:[...tries,{name:'Pixel templates',raw:template?.text||template?.reason||'Unavailable',candidate:template?.value??null,confidence:template?.confidence||0}]};
 }
 // The level characters are white glyphs INSIDE an orange rectangle.
 // Previous code masked the orange background instead of these glyphs.
@@ -562,6 +568,9 @@ async function scan(){
       await updateLevel(worker);
       if(!state.running||myCycle!==state.cycle)return;
       $('ocrDetails').textContent+=`\n\nLevel OCR: ${state.lastOCRNote||'unavailable'}`;
+    }
+    if(typeof scanExtras==='function') {
+      try{await scanExtras(worker);}catch(error){$('mesoDebug').textContent='Additional tracking error: '+(error.message||error);}
     }
     $('scanDuration').textContent=((performance.now()-began)/1000).toFixed(1)+'s';
   }catch(e){
