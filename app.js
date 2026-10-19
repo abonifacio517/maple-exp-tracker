@@ -21,12 +21,19 @@ function setStatus(msg,kind='neutral'){
 }
 function badge(msg){ $('readingBadge').textContent=msg; }
 function refreshButtons(){
-  const sharing=!!state.stream;
-  $('shareBtn').disabled=sharing;
-  $('stopShareBtn').disabled=!sharing;
-  $('autoDetectBtn').disabled=!sharing||state.autoBusy;
-  $('startBtn').disabled=!sharing||!state.regions.exp||state.running;
-  $('pauseBtn').disabled=!state.running;
+  const sharing=!!state.stream, running=!!state.running;
+  const share=$('shareBtn'), tracking=$('startBtn');
+  // Two stateful controls replace separate share/stop and resume/pause buttons.
+  share.disabled=false;
+  share.textContent=sharing?'Stop sharing':'Share game window';
+  share.classList.toggle('is-stop',sharing);
+  share.classList.toggle('primary',!sharing);
+  share.setAttribute('aria-pressed',String(sharing));
+  tracking.disabled=!sharing||!state.regions.exp;
+  tracking.textContent=running?'Pause':'Resume';
+  tracking.classList.toggle('is-pause',running);
+  tracking.classList.toggle('is-resume',!running);
+  tracking.setAttribute('aria-pressed',String(running));
   $('sharePill').textContent=sharing?'● Sharing window':'Not sharing';
 }
 function pause(){state.running=false;state.cycle++;clearInterval(state.interval);state.interval=null;
@@ -56,6 +63,7 @@ function stopSharing(){
   refreshButtons();setStatus('Sharing stopped.');
 }
 $('shareBtn').addEventListener('click',async()=>{
+  if(state.stream){stopSharing();return;}
   if(!navigator.mediaDevices?.getDisplayMedia){setStatus('Screen sharing requires HTTPS and Chrome/Edge.','warn');return;}
   let stream=null;
   try{
@@ -68,8 +76,6 @@ $('shareBtn').addEventListener('click',async()=>{
     await autoDetectAndStart();
   }catch(e){if(stream)stream.getTracks().forEach(t=>t.stop());setStatus('Could not share: '+(e.message||e.name),'warn');}
 });
-$('stopShareBtn').addEventListener('click',stopSharing);
-$('pauseBtn').addEventListener('click',()=>{pause();setStatus('Paused. Click Resume to continue.');badge('Paused');});
 $('resetBtn').addEventListener('click',()=>{pause();reset();setStatus('Session reset. Your game connection is kept.');});
 // Static EXP logo sample taken from the user's supplied MapleStory screenshot.
 // Only the 43x20-pixel letters and their border are retained; no game data is embedded.
@@ -224,11 +230,6 @@ async function autoDetectAndStart(){
     badge('HUD not found');
   }finally{state.autoBusy=false;refreshButtons();}
 }
-$('autoDetectBtn').addEventListener('click',async()=>{
-  pause();state.regions={exp:null,level:null};refreshButtons();
-  setStatus('Searching for MapleStory EXP bar…');
-  await autoDetectAndStart();
-});
 function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
 const cropBuffer=document.createElement('canvas'),cropContext=cropBuffer.getContext('2d',{willReadFrequently:true});
 function prepareCrop(key,nearest=false){
@@ -685,7 +686,10 @@ function startTracking(){
   void scanLevelIndependently();state.levelTimer=setInterval(()=>{void scanLevelIndependently();},4000);
   if(typeof beginMesosWatch==='function')beginMesosWatch();
 }
-$('startBtn').addEventListener('click',startTracking);
+$('startBtn').addEventListener('click',()=>{
+  if(state.running){pause();setStatus('Paused. Click Resume to continue.');badge('Paused');}
+  else startTracking();
+});
 $('zoom').addEventListener('input',()=>{$('zoomOutput').textContent=$('zoom').value+'×';});
 $('threshold').addEventListener('input',()=>{$('thresholdOutput').textContent=$('threshold').value;});
 function setManualLevel(raw){
