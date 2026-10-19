@@ -360,3 +360,20 @@ footer{display:grid;gap:8px;margin-top:18px;padding:16px 18px;border-radius:24px
 }
 
 body.theme-dark footer{background:linear-gradient(180deg,#433f53,#303344);}
+/* Alpha 0.2.23 compact control bar and in-panel KPQ estimate */
+.top-utility-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(190px,auto) auto;gap:12px;align-items:start;margin-bottom:16px}
+.top-utility-row .action-panel{padding:10px 14px;margin:0;border-radius:16px}
+.top-utility-row .action-panel .window-chrome,.top-utility-row .action-panel .dashboard-top,.top-utility-row .action-label,.top-utility-row .connection-hint{display:none}
+.top-utility-row .action-content{display:block;padding:0;margin:0}
+.top-utility-row .action-buttons{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.top-utility-row .action-buttons .button{font-size:12px;min-height:34px;padding:7px 10px;width:auto}
+.top-utility-row .settings-panel{margin:0;border-radius:16px;padding:10px 14px;min-width:0}
+.top-utility-row .settings-panel .window-chrome{display:none}
+.top-utility-row .settings-panel summary{padding:7px 0;white-space:nowrap}
+.toolbar-timer{margin:0;padding:11px 18px;border-radius:16px;display:flex;gap:10px;align-items:center;justify-content:center;white-space:nowrap;min-height:56px}
+.toolbar-timer span{font-size:11px;letter-spacing:.09em;color:var(--muted);font-weight:700}
+.toolbar-timer strong{font-size:19px;font-variant-numeric:tabular-nums;color:var(--heading)}
+.kpq-inline{display:flex;align-items:center;justify-content:space-between;gap:15px;margin:14px 0 8px;padding:14px 18px;background:var(--panel-2);border:1px solid var(--frame-soft);border-radius:16px}
+.kpq-inline>div{display:grid;gap:4px}.kpq-inline small{color:var(--muted);font-size:12px}.kpq-inline strong{font-size:27px;color:var(--heading);font-variant-numeric:tabular-nums}
+@media(max-width:1050px){.top-utility-row{grid-template-columns:minmax(0,1fr) auto}.top-utility-row .action-panel{grid-column:1/-1;grid-row:2}.top-utility-row .settings-panel{grid-column:1;grid-row:1}.toolbar-timer{grid-column:2;grid-row:1}}
+@media(max-width:620px){.top-utility-row{grid-template-columns:1fr 1fr;gap:8px}.top-utility-row .action-panel{grid-column:1/-1}.top-utility-row .action-buttons .button{flex:1 1 auto}.toolbar-timer{padding:10px;flex-direction:column;gap:2px}.kpq-inline{padding:12px}.kpq-inline strong{font-size:24px}}
