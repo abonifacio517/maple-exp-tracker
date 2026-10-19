@@ -303,6 +303,7 @@ body.theme-dark .button{background:linear-gradient(180deg,#605a72,#434555);box-s
 .button:hover:not(:disabled){filter:brightness(.98);transform:translateY(1px)}
 .button:disabled{cursor:not-allowed;opacity:.52}
 .button.primary{background:linear-gradient(180deg,#ffe99d,#ffc855);border-color:#a87a19;color:#704800}
+body.theme-dark .button.primary{background:linear-gradient(180deg,#7fb7f4,#4c86cf);border-color:#23456f;color:#f7fbff;text-shadow:0 1px 0 rgba(0,0,0,.28)}
 .button.ghost{background:linear-gradient(180deg,#f6fbff,#e2ebf3)}
 .button.subtle{background:linear-gradient(180deg,#ebf7ff,#d5e8f7);border-color:#7299bf;color:#3f648b}
 .button.overlay-toggle{background:linear-gradient(180deg,#e7faea,#c8ebcf);border-color:#679a70;color:#3b6a42}

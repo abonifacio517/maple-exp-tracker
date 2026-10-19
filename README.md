@@ -1,4 +1,4 @@
-# Maple EXP Tracker — Alpha 0.2.18
+# Maple EXP Tracker — Alpha 0.2.19
 
 This release is the third visual polish pass.
 
@@ -19,3 +19,8 @@ This release is the third visual polish pass.
 This project is designed to be deployed as a static site on GitHub Pages.
 
 The supplied pixel-art EXP and mesos images are embedded in the main page and mini HUD so they work on GitHub Pages without separate asset requests.
+
+
+## Notes
+- The mini HUD uses Document Picture-in-Picture. The browser's native window bar cannot be fully removed in a web-only version.
+- This pass removes the extra in-app HUD title bar, refreshes the EXP and mesos header art, and improves dark-mode button contrast.
