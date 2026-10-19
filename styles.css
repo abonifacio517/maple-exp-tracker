@@ -377,3 +377,62 @@ body.theme-dark footer{background:linear-gradient(180deg,#433f53,#303344);}
 .kpq-inline>div{display:grid;gap:4px}.kpq-inline small{color:var(--muted);font-size:12px}.kpq-inline strong{font-size:27px;color:var(--heading);font-variant-numeric:tabular-nums}
 @media(max-width:1050px){.top-utility-row{grid-template-columns:minmax(0,1fr) auto}.top-utility-row .action-panel{grid-column:1/-1;grid-row:2}.top-utility-row .settings-panel{grid-column:1;grid-row:1}.toolbar-timer{grid-column:2;grid-row:1}}
 @media(max-width:620px){.top-utility-row{grid-template-columns:1fr 1fr;gap:8px}.top-utility-row .action-panel{grid-column:1/-1}.top-utility-row .action-buttons .button{flex:1 1 auto}.toolbar-timer{padding:10px;flex-direction:column;gap:2px}.kpq-inline{padding:12px}.kpq-inline strong{font-size:24px}}
+
+/* Alpha 0.2.24 — Van's compact tracker layout */
+.brand-sprite{width:64px;height:92px;object-fit:contain;object-position:center;image-rendering:pixelated;flex:none;filter:drop-shadow(0 3px 2px rgba(17,26,35,.17))}
+.brand h1{font-size:clamp(23px,2.8vw,32px);line-height:1.13;letter-spacing:-.03em}
+.brand p{font-size:12px}
+.top-utility-row{grid-template-columns:minmax(0,1fr) 202px;gap:12px;align-items:stretch;margin-bottom:0}
+.top-utility-row .action-panel{display:flex;align-items:center;min-width:0;padding:11px 12px}
+.top-utility-row .action-content{width:100%}
+.top-utility-row .action-buttons{gap:8px;justify-content:flex-start}
+.top-utility-row .action-buttons .button{padding:8px 12px;min-height:39px}
+.top-utility-row .action-buttons .button.is-stop{background:linear-gradient(180deg,#ec9595,#d55a64);border-color:#9b3947;color:#fff;text-shadow:0 1px rgba(0,0,0,.25)}
+.top-utility-row .action-buttons .button.is-resume{background:linear-gradient(180deg,#d0efc9,#93cc92);border-color:#569661;color:#24562f}
+.top-utility-row .action-buttons .button.is-pause{background:linear-gradient(180deg,#ffe5a4,#f3ba54);border-color:#ab7a24;color:#67480d}
+body.theme-dark .top-utility-row .action-buttons .button.is-stop{background:linear-gradient(180deg,#ae5268,#813c54);border-color:#cc8497;color:#fff}
+body.theme-dark .top-utility-row .action-buttons .button.is-resume{background:linear-gradient(180deg,#44785b,#305943);border-color:#75aa81;color:#e9ffe8}
+body.theme-dark .top-utility-row .action-buttons .button.is-pause{background:linear-gradient(180deg,#967145,#73532e);border-color:#c8a768;color:#fff6df}
+.toolbar-timer{min-height:72px;flex-direction:column;gap:2px;padding:10px 18px}
+.toolbar-timer span{font-size:11px}
+.toolbar-timer strong{font-size:34px;line-height:1.12;letter-spacing:-.035em}
+.metrics-single{grid-template-columns:minmax(0,1fr);margin:15px 0 10px}
+.metrics-single .metric{padding:14px 17px}
+.metrics-single .metric strong{font-size:clamp(30px,3.4vw,42px)}
+.next-level-plan{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0 0 14px}
+.plan-card{min-width:0;padding:16px;border:2px solid var(--frame-soft);border-radius:18px;background:linear-gradient(180deg,var(--paper),var(--paper-2));box-shadow:inset 0 1px 0 rgba(255,255,255,.86)}
+body.theme-dark .plan-card{box-shadow:inset 0 1px 0 rgba(255,255,255,.07)}
+.plan-card strong{display:block;margin:6px 0;font-size:clamp(24px,3vw,36px);font-weight:900;font-variant-numeric:tabular-nums;color:var(--heading)}
+.plan-card small{font-size:12px;color:var(--muted);line-height:1.4}
+.dashboard .mini-grid{grid-template-columns:minmax(0,1fr);margin-top:0}
+.dashboard .mini-stat{padding:10px 15px}
+.profit-badges{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.wip-label{font-size:10px;font-weight:900;letter-spacing:.06em;padding:7px 10px;border-radius:999px;background:var(--paper-2);color:var(--muted);border:1px solid var(--frame-soft)}
+.mesos-disclaimer{font-size:12px;line-height:1.5;color:var(--muted);margin:4px 0 14px}
+.right-panels{grid-template-columns:repeat(2,minmax(0,1fr))}
+.settings-panel{max-width:none}
+.settings-panel .quick-level{margin:12px 0;min-width:0;width:100%;max-width:380px}
+.settings-panel .quick-level label{font-size:12px}
+.settings-panel .quick-level-controls input{min-width:0}
+.settings-panel .quick-level-controls button{white-space:nowrap}
+@media(max-width:1050px){
+ .top-utility-row{grid-template-columns:minmax(0,1fr) 175px}
+ .top-utility-row .action-panel{grid-row:auto;grid-column:auto}
+ .toolbar-timer{grid-row:auto;grid-column:auto}
+}
+@media(max-width:760px){
+ .brand-sprite{width:54px;height:78px}
+ .top-utility-row{grid-template-columns:1fr}
+ .top-utility-row .action-panel,.toolbar-timer{grid-column:1;grid-row:auto}
+ .toolbar-timer{min-height:68px;flex-direction:row;justify-content:space-between}
+ .toolbar-timer strong{font-size:30px}
+ .right-panels{grid-template-columns:1fr}
+ .next-level-plan{grid-template-columns:1fr 1fr}
+}
+@media(max-width:520px){
+ .brand h1{font-size:24px}
+ .top-utility-row .action-buttons .button{flex:1 1 42%;font-size:12px}
+ .next-level-plan{grid-template-columns:1fr}
+ .profit-badges{justify-content:flex-start}
+ .settings-panel .quick-level-controls{flex-direction:column;align-items:stretch}
+}
