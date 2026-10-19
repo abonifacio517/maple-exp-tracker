@@ -1,8 +1,17 @@
-# Maple EXP Tracker — Alpha 0.2.11
+# Maple EXP Tracker — Alpha 0.2.12
 
 A browser-based, **screen-only** MapleStory Classic World EXP, mesos, and potion tracker. The website only analyzes pixels from the window you approve for screen sharing. No game-memory reading, injection, packet access, or automated game input. Passive screen capture is not automatically authorized by Nexon's terms; check with Nexon if compliance is important.
 
-## What's new in Alpha 0.2.11
+## What's new in Alpha 0.2.12
+
+- Added user-verified `88` and `73` game-font references from two screenshots of the same hotbar slot. These supply examples of 8, 3 and 7 in the shared, item-independent matcher.
+- Added an explicit **3 vs 8 candidate separation test** to block ambiguous reads before they affect potion costs.
+- For a five-item change consistent with a last-digit `3 ↔ 8` substitution, requires a strong shared-font distinction; other readers retain the previously confirmed value for manual review.
+- No changes to EXP, level, mesos, potion prices, layout or two-second potion-scan timing.
+
+**Validation limits:** Aligned screenshot tests are not a substitute for live gameplay, and not all quantities, consumables or screen resolutions have been verified.
+
+## Previous release: Alpha 0.2.11
 
 - **Consumable-independent digit recognition.** The same outlined MapleStory number font is now recognized independently of which item icon is in HP slot 1 or MP slot 2; the dropdowns continue to control pricing. This uses a new shared font matcher and falls back to existing OCR when uncertain.
 - The shared font recognizer uses relative light/dark edge shapes instead of requiring the previous Orange Potion / Lemon reference art. Strict matching rejects partial, ambiguous digits rather than inventing consumption. It supports 2–3 digit counts from tested samples; 1-digit and unfamiliar artwork can still require OCR or correction.

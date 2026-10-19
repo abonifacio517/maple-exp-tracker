@@ -344,6 +344,15 @@ function handlePotionReading(kind,result,canvas){
     return `${kind.toUpperCase()}: verifying starting ${fmt(value)} (${count}/${needed} captures; ${result.note})`;
   }
   const change=Math.abs(value-current);
+  // A 3 ↔ 8 swap in the final digit is a known systematic MapleStory font
+  // failure. Multiple frames of the SAME bad classification do not fix it.
+  // Accept that five-item change only with a strong shared-font distinction;
+  // otherwise keep the previously confirmed amount and avoid fake spending.
+  const lastDigit3and8=(Math.floor(current/10)===Math.floor(value/10))&&
+    ((current%10===3&&value%10===8)||(current%10===8&&value%10===3));
+  if(lastDigit3and8 && !(result.source==='font-universal'&&result.disambiguated38&&result.confidence>=78)){
+    return `${kind.toUpperCase()}: possible 3/8 confusion (${fmt(current)} → ${fmt(value)}) · keeping confirmed count; correct manually if real.`;
+  }
   // At short scan intervals a missing hundreds digit produces an enormous false use.
   const maxDifference=Math.max(6,Math.ceil(current*.12));
   if(change>maxDifference){extras.pending[kind]=null;return `${kind.toUpperCase()}: ignored ${fmt(current)} → ${fmt(value)} (implausibly large; confirm manually if real).`;}
