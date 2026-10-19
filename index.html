@@ -5,22 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#8bb7df">
   <meta name="description" content="A lightweight, browser-based MapleStory EXP tracker that reads your on-screen EXP every five seconds.">
-  <title>Maple EXP — Alpha 0.2.23</title>
+  <title>Van's Maple EXP Tracker — Alpha 0.2.24</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="app-shell">
     <header class="app-header">
       <div class="brand">
-        <span class="brand-mark" aria-hidden="true">🍁</span>
+        <img class="brand-sprite" src="van-sprite.svg" alt="Van's MapleStory character sprite" width="85" height="123">
         <div>
-          <h1>Maple <span>EXP</span></h1>
+          <h1>Van's <span>Maple EXP Tracker</span></h1>
           <p>Classic World training tracker · MapleStory inspired UI</p>
         </div>
       </div>
       <div class="header-right">
         <div class="header-topline">
-          <span class="header-note">Alpha 0.2.23 · Screen-only recognition</span>
+          <span class="header-note">Alpha 0.2.24 · Screen-only recognition</span>
           <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false" title="Toggle light and dark mode">
             <span class="theme-toggle-label">Sleepywood mode</span>
             <span class="theme-toggle-track"><span class="theme-toggle-thumb"></span></span>
@@ -40,34 +40,22 @@
             <div class="eyebrow">WINDOW CAPTURE</div>
             <h2>Game connection</h2>
           </div>
-          <span class="reading-pill capture-pill" id="statusText">Waiting for screen sharing.</span>
+          <span class="reading-pill capture-pill" id="statusText" role="status" aria-live="polite">Waiting for screen sharing.</span>
         </div>
         <div class="action-content">
           <div class="action-label"><span class="status-light" id="statusDot"></span><div><h3>Connection status</h3><p aria-live="polite">Share MapleStory's window and keep this page open.</p></div></div>
           <div class="action-buttons">
-            <button class="button primary" id="shareBtn">Share game window</button>
+            <button class="button primary" id="shareBtn" type="button" aria-pressed="false">Share game window</button>
             <button class="button overlay-toggle" id="overlayBtn" type="button" title="Show live stats in an always-on-top mini window">↗ Open maple HUD</button>
-            <button class="button" id="startBtn" disabled>Resume</button>
-            <button class="button" id="pauseBtn" disabled>Pause</button>
-            <button class="button subtle" id="autoDetectBtn" disabled>Find HUD again</button>
-            <button class="button ghost" id="stopShareBtn" disabled>Stop sharing</button>
+            <button class="button is-resume" id="startBtn" type="button" disabled aria-pressed="false">Resume</button>
+            
+            
+            
             <button class="button ghost" id="resetBtn">Reset session</button>
           </div>
         </div>
         <p class="connection-hint">EXP updates every 5 seconds; mesos checks every 2 seconds when your inventory is visible. Open the mini overlay to keep your key stats visible over MapleStory or any other window.</p>
       </section>
-
-          <details class="panel expandable settings-panel">
-            <div class="window-chrome" aria-hidden="true"><span class="window-label">OPTION SETTINGS</span></div>
-            <summary>OCR settings <span class="chevron">⌄</span></summary>
-            <p class="detail-help">Only adjust these if EXP is being read incorrectly. Default settings are tuned for small MapleStory digits.</p>
-            <div class="control-field"><label for="ocrMode">Recognition</label><select id="ocrMode"><option value="accuracy" selected>Highest accuracy</option><option value="balanced">Balanced (faster)</option></select></div>
-            <div class="control-field"><label for="inkMode">Text color</label><select id="inkMode"><option value="auto" selected>Auto detect</option><option value="light">Light on dark</option><option value="dark">Dark on light</option></select></div>
-            <div class="control-field"><label for="zoom">Enlargement <output id="zoomOutput">6×</output></label><input id="zoom" type="range" min="3" max="10" value="6"></div>
-            <div class="control-field"><label for="threshold">Contrast threshold <output id="thresholdOutput">0</output></label><input id="threshold" type="range" min="-50" max="50" step="5" value="0"></div>
-            <div class="template-trainer"><label for="templateExpInput">Teach the tracker an exact EXP number (optional)</label><div class="template-trainer-row"><input id="templateExpInput" type="text" inputmode="numeric" placeholder="e.g. 10,629"><button class="button" id="teachDigitsBtn">Calibrate digits</button></div><p id="templateStatus" class="detail-help">Type the number you can actually see in-game. This saves only local pixel patterns in your browser and never trains from an unconfirmed OCR guess.</p></div>
-            <div class="crop-grid"><div><span>EXP OCR view <small id="expPreviewLabel">—</small></span><div class="crop"><canvas id="expCrop"></canvas></div></div></div>
-          </details>
 
       <div class="toolbar-timer panel"><span>SESSION TIME</span><strong id="elapsed">00:00</strong></div>
     </div>
@@ -90,13 +78,6 @@
             <div class="level-title">Level <strong id="characterLevel">—</strong></div>
             <small id="levelSource">Level needed to calculate %</small>
           </div>
-          <div class="quick-level">
-            <label for="quickLevel">If OCR misses your level</label>
-            <div class="quick-level-controls">
-              <input id="quickLevel" type="number" min="1" max="99" placeholder="e.g. 34" inputmode="numeric">
-              <button class="button" id="setLevelBtn">Set level</button>
-            </div>
-          </div>
         </div>
 
         <div class="level-row"><span>Progress to next level</span><strong id="progressLabel">—</strong></div>
@@ -105,24 +86,23 @@
         </div>
         <div class="track-scale"><span id="expFraction">— / — EXP</span><span id="expRemaining">— remaining</span></div>
 
-        <div class="metrics">
+        <div class="metrics metrics-single">
           <div class="metric metric-major">
             <span class="metric-label">EXP per hour</span>
             <strong id="perHour">0</strong>
             <small>Your average training speed</small>
           </div>
-          <div class="metric metric-current">
-            <span class="metric-label">Estimated time to next level</span>
-            <strong id="eta">—</strong>
-            <small>Based on your current EXP/hour</small>
-          </div>
+
         </div>
 
-        <div class="kpq-inline"><div><span class="metric-label">KPQ clears to next level</span><small>2,550 EXP per clear · excludes mob EXP</small></div><strong id="kpqClears">—</strong></div>
+        <div class="next-level-plan" aria-label="Next level estimates">
+          <div class="plan-card"><span class="metric-label">Estimated time to next level</span><strong id="eta">—</strong><small>At your current EXP/hour</small></div>
+          <div class="plan-card"><span class="metric-label">KPQ clears to next level</span><strong id="kpqClears">—</strong><small>2,550 EXP/clear · mob EXP excluded</small></div>
+        </div>
 
         <div class="mini-grid">
           <div class="mini-stat"><span>EXP gained</span><strong id="gained">0</strong></div>
-          <div class="mini-stat"><span>Level % (calculated)</span><strong id="currentPct">—</strong></div>
+          <span id="currentPct" hidden aria-hidden="true">—</span>
           <span id="currentExp" hidden aria-hidden="true">—</span>
           
         </div>
@@ -138,8 +118,9 @@
               <h2>Net mesos change</h2>
             </div>
           </div>
-          <span id="profitBadge" class="profit-badge">Waiting for a balance</span>
+          <div class="profit-badges"><span class="wip-label" title="Balance tracking is still experimental">WORK IN PROGRESS</span><span id="profitBadge" class="profit-badge">Waiting for a balance</span></div>
         </div>
+        <p class="mesos-disclaimer">Experimental: mesos readings may be inaccurate or unavailable. Verify balances in-game.</p>
         <div class="profit-total"><strong id="netProfit" class="profit-unknown">—</strong><span class="profit-unit">mesos</span></div>
         <div class="profit-breakdown meso-only-breakdown">
           <div><span>Last confirmed balance</span><strong id="mesoBalance">—</strong></div>
@@ -156,9 +137,9 @@
 
       <section class="lower-layout">
         <aside class="right-panels">
-          <section class="panel more-stats">
+          <details class="panel expandable more-stats">
             <div class="window-chrome" aria-hidden="true"><span class="window-label">SESSION DETAILS</span></div>
-            <h2>More session details</h2>
+            <summary>Session details <span class="chevron">⌄</span></summary>
             <div class="data-row"><span>EXP gained, last 5 min</span><strong id="rolling">0</strong></div>
             <div class="data-row"><span>Level % gained</span><strong id="pctGained">0.00%</strong></div>
             <div class="data-row"><span>Level % per hour</span><strong id="pctHour">—</strong></div>
@@ -167,7 +148,7 @@
             
             <div class="data-row"><span>Level recognition</span><strong id="levelStatus">Waiting</strong></div>
             <p class="detail-help">Level requirements from <a href="https://meowdb.com/msclassic/guides/exp-table-level-1-to-100" target="_blank" rel="noopener noreferrer">MeowDB Classic EXP table</a>, levels 1–99. Orange-badge level digits use pixel templates first. Unknown digits use whole-number and isolated-digit OCR, then their pixel shapes are learned from repeated consistent screen reads. Manual level override remains available. Level % is calculated from current EXP divided by the EXP requirement, never read from on-screen %.</p>
-          </section>
+          </details>
 
           <details class="panel expandable diagnostics-panel">
             <div class="window-chrome" aria-hidden="true"><span class="window-label">SCAN DETAILS</span></div>
@@ -178,7 +159,7 @@
             <div class="data-row"><span>Level recognition</span><strong id="levelStatusDetail">See level status above</strong></div>
             <pre id="ocrDetails">OCR has not started.</pre>
             <p class="detail-help">Mesos scan diagnostic</p><pre id="mesoDebug">No snapshots yet</pre>
-            <p class="detail-help">Unverified EXP reads are not added. Level % is calculated from current EXP and the level requirement. If the level is missing, use Set level above. Changing your level safely starts a new EXP baseline.</p>
+            <p class="detail-help">Unverified EXP reads are not added. Level % is calculated from current EXP and the level requirement. If the level is missing, set it under OCR settings. Changing your level safely starts a new EXP baseline.</p>
             <label class="correction-label">Correct current EXP<input id="manualExp" type="text" inputmode="numeric" placeholder="e.g. 11821"></label>
             <button class="button ghost" id="autoLevelBtn">Try auto-detecting level again</button>
             <button class="button ghost" id="teachLevelBtn" title="Optional: teach the pixel matcher your exact visible level">Save verified level-digit sample</button>
@@ -186,6 +167,25 @@
           </details>
         </aside>
       </section>
+          <details class="panel expandable settings-panel">
+            <div class="window-chrome" aria-hidden="true"><span class="window-label">OPTION SETTINGS</span></div>
+            <summary>OCR settings <span class="chevron">⌄</span></summary>
+            <p class="detail-help">Only adjust these if EXP is being read incorrectly. Default settings are tuned for small MapleStory digits.</p>
+            <div class="quick-level settings-level">
+            <label for="quickLevel">Manual level override (if OCR misses your level)</label>
+            <div class="quick-level-controls">
+              <input id="quickLevel" type="number" min="1" max="99" placeholder="e.g. 34" inputmode="numeric">
+              <button class="button" id="setLevelBtn">Set level</button>
+            </div>
+          </div>
+            <div class="control-field"><label for="ocrMode">Recognition</label><select id="ocrMode"><option value="accuracy" selected>Highest accuracy</option><option value="balanced">Balanced (faster)</option></select></div>
+            <div class="control-field"><label for="inkMode">Text color</label><select id="inkMode"><option value="auto" selected>Auto detect</option><option value="light">Light on dark</option><option value="dark">Dark on light</option></select></div>
+            <div class="control-field"><label for="zoom">Enlargement <output id="zoomOutput">6×</output></label><input id="zoom" type="range" min="3" max="10" value="6"></div>
+            <div class="control-field"><label for="threshold">Contrast threshold <output id="thresholdOutput">0</output></label><input id="threshold" type="range" min="-50" max="50" step="5" value="0"></div>
+            <div class="template-trainer"><label for="templateExpInput">Teach the tracker an exact EXP number (optional)</label><div class="template-trainer-row"><input id="templateExpInput" type="text" inputmode="numeric" placeholder="e.g. 10,629"><button class="button" id="teachDigitsBtn">Calibrate digits</button></div><p id="templateStatus" class="detail-help">Type the number you can actually see in-game. This saves only local pixel patterns in your browser and never trains from an unconfirmed OCR guess.</p></div>
+            <div class="crop-grid"><div><span>EXP OCR view <small id="expPreviewLabel">—</small></span><div class="crop"><canvas id="expCrop"></canvas></div></div></div>
+          </details>
+
     </main>
 
     <footer>
