@@ -9,7 +9,7 @@
   const html=`
     <div class="hud-window">
       <div class="hud-titlebar">
-        <div class="logo"><span class="leaf">🍁</span><div class="brand">MAPLE EXP <span>ALPHA 0.2.15</span></div></div>
+        <div class="logo"><span class="leaf">🍁</span><div class="brand">MAPLE EXP <span>ALPHA 0.2.16</span></div></div>
         <div class="title-actions"><button id="hudCompact" class="hud-btn" title="Toggle condensed layout">Compact</button><button id="hudClose" class="hud-btn close" title="Close overlay">Close ×</button></div>
       </div>
       <div class="hud-body">
@@ -47,6 +47,33 @@
     .pill.positive{border-color:#71a47a;background:#e6f7e8;color:#417c4e}.pill.negative{border-color:#c78b8b;background:#ffe8e8;color:#b74f4f}
     .bottom{padding:0 4px 2px;font-size:10px;text-transform:none}
     body.compact .hud-body{gap:5px;padding:8px 7px 5px}body.compact .primary .big{font-size:30px}body.compact .meso-amount{font-size:21px}body.compact .level-numbers,body.compact .bottom{display:none}
+
+    /* 0.2.16: softer beveled Maple windows and a chrome EXP progress meter */
+    .hud-window{border-radius:16px}
+    .hud-titlebar{border-radius:12px 12px 8px 8px}
+    .hud-btn{border-radius:10px}
+    .leaf{border-radius:9px}
+    .primary,.statline,.mesos{border-radius:12px}
+    .pill{border-radius:10px}
+    .track{
+      isolation:isolate;position:relative;overflow:hidden;height:25px;padding:4px;
+      border:2px solid #47525c;border-radius:9px;
+      background:linear-gradient(180deg,#f7fafc 0%,#d4dce2 12%,#7d8b96 28%,#48555e 49%,#8b9aa5 77%,#eaf0f4 91%,#b9c5ce 100%);
+      box-shadow:0 1px 0 #fff,0 2px 4px #45566740,inset 0 1px 0 #fff;
+    }
+    .track::before{
+      content:"";position:absolute;inset:4px;border-radius:4px;z-index:0;pointer-events:none;
+      background:linear-gradient(180deg,#b9bec1,#8e9599 55%,#b2b6b8);
+      box-shadow:inset 0 2px 3px #3e474d88;
+    }
+    .fill{
+      z-index:1;position:relative;box-sizing:border-box;width:0%;height:100%;
+      border:1px solid #779d0e;border-radius:4px;
+      background:repeating-linear-gradient(90deg,transparent 0 23px,#637f0833 24px 25px,transparent 26px 27px),
+       linear-gradient(180deg,#fffbb1 0%,#efff6f 17%,#d9f12e 38%,#bae209 56%,#93c000 78%,#6e9b04 100%);
+      box-shadow:inset 0 1px 0 #ffffd3,inset 0 -2px 0 #648c07,0 0 5px #daef67a0;
+    }
+    .fill::after{content:"";position:absolute;left:0;right:0;top:0;height:42%;border-radius:4px 4px 1px 1px;background:linear-gradient(180deg,#ffffff8c,#ffffff26);pointer-events:none}
     @media(prefers-reduced-motion:reduce){.fill{transition:none}}
   `;
   function update(){

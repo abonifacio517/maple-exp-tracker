@@ -1,14 +1,12 @@
-# Maple EXP Tracker — Alpha 0.2.15 (visual refresh)
+# Maple EXP Tracker — Alpha 0.2.16
 
-Second visual design pass inspired by MapleStory Classic World utility windows.
+## Visual refresh
 
-- Retro blue-gray beveled titlebars, pale inset panels, pink stat labels, and orange level number styling.
-- EXP progress bar updated to use the game's green/yellow style.
-- Picture-in-Picture mini overlay uses the same classic window aesthetic.
-- EXP, level, mesos recognition logic is **unchanged** from Alpha 0.2.14. Potion tracking remains disabled.
+- Recreated the EXP meter using CSS chrome edging, a recessed gray background, a glossy lime fill, and subtle segment highlights, inspired by the user-supplied MapleStory Classic screenshots. The existing EXP percent still drives the bar width.
+- Rounded the corners of panels, titlebars, controls, labels, and buttons to match the curved MapleStory interface.
+- Updated the browser Picture-in-Picture HUD with the same glossy bar and rounded controls.
+- No changes to EXP, level, or mesos tracking logic. Potion tracking remains paused.
 
-## How to use
+Built for GitHub Pages: https://abonifacio517.github.io/maple-exp-tracker/
 
-Open the GitHub Pages site in Chrome or Edge, share your MapleStory window, and click **Open maple HUD** for a small always-on-top stat window. The mini window is not transparent or click-through and the main page must stay open for recognition.
-
-This is a screen-only tracker; it does not access game memory or control the client. Browser screen capture does not guarantee that a third-party game will permit the tracker under its rules.
+Document Picture-in-Picture requires a compatible desktop browser and does not provide a transparent click-through overlay. Screen capture continues to require the user's permission.

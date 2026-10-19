@@ -363,3 +363,84 @@ body{
 .control-field select{border-radius:3px}
 footer{border-radius:6px;border-color:#607c95;background:#eef5fa;box-shadow:inset 1px 2px 0 #fff,2px 3px 0 #819bad}
 @media(max-width:760px){.window-chrome{margin-bottom:12px}.app-header{flex-wrap:wrap}}
+
+/* Alpha 0.2.16 — rounded classic MapleStory HUD shapes & glossy EXP bar.
+   Purely visual; the live width is still supplied by the existing EXP tracker. */
+.app-header{border-radius:17px;overflow:hidden}
+.app-header::before{border-radius:12px}
+.brand-mark{border-radius:11px}
+.header-note{border-radius:10px}
+.state-pill,.reading-pill,.profit-badge,.capture-pill{border-radius:11px}
+.panel{border-radius:17px}
+.panel::before{border-radius:13px}
+.window-chrome{
+  border-radius:13px 13px 0 0;
+  background:linear-gradient(180deg,#e6f0f6 0%,#c0d8e8 10%,#94b3cc 27%,#779bb9 65%,#6385a0 100%);
+  box-shadow:inset 0 2px 0 #fff, inset 0 -2px 0 #567690, 0 1px 0 #fff;
+}
+.window-min,.window-square{border-radius:6px}
+.eyebrow{border-radius:9px}
+.character-card,.metric,.mini-stat,.crop,.template-trainer,.control-field,.manual-snapshot,.data-row,pre,.advanced-entry,.profit-breakdown>div{border-radius:12px}
+.character-card{border-radius:14px}
+.level-title strong{border-radius:9px}
+.metric-label,.mini-stat span{border-radius:7px}
+.quick-level-controls input,.manual-snapshot input,.template-trainer input,.correction-label input,.control-field select{border-radius:10px}
+.action-label{border-radius:13px}
+.button{
+  border-radius:12px;
+  transition:filter .12s ease,transform .12s ease,box-shadow .12s ease;
+}
+.button:focus-visible,summary:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #f0b34b;outline-offset:3px}
+.data-row,.control-field{border-radius:11px}
+footer{border-radius:16px}
+.status-light{border-radius:50%}
+
+/* High resolution MapleStory EXP meter: chrome rim, gray recess, acid-lime fill.
+   Keep the active fill as a regular element for existing JavaScript width updates. */
+.exp-track{
+  position:relative;
+  isolation:isolate;
+  overflow:hidden;
+  height:30px;
+  padding:4px;
+  border:2px solid #47525c;
+  border-radius:10px;
+  background:linear-gradient(180deg,
+    #f7fafc 0%,#d4dce2 12%,#7d8b96 28%,#48555e 49%,
+    #8b9aa5 77%,#eaf0f4 91%,#b9c5ce 100%);
+  box-shadow:0 1px 0 #fff,0 3px 5px #45566740,
+    inset 0 1px 0 #ffffff, inset 0 -1px 0 #59636b;
+}
+.exp-track::before{
+  content:"";
+  position:absolute;
+  inset:4px;
+  pointer-events:none;
+  border-radius:5px;
+  background:linear-gradient(180deg,#b9bec1 0%,#a1a6aa 21%,#7f8589 50%,#858c90 72%,#b2b6b8 100%);
+  box-shadow:inset 0 2px 3px #3e474d88, inset 1px 0 2px #52595e77,
+    inset -1px -1px 2px #e2e5e7b0;
+  z-index:0;
+}
+.exp-fill{
+  position:relative;
+  z-index:1;
+  width:0%;height:100%;
+  border:1px solid #779d0e;
+  border-radius:5px;
+  background:
+    repeating-linear-gradient(90deg,transparent 0 23px,#637f0833 24px 25px,transparent 26px 27px),
+    linear-gradient(180deg,#fffbb1 0%,#efff6f 17%,#d9f12e 38%,#bae209 56%,#93c000 78%,#6e9b04 100%);
+  box-shadow:inset 0 1px 0 #ffffd3, inset 0 -2px 0 #648c07,
+    0 0 5px #daef67a0, 1px 0 1px #3b631766;
+  transition:width .38s ease;
+}
+.exp-fill::after{
+  content:"";
+  position:absolute;left:0;right:0;top:0;height:42%;
+  border-radius:4px 4px 1px 1px;
+  background:linear-gradient(180deg,#ffffff8c 0%,#ffffff26 82%,transparent 100%);
+  pointer-events:none;
+}
+@media(max-width:520px){.exp-track{height:26px;padding:3px}.exp-track::before{inset:3px}}
+@media(prefers-reduced-motion:reduce){.exp-fill,.button{transition:none}}
