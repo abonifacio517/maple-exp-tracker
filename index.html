@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#8bb7df">
   <meta name="description" content="A lightweight, browser-based MapleStory EXP tracker that reads your on-screen EXP every five seconds.">
-  <title>Maple EXP — Alpha 0.2.20</title>
+  <title>Maple EXP — Alpha 0.2.22</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -20,7 +20,7 @@
       </div>
       <div class="header-right">
         <div class="header-topline">
-          <span class="header-note">Alpha 0.2.20 · Screen-only recognition</span>
+          <span class="header-note">Alpha 0.2.22 · Screen-only recognition</span>
           <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false" title="Toggle light and dark mode">
             <span class="theme-toggle-label">Sleepywood mode</span>
             <span class="theme-toggle-track"><span class="theme-toggle-thumb"></span></span>
@@ -142,11 +142,13 @@
           <section class="panel more-stats">
             <div class="window-chrome" aria-hidden="true"><span class="window-label">SESSION DETAILS</span></div>
             <h2>More session details</h2>
+            <p class="detail-help">KPQ is an estimate using the clear reward only. Additional mob EXP can reduce the number of runs needed.</p>
             <div class="data-row"><span>EXP gained, last 5 min</span><strong id="rolling">0</strong></div>
             <div class="data-row"><span>Level % gained</span><strong id="pctGained">0.00%</strong></div>
             <div class="data-row"><span>Level % per hour</span><strong id="pctHour">—</strong></div>
             <div class="data-row"><span>Detected level-ups</span><strong id="levelUps">0</strong></div>
             <div class="data-row"><span>EXP to next level</span><strong id="requiredExp">—</strong></div>
+            <div class="data-row"><span>KPQ clears to next level <small>(2,550 EXP/clear)</small></span><strong id="kpqClears">—</strong></div>
             <div class="data-row"><span>Level recognition</span><strong id="levelStatus">Waiting</strong></div>
             <p class="detail-help">Level requirements from <a href="https://meowdb.com/msclassic/guides/exp-table-level-1-to-100" target="_blank" rel="noopener noreferrer">MeowDB Classic EXP table</a>, levels 1–99. Orange-badge level digits use pixel templates first. Unknown digits use whole-number and isolated-digit OCR, then their pixel shapes are learned from repeated consistent screen reads. Manual level override remains available. Level % is calculated from current EXP divided by the EXP requirement, never read from on-screen %.</p>
           </section>
