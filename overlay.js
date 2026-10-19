@@ -19,12 +19,12 @@
       </div>
       <div class="hud-body">
         <section class="hud-card primary-card">
-          <div class="card-head"><img src="${expArtSrc}" alt="EXP"><span>EXP TRACKER</span></div>
+          <div class="card-head"><img src="${expArtSrc}" alt="EXP"><span>EXP TRACKER</span><span class="hud-level-chip">Lv. <span id="hudLevel">—</span></span></div>
           <div class="primary-number" id="hudPerHour">0</div>
           <div class="primary-caption">EXP per hour</div>
           <div class="split-line">
             <div><div class="mini-label">Time to level</div><div class="mini-figure" id="hudEta">—</div></div>
-            <div class="align-right"><div class="mini-label">Current level</div><div class="mini-figure">Lv. <span id="hudLevel">—</span></div></div>
+            <div class="align-right"><div class="mini-label">KPQ clears</div><div class="mini-figure" id="hudKpq">—</div></div>
           </div>
           <div class="bar-head"><span>Level progress</span><strong id="hudPct">—</strong></div>
           <div class="track"><div id="hudBar" class="fill"></div></div>
@@ -56,7 +56,7 @@
     .primary-card::after{content:"";position:absolute;right:-12px;top:-8px;width:90px;height:90px;border-radius:50%;background:radial-gradient(circle, rgba(255,255,255,.32), transparent 68%);pointer-events:none}
     body.theme-dark .hud-card{border-color:#857e98;background:linear-gradient(180deg,#37374a,#2b2d39);box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
     .card-head{display:flex;align-items:center;gap:10px;color:#647889;font-size:11px;font-weight:900;letter-spacing:.06em}
-    body.theme-dark .card-head{color:#d2d4e1}.card-head img{image-rendering:pixelated;image-rendering:crisp-edges}.card-head img:first-child{width:72px;height:auto}.mesos-card .card-head img{width:28px;height:auto}
+    body.theme-dark .card-head{color:#d2d4e1}.hud-level-chip{margin-left:auto;white-space:nowrap;font-weight:900;color:#bc7414}.theme-dark .hud-level-chip{color:#f4c15b}.card-head img{image-rendering:pixelated;image-rendering:crisp-edges}.card-head img:first-child{width:72px;height:auto}.mesos-card .card-head img{width:28px;height:auto}
     .primary-number{font-size:clamp(30px,10vw,44px);line-height:1;font-weight:900;color:#356fa3;letter-spacing:-.06em;margin:8px 0 4px;font-variant-numeric:tabular-nums}
     body.theme-dark .primary-number{color:#a8d3ff}.primary-caption,.mini-label,.bar-foot,.mesos-footer{color:#647889;font-size:11px;font-weight:800}
     body.theme-dark .primary-caption,body.theme-dark .mini-label,body.theme-dark .bar-foot,body.theme-dark .mesos-footer{color:#d2d4e1}
@@ -85,6 +85,7 @@
     const mapped = {
       hudPerHour: 'perHour',
       hudEta: 'eta',
+      hudKpq: 'kpqClears',
       hudLevel: 'characterLevel',
       hudPct: 'progressLabel',
       hudExp: 'expFraction',
