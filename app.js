@@ -32,7 +32,7 @@ function refreshButtons(){
 function pause(){state.running=false;state.cycle++;clearInterval(state.interval);state.interval=null;
   clearInterval(state.levelTimer);state.levelTimer=null;
   if(typeof stopMesosWatch==='function')stopMesosWatch();
-  if(typeof stopPotionWatch==='function')stopPotionWatch();refreshButtons();}
+  refreshButtons();}
 function reset(){
   state.sessionStart=null;state.lastExp=null;state.currentExp=null;state.currentPct=null;
   state.currentLevel=null;state.identityChecked=0;state.identityLockLevel=false;state.accountedLevel=null;state.pendingLevel=null;
@@ -659,9 +659,6 @@ async function scan(){
     $('ocrDetails').textContent=[
       'EXP:',...exp.details.map(t=>`${t.name}: ${JSON.stringify(t.raw)} => ${t.candidate===null?'?':fmt(t.candidate)} (${t.confidence}% confidence)`),
       '', 'LEVEL:',state.lastOCRNote||'Level OCR has not run yet.'];
-    if(typeof scanExtras==='function') {
-      try{await scanExtras(worker);}catch(error){$('mesoDebug').textContent='Additional tracking error: '+(error.message||error);}
-    }
     $('scanDuration').textContent=((performance.now()-began)/1000).toFixed(1)+'s';
   }catch(e){
     $('expStatus').textContent='OCR error';$('ocrDetails').textContent=String(e?.stack||e);
@@ -683,7 +680,6 @@ function startTracking(){
   void scan();state.interval=setInterval(()=>{void scan();},5000);
   void scanLevelIndependently();state.levelTimer=setInterval(()=>{void scanLevelIndependently();},4000);
   if(typeof beginMesosWatch==='function')beginMesosWatch();
-  if(typeof beginPotionWatch==='function')beginPotionWatch();
 }
 $('startBtn').addEventListener('click',startTracking);
 $('zoom').addEventListener('input',()=>{$('zoomOutput').textContent=$('zoom').value+'×';});

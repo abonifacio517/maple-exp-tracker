@@ -1,10 +1,9 @@
 'use strict';
-// Optional net-mesos and consumable measurements. Works only with browser-provided
+// Optional net-mesos measurements. Works only with browser-provided
 // video frames; never accesses MapleStory processes, memory, files, or controls.
-const extras={inventory:null,hotbar:null,lastFind:0,inventoryOpen:false,
+const extras={inventory:null,lastFind:0,inventoryOpen:false,
   mesosStart:null,mesosCurrent:null,mesoPending:null,mesoWhen:null,mesoStartWhen:null,mesoBusy:false,mesoStatus:'',
-  hpCurrent:null,mpCurrent:null,hpUsed:0,mpUsed:0,hpCost:0,mpCost:0,hpUnpriced:0,mpUnpriced:0,
-  pending:{hp:null,mp:null},potionWhen:null,lastError:'',lastMesoAttempt:0,lastPotionAttempt:0,turn:0,lastInvFind:0,lastHotFind:0};
+  lastMesoAttempt:0,lastInvFind:0};
 function anchorMatcher(spec,s,kind){
   const pts=spec.points.filter((p,i)=>i%(kind==='hotbar'?5:2)===0).map(([x,y,v])=>[Math.round(x*s),Math.round(y*s),v]);
   const n=pts.length,mean=pts.reduce((sum,p)=>sum+p[2],0)/n;
@@ -73,7 +72,6 @@ function customCrop(rect){
   return canvas;
 }
 // Read a SMALL numeric crop. Inventory text is black on a plain white HUD;
-// potion quantity is white-outlined text over item artwork and therefore
 // cannot safely be treated as the same OCR problem.
 function snapshotImage(rect,style,sourceFrame=null){
   const fw=sourceFrame?.width??video.videoWidth,fh=sourceFrame?.height??video.videoHeight;
@@ -140,24 +138,23 @@ async function recognizeSnapshot(rect,worker,kind='mesos'){
     note:details.join(' | ')+(best?(agreement?' | preprocessing agrees':' | checking again on next frame'):' | no reliable OCR candidate')};
 }
 function showExtraStats(){
-  $('mesoBalance').textContent=extras.mesosCurrent===null?'—':fmt(extras.mesosCurrent);
-  $('mesoDelta').textContent=extras.mesosStart===null||extras.mesosCurrent===null?'—':
-    `${extras.mesosCurrent-extras.mesosStart>=0?'+':''}${fmt(extras.mesosCurrent-extras.mesosStart)}`;
+  const known=extras.mesosStart!==null&&extras.mesosCurrent!==null;
+  const delta=known?extras.mesosCurrent-extras.mesosStart:null;
   const hours=extras.mesoWhen&&extras.mesoStartWhen?(extras.mesoWhen-extras.mesoStartWhen)/3600000:0;
-  $('mesoPerHour').textContent=hours>1/3600?fmt(Math.round((extras.mesosCurrent-extras.mesosStart)/hours)):'—';
+  $('mesoBalance').textContent=extras.mesosCurrent===null?'—':fmt(extras.mesosCurrent);
+  $('mesoDelta').textContent=delta===null?'—':`${delta>0?'+':''}${fmt(delta)}`;
+  $('mesoPerHour').textContent=delta!==null&&hours>1/3600?fmt(Math.round(delta/hours)):'—';
+  const profit=$('netProfit');
+  profit.textContent=delta===null?'—':`${delta>0?'+':''}${fmt(delta)}`;
+  profit.className=delta===null?'profit-unknown':delta>0?'profit-positive':delta<0?'profit-negative':'profit-zero';
+  const badge=$('profitBadge');
+  badge.textContent=delta===null?'Waiting for balance':delta>0?'Mesos positive':delta<0?'Mesos negative':'Break-even';
+  badge.className='profit-badge '+(delta>0?'positive':delta<0?'negative':'neutral');
+  $('profitExplanation').textContent=delta===null?'Open your inventory to establish a starting balance; reopen it later to calculate net mesos change.':
+    'Net balance change since the first snapshot. Includes purchases, sales, and other spending; potion consumption is not separately calculated.';
   $('mesoScanStatus').textContent=extras.mesoStatus || (extras.inventoryOpen?
     (extras.mesoWhen?'Inventory open · last confirmed '+extras.mesoWhen.toLocaleTimeString():extras.mesoPending?'Confirming '+fmt(extras.mesoPending.value)+'…':'Inventory open · reading balance…'):
     (extras.mesoWhen?'Inventory closed · last confirmed '+extras.mesoWhen.toLocaleTimeString():'Waiting for inventory'));
-  $('hpCount').textContent=extras.hpCurrent===null?'—':fmt(extras.hpCurrent);
-  $('mpCount').textContent=extras.mpCurrent===null?'—':fmt(extras.mpCurrent);
-  $('hpUsed').textContent=fmt(extras.hpUsed);
-  $('mpUsed').textContent=fmt(extras.mpUsed);
-  $('potionValue').textContent=fmt(Math.round(extras.hpCost+extras.mpCost));
-  const latest=extras.potionWhen?'Last verified '+extras.potionWhen.toLocaleTimeString():null;
-  $('potStatus').textContent=extras.potionStatus||(extras.hotbar?
-    (latest||'Hotbar found · confirm initial stack counts for accuracy'):
-    'Looking for hotbar in your shared game window');
-  if(typeof renderPotionFinancials==='function')renderPotionFinancials();
 }
 function acceptMesos(value){
   if(!Number.isSafeInteger(value)||value<0||value>1000000000000)return false;
@@ -170,35 +167,12 @@ function acceptMesos(value){
   if(extras.mesosStart===null){extras.mesosStart=value;extras.mesoStartWhen=new Date();}
   extras.mesosCurrent=value;extras.mesoWhen=new Date();return true;
 }
-function acceptPotion(kind,value){
-  if(!Number.isSafeInteger(value)||value<0||value>9999)return false;
-  const old=extras[kind+'Current'],p=extras.pending[kind];
-  // Potion glyphs sit on artwork. Two independent *frames*, not just two
-  // image filters of the same frame, must agree before a new count is accepted.
-  extras.pending[kind]=p?.value===value?{value,count:p.count+1}:{value,count:1};
-  if(extras.pending[kind].count<2)return false;
-  // Without a known baseline, OCR can consistently misread part of a stacked
-  // multi-digit count (e.g. 123 as 2). Ask for one explicit starting count.
-  if(old===null){extras.lastError='Confirm starting potion quantities below before automatic updates can be trusted.';return false;}
-  if(value<old){
-    const used=old-value;
-    if(used>Math.max(15,Math.ceil(old*.20))){
-      extras.lastError=`${kind.toUpperCase()}: rejected sudden ${old} → ${value} (${used} items). Use manual correction if this was real.`;
-      return false;
-    }
-    recordPotionConsumption(kind,used);
-  }
-  extras[kind+'Current']=value;extras.potionWhen=new Date();
-  extras.lastError='';return true;
-}
 function resetExtras(){
   if(typeof stopMesosWatch==='function')stopMesosWatch();
-  if(typeof stopPotionWatch==='function')stopPotionWatch();
-  Object.assign(extras,{inventory:null,hotbar:null,lastFind:0,inventoryOpen:false,
+  Object.assign(extras,{inventory:null,lastFind:0,inventoryOpen:false,
     mesosStart:null,mesosCurrent:null,mesoPending:null,mesoWhen:null,mesoStartWhen:null,mesoBusy:false,mesoStatus:'',
-    hpCurrent:null,mpCurrent:null,hpUsed:0,mpUsed:0,hpCost:0,mpCost:0,hpUnpriced:0,mpUnpriced:0,pending:{hp:null,mp:null},
-    potionWhen:null,lastError:'',lastMesoAttempt:0,lastPotionAttempt:0,turn:0,lastInvFind:0,lastHotFind:0});
-  if(state.running && state.stream){beginMesosWatch();if(typeof beginPotionWatch==='function')beginPotionWatch();}
+    lastMesoAttempt:0,lastInvFind:0});
+  if(state.running && state.stream)beginMesosWatch();
   showExtraStats();
 }
 // Dedicated mesos capture loop. An independent OCR worker prevents long EXP
@@ -428,22 +402,15 @@ function stopMesosWatch(){
   ++mesosGeneration;
 }
 
-// Alpha 0.2.6: independent potion worker and pixel calibration live in potion-reader.js.
-// No potion OCR should ever change the dedicated EXP worker's parameters.
-async function scanExtras(){return;}
 $('resetExtraBtn').addEventListener('click',()=>{
-  resetExtras();setStatus('Mesos and potion counters reset; EXP session unchanged.','good');
+  resetExtras();setStatus('Mesos session reset; EXP session unchanged.','good');
 });
 showExtraStats();
-
 $('teachDigitsBtn').addEventListener('click',()=>{
   const result=teachEXPFromVisible($('templateExpInput').value);
   $('templateStatus').textContent=result.reason;
   if(result.ok){$('templateExpInput').value='';setStatus('EXP digit calibration saved locally.','good');}
 });
-
-// Manual readings provide a transparent fallback when the sprite overlaps the
-// quantity text. No missing potion usage is inferred from unobserved snapshots.
 function safeAmount(raw,max){
   const text=String(raw||'').trim().replace(/,/g,'');
   if(!/^\d+$/.test(text))return null;
@@ -454,20 +421,5 @@ $('setMesoSnapshot').addEventListener('click',()=>{
   if(value===null){$('mesoDebug').textContent='Enter an exact non-negative meso balance.';return;}
   if(extras.mesosStart===null){extras.mesosStart=value;extras.mesoStartWhen=new Date();}
   extras.mesosCurrent=value;extras.mesoWhen=new Date();extras.mesoPending=null;
-  $('manualMesoBalance').value='';$('mesoDebug').textContent='Manual meso snapshot saved. Net change is based on confirmed snapshots.';showExtraStats();
-});
-$('setPotionSnapshot').addEventListener('click',()=>{
-  const hp=safeAmount($('manualHPStack').value,9999),mp=safeAmount($('manualMPStack').value,9999);
-  if(hp===null||mp===null){$('potDebug').textContent='Enter both exact HP and MP stack counts.';return;}
-  // These are explicitly observed stack snapshots: count decreases between
-  // confirmed snapshots contribute to uses. Restocks do not subtract uses.
-  // Larger jumps are allowed here because a person typed and verified them.
-  if(extras.hpCurrent!==null&&hp<extras.hpCurrent)recordPotionConsumption('hp',extras.hpCurrent-hp);
-  if(extras.mpCurrent!==null&&mp<extras.mpCurrent)recordPotionConsumption('mp',extras.mpCurrent-mp);
-  extras.hpCurrent=hp;extras.mpCurrent=mp;extras.pending={hp:null,mp:null};
-  extras.potionWhen=new Date();extras.lastError='';
-  extras.potionStatus='Manual counts confirmed · watching changes';
-  if(typeof storePotionSample==='function'){storePotionSample('hp',hp);storePotionSample('mp',mp);}
-  $('manualHPStack').value='';$('manualMPStack').value='';
-  $('potDebug').textContent='Verified stack counts saved. Decreases were counted; increases treated as restocks.';showExtraStats();
+  $('manualMesoBalance').value='';$('mesoDebug').textContent='Manual mesos snapshot saved. Net change uses confirmed balances.';showExtraStats();
 });

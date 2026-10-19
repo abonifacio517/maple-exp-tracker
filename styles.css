@@ -104,3 +104,11 @@ footer{margin-top:27px;border-top:1px solid #263440;padding-top:16px;display:fle
 @media(max-width:1050px){.expense-options{grid-template-columns:1fr 1fr}.expense-options>div:first-child{grid-column:1/-1}}
 @media(max-width:720px){.potion-settings{grid-template-columns:1fr}.profit-breakdown{grid-template-columns:1fr 1fr}.expense-options{grid-template-columns:1fr}.expense-options>div:first-child{grid-column:auto}.expense-bottom{flex-wrap:wrap}}
 @media(max-width:500px){.profit-panel{padding:18px}.profit-total strong{font-size:36px}.profit-breakdown{grid-template-columns:1fr}.profit-title-row{flex-wrap:wrap}}
+
+/* Alpha 0.2.14 — EXP + mesos only, minimal PiP entry */
+.meso-only-breakdown{grid-template-columns:repeat(3,minmax(0,1fr))}
+.meso-actions{margin-top:13px;display:flex;justify-content:flex-end}
+.overlay-toggle{border:1px solid #517963;background:#1b3328;color:#b8e8c8;font-weight:700}
+.overlay-toggle:hover{background:#244532}
+@media(max-width:680px){.meso-only-breakdown{grid-template-columns:1fr 1fr}}
+@media(max-width:420px){.meso-only-breakdown{grid-template-columns:1fr}}

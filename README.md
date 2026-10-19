@@ -1,100 +1,35 @@
-# Maple EXP Tracker — Alpha 0.2.13
+# Maple EXP Tracker — Alpha 0.2.14
 
-A browser-based, **screen-only** MapleStory Classic World EXP, mesos, and potion tracker. The website only analyzes pixels from the window you approve for screen sharing. No game-memory reading, injection, packet access, or automated game input. Passive screen capture is not automatically authorized by Nexon's terms; check with Nexon if compliance is important.
+A screen-only MapleStory Classic World training companion, hosted on GitHub Pages. It reads EXP and inventory mesos from user-approved browser window capture. It does not inject into the game, read game memory, sniff packets, or send automated input. Screen-only processing is not a guarantee of Nexon's authorization.
 
-## What's new in Alpha 0.2.13 — protect against systematic potion misreads
+## What changed
 
-- Fixed the misleading `3/8 clear` label. That was only a gap between two pixel-template scores, not an independent accuracy guarantee.
-- When common lookalikes `3`, `7`, and `8` are plausible, compare the bright centers of the glyphs against the outlined-shape classifier. Disagreeing comparisons now reject the quantity rather than reporting false certainty.
-- Use the **same cached crop features** for repeated glyph-template comparisons. In local JavaScript tests on reference images, each quantity check fell from around 10 seconds to under 1 second; actual browser/device speed may differ.
-- Compare the legacy item-specific pixel reader against the universal reader when both produce an answer; disagreements show diagnostics, not fabricated consumption.
-- Hold sudden three-to-six item changes involving confusable final digits for correction, and always hold an unverified `3 ↔ 8` swap. Legitimate rapid consumption may need manual verification; that limitation is intentional.
-- Improve rejection messages so an unreadable capture can reveal a mismatch between digit outline and bright digit centers.
-- EXP, level, mesos recognition, two-second potion polling, consumable pricing, and profit formulas are untouched.
+- **Potion tracking is paused and removed from the active app.** No hotbar OCR, potion prices, potion use calculations or potion corrections run. Older versions remain available in repository history if we revisit the feature.
+- **Net mesos change** replaces potion-adjusted "estimated grinding profit". The headline is the difference between the latest verified mesos balance and the first recorded balance. It includes both spending and earnings, and makes no attempt to assign potion costs.
+- **Mini overlay:** Click **Open mini overlay** in the Game connection panel for a compact, always-on-top browser Picture-in-Picture window showing EXP/hour, time to level, level progress and net mesos. The mini window has Compact/Expand and Close controls. Keep the main tracker tab open; OCR stays in the tab, not in the mini overlay.
+- Preserves existing EXP 5-second scanning, auto level recognition, mesos 2-second scanning, and manual EXP/meso corrections.
 
-**Validation:** Tested against the original bright-pixel template samples of `3`, `7` and `8` and a subset of supplied Orange Potion / Lemon screenshots. A live-game `HP 87` read has not been independently validated; screen-only recognition cannot guarantee error-free results. This version is deployed through **GitHub Pages**, not Netlify.
+## How to use the mini overlay
 
-## Previous release: Alpha 0.2.12
+1. Open this website in current **desktop Chrome or Edge** over **HTTPS** (GitHub Pages).
+2. Share the **MapleStory application window** and start tracking.
+3. Click **Open mini overlay**, then move/resize the floating window over your windowed game or another window.
+4. Click **Compact** to fit less information into a smaller space, **Expand** to restore details, or **Close ×**.
+5. Keep the main website open and the game visible. Minimized game windows or revoked screen sharing can pause reads.
 
-## Changes in Alpha 0.2.12
+### Limits
 
-- Added user-verified `88` and `73` game-font references from two screenshots of the same hotbar slot. These supply examples of 8, 3 and 7 in the shared, item-independent matcher.
-- Added an explicit **3 vs 8 candidate separation test** to block ambiguous reads before they affect potion costs.
-- For a five-item change consistent with a last-digit `3 ↔ 8` substitution, requires a strong shared-font distinction; other readers retain the previously confirmed value for manual review.
-- No changes to EXP, level, mesos, potion prices, layout or two-second potion-scan timing.
+Document Picture-in-Picture availability depends on browser support and secure context. This is an always-on-top window, **not a fully transparent or mouse-click-through game overlay**. The site cannot dictate its window position and cannot force its native window opacity. A truly click-through transparent Windows overlay would require a separately installed desktop app, which has additional policy/compatibility considerations.
 
-**Validation limits:** Aligned screenshot tests are not a substitute for live gameplay, and not all quantities, consumables or screen resolutions have been verified.
+## Mesos accounting
 
-## Previous release: Alpha 0.2.11
+Net mesos change = last confirmed balance − first confirmed balance. It is **not** necessarily monster mesos earned or profit adjusted for consumption. If you buy potions or other items during a session, those purchases are already reflected in the meso balance change. Only amounts visible in the inventory or manually entered are known; between snapshots, the last verified balance is displayed.
 
-- **Consumable-independent digit recognition.** The same outlined MapleStory number font is now recognized independently of which item icon is in HP slot 1 or MP slot 2; the dropdowns continue to control pricing. This uses a new shared font matcher and falls back to existing OCR when uncertain.
-- The shared font recognizer uses relative light/dark edge shapes instead of requiring the previous Orange Potion / Lemon reference art. Strict matching rejects partial, ambiguous digits rather than inventing consumption. It supports 2–3 digit counts from tested samples; 1-digit and unfamiliar artwork can still require OCR or correction.
-- Initial stacks detected by shared font matching need **4 agreeing captures**. After a verified starting count, changes need **3 agreeing captures**. A single unreadable capture no longer erases a promising reading, but a 14-second expiration prevents stale confirmations.
-- HP and MP still attempt scans every **2 seconds**, without overlapping OCR jobs. EXP, level, mesos, NPC pricing, and profit logic have not changed.
-- Browser regression tests: `49` over Orange Potion, `114` over Lemon, and `89` over a different red potion icon all matched. A small separate `104` close-up did **not** pass the strict matcher, which is intentional: unknown numbers must not be forced into a match. Different consumables and window resolutions still need live testing.
+## Technical notes
 
-## Previous release: Alpha 0.2.10
+- `index.html`, `styles.css` — interface.
+- `app.js` plus `exp-table.js`, `digit-atlas.js`, `pixel-matcher.js`, `ui-anchors.js`, `level-atlas.js`, `level-templates.js` — EXP and level.
+- `extras.js` plus `inventory-footer.js` — mesos.
+- `overlay.js` — optional mini Picture-in-Picture window that only mirrors already displayed stats.
 
-- HP and MP potion checks now run on a **2-second polling interval** while the tracker is active and the game window is shared.
-- The potion reader uses its own workers and skips a tick if the previous scan is still processing. A *confirmed* reading may take longer than 2 seconds.
-- The existing multi-frame confidence checks remain in place; EXP, level and mesos algorithms are unchanged.
-
-## Previous release: Alpha 0.2.9
-
-**Potion quantity recognition fix.** The digits in MapleStory's hotbar quantities are at the bottom-left of each slot, while the faint labels at the top indicate hotkeys. The primary problem in Alpha 0.2.8 was a misaligned crop: as little as one pixel made the strict digit templates fail. The reader now searches around the expected quantity area, chooses only an unambiguous high-confidence digit match, and remembers the successful alignment to reduce CPU usage in later scans.
-
-- Separate browser OCR workers for HP and MP when the pixel templates don't recognize a quantity; they can process independently rather than blocking each other.
-- OCR checks two enhanced image treatments and uses multiple matching frames before updating potion stacks. It can establish a starting balance via four consecutive high-confidence agreeing OCR readings, or three reliable template reads. Fast pixel matches continue requiring repeated independent captures.
-- A small HP/MP **quantity crop preview** appears only if you expand Scan details. It never displays the full game video and has negligible overhead.
-- Keeps EXP, level, mesos, and profitability calculation code unchanged.
-
-### Validation
-
-The revised alignment-aware digit matcher recognized all 14 quantities from seven supplied **full hotbar** screenshots (HP 43–49; MP 108–114) when each screenshot's hotbar origin was located. Simulated transitions verified a starting stack of 49 HP and subsequent confirmed decrement to 48 adds exactly one used potion. A no-network browser runtime check passed after mocking browser storage. This is **not** an end-to-end live MapleStory test. The separately supplied Lemon 104 close-up is useful for diagnosis but has not been verified as an accurately read full-window capture; unseen counts can still require correction.
-
-### Testing steps
-
-1. On Netlify after the latest commit is Published, refresh, share the MapleStory window, and start tracking.
-2. Choose the correct HP and MP consumables in the dropdowns. Reference digit templates from the supplied screenshots are specific to **Orange Potion** in slot 1 and **Lemon** in slot 2.
-3. Keep the 4×3 hotbar fully visible. Watch whether a stack count changes after several observations; calibration happens automatically for verified templates.
-4. If counts don't change, open **Scan details & correction** and check the two number-crop previews and **Potion scan diagnostic**. Screenshot these small previews and the status message for a targeted follow-up.
-5. Because the potions' white numbers overlap the item art, **no camera/image-only reader can guarantee perfect recognition**. Large stack changes during unreadable periods, and restock/usage between captures, may remain unaccounted for. The tracker must not invent potion costs.
-
-### Previous fixes
-
-## Changes from Alpha 0.2.7
-
-### Inventory can move to the corners
-
-- A dedicated *mesos footer detector* now looks for the white balance field, golden coin emblem, and blue inventory footer rails anywhere in the shared game frame. It is not dependent on the top bar or the whole inventory being visible.
-- Supports fully visible inventories in any screen position, plus some partial offscreen placements **when the mesos digits themselves remain visible**. If the number is covered or outside the shared frame, no read is possible; the previous confirmed balance is preserved.
-- Detection and OCR use the same frozen frame. If the inventory moves during OCR startup, the detector reacquires the footer instead of calling it "closed" solely because the old position has changed.
-- This change does not modify the actual OCR algorithm or meso balance confirmation requirements (two matching captures). EXP and level readers remain untouched.
-
-### Automatic HP/MP digit recognition
-
-- Added a digit-level pixel reference library extracted from seven real supplied hotbar screenshots showing Orange Potion and Lemon quantities `49–43` and `114–108`.
-- Unlike the older whole-stack reference matcher, the new matcher handles number positions separately. It can recognize some combinations of already-known digit shapes which were **not** trained as whole numbers.
-- Very strict shape-error and runner-up separation thresholds prevent a new/unrecognized digit from being forced into a memorized value. If no confident pixel match exists, the old cautious OCR and stored-calibration fallback remains available.
-- For these specific calibrated consumables, a starting count can be confirmed automatically after three matching frame captures. For other items or uncertain stacks, the manual baseline and correction remain available.
-- Verified quantity decreases are included in potion-cost estimates; possible missed uses (while hidden, restocked, or during unreadable frames) cannot be reconstructed reliably.
-
-## Testing performed
-
-- Independent footer recognition and field cropping on synthetic screenshots with inventory at the top-left, middle, and bottom-right; a partly offscreen left/top inventory; a right-clipped inventory where mesos are still visible; and 80% / 125% scaled versions. A game screenshot without inventory returns no false footer in these tests.
-- All fourteen reference stack counts (HP 43–49 and MP 108–114) recognized by the per-digit reader. A deliberately corrupted glyph was rejected. A synthetic mix of known MP digit glyphs was correctly recognized in 6 of 7 tested combinations; the seventh was rejected rather than misclassified.
-- JavaScript syntax checks passed. **An end-to-end live browser/game session was not available in the test environment**, so actual in-game tracking remains to be verified by the player.
-
-## Using the tracker
-
-1. Open the Netlify website in Chrome or Edge and share the MapleStory window.
-2. Select **Orange Potion** for HP and **Lemon** for MP to use the included specialized digit library. Other consumables still work through the earlier OCR / manual confirmation path.
-3. Open the inventory anywhere in the game. The tracker tries to find the footer every ~2 seconds and uses two matching reads before updating mesos.
-4. Keep the two consumables in the **top-left** and **second-from-left** cells of the first hotbar row, with the 4×3 hotbar visible.
-5. Use the expanded scan details if the program shows "unverified"—these rejections are deliberate safeguards. The selected NPC prices affect the estimated potion value and profit.
-
-## Technical / deployment
-
-Static HTML, CSS and JS; no build command. The EXP module, level module and net-profit accounting code are preserved from Alpha 0.2.7. This release adds `inventory-footer.js`, `potion-digits.js`, and `potion-digit-reader.js`, and changes `extras.js`, `potion-reader.js`, and `index.html`.
-
-No perfect OCR guarantee: sprites, display scaling, overlay interference, and variations in potion background can still make numeric readings ambiguous. The tracker keeps the last verified count rather than guessing. The Netlify deployment must be confirmed separately from a successful GitHub push.
+OCR depends on Tesseract.js loaded over a CDN. Data is processed locally in the browser. A failed scan preserves last verified values.
