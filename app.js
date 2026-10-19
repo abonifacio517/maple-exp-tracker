@@ -9,7 +9,7 @@ const state = {
   interval: null, worker: null, workerPromise: null,
   levelTimer: null, levelBusy: false, levelWorker: null, levelWorkerPromise: null,
   sessionStart:null, lastExp:null, currentExp:null, currentPct:null,
-  expGained:0, pctGained:0, levelUps:0, gains:[], elapsedCache:0,
+  expGained:0, pctGained:0, levelUps:0, gains:[], expMinuteHistory:[], elapsedCache:0,
   scanStarted:0, currentLevel:null, identityChecked:0, identityLockLevel:false, accountedLevel:null, pendingLevel:null,
   levelCandidate:null, levelReads:0, lastOCRNote:''
 };
@@ -34,7 +34,8 @@ function refreshButtons(){
   tracking.classList.toggle('is-pause',running);
   tracking.classList.toggle('is-resume',!running);
   tracking.setAttribute('aria-pressed',String(running));
-  $('sharePill').textContent=sharing?'● Sharing window':'Not sharing';
+  $('sharePill').classList.toggle('is-sharing',sharing);
+  $('shareLabel').textContent=sharing?'Sharing window':'Not sharing';
 }
 function pause(){state.running=false;state.cycle++;clearInterval(state.interval);state.interval=null;
   clearInterval(state.levelTimer);state.levelTimer=null;
@@ -44,7 +45,7 @@ function reset(){
   state.sessionStart=null;state.lastExp=null;state.currentExp=null;state.currentPct=null;
   state.currentLevel=null;state.identityChecked=0;state.identityLockLevel=false;state.accountedLevel=null;state.pendingLevel=null;
   state.levelCandidate=null;state.levelReads=0;state.lastOCRNote='';
-  state.expGained=0;state.pctGained=0;state.levelUps=0;state.gains=[];
+  state.expGained=0;state.pctGained=0;state.levelUps=0;state.gains=[];state.expMinuteHistory=[];
   if(typeof resetExtras==='function')resetExtras();
   $('currentExp').textContent='—';$('currentPct').textContent='—';$('perHour').textContent='0';
   $('gained').textContent='0';$('rolling').textContent='0';$('pctGained').textContent='0.00%';
@@ -627,7 +628,13 @@ function record(expReading){
   if(proposedLevel!==state.currentLevel){state.currentLevel=proposedLevel;state.pendingLevel=null;}
   if(prevExp!==null){
     state.expGained+=gain;
-    if(gain)state.gains.push({ts:now,amount:gain});
+    if(gain>0){
+      state.gains.push({ts:now,amount:gain});
+      // Experimental chart: preserve independently verified EXP deltas for up to an hour.
+      // Never use raw or unverified OCR guesses as graph data.
+      state.expMinuteHistory.push({ts:now,amount:gain});
+      state.expMinuteHistory=state.expMinuteHistory.filter(p=>p.ts>=now-3600000);
+    }
     const requiredOld=expRequirement(oldLevel??state.currentLevel);
     const gainPercent=levelUp
       ?((requiredOld-prevExp)/requiredOld)*100+(needed!==null?100*exp/needed:0)
