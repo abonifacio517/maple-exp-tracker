@@ -1,14 +1,22 @@
-# Maple EXP Tracker — Alpha 0.2.10
+# Maple EXP Tracker — Alpha 0.2.11
 
 A browser-based, **screen-only** MapleStory Classic World EXP, mesos, and potion tracker. The website only analyzes pixels from the window you approve for screen sharing. No game-memory reading, injection, packet access, or automated game input. Passive screen capture is not automatically authorized by Nexon's terms; check with Nexon if compliance is important.
 
-## What's new in Alpha 0.2.10
+## What's new in Alpha 0.2.11
 
-- HP and MP hotbar scans are attempted every 2 seconds while tracking, independently of EXP and mesos.
-- OCR may still take longer than 2 seconds, and overlapping scans are safely skipped. The existing multi-frame confirmations remain in place.
-- No changes to EXP, level, mesos recognition or profit calculation.
+- **Consumable-independent digit recognition.** The same outlined MapleStory number font is now recognized independently of which item icon is in HP slot 1 or MP slot 2; the dropdowns continue to control pricing. This uses a new shared font matcher and falls back to existing OCR when uncertain.
+- The shared font recognizer uses relative light/dark edge shapes instead of requiring the previous Orange Potion / Lemon reference art. Strict matching rejects partial, ambiguous digits rather than inventing consumption. It supports 2–3 digit counts from tested samples; 1-digit and unfamiliar artwork can still require OCR or correction.
+- Initial stacks detected by shared font matching need **4 agreeing captures**. After a verified starting count, changes need **3 agreeing captures**. A single unreadable capture no longer erases a promising reading, but a 14-second expiration prevents stale confirmations.
+- HP and MP still attempt scans every **2 seconds**, without overlapping OCR jobs. EXP, level, mesos, NPC pricing, and profit logic have not changed.
+- Browser regression tests: `49` over Orange Potion, `114` over Lemon, and `89` over a different red potion icon all matched. A small separate `104` close-up did **not** pass the strict matcher, which is intentional: unknown numbers must not be forced into a match. Different consumables and window resolutions still need live testing.
 
-## Previous work: Alpha 0.2.9
+## Previous release: Alpha 0.2.10
+
+- HP and MP potion checks now run on a **2-second polling interval** while the tracker is active and the game window is shared.
+- The potion reader uses its own workers and skips a tick if the previous scan is still processing. A *confirmed* reading may take longer than 2 seconds.
+- The existing multi-frame confidence checks remain in place; EXP, level and mesos algorithms are unchanged.
+
+## Previous release: Alpha 0.2.9
 
 **Potion quantity recognition fix.** The digits in MapleStory's hotbar quantities are at the bottom-left of each slot, while the faint labels at the top indicate hotkeys. The primary problem in Alpha 0.2.8 was a misaligned crop: as little as one pixel made the strict digit templates fail. The reader now searches around the expected quantity area, chooses only an unambiguous high-confidence digit match, and remembers the successful alignment to reduce CPU usage in later scans.
 

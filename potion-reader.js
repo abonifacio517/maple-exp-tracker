@@ -1,7 +1,7 @@
 'use strict';
 // Separate potion reader. Screen pixels only; no game-client hooks, memory reads or input.
 // OCR is advisory until verified; users can label exact stack images to calibrate.
-const POTION_MS=2000; // Attempt HP/MP scans every 2 seconds; avoid overlapping OCR work.
+const POTION_MS=2000; // Poll HP and MP together every 2 seconds; skip overlap if OCR is still busy.
 let potionTimer=null,potionGeneration=0,potionBusy=false;
 // Separate HP and MP OCR workers prevent a difficult HP digit from blocking MP.
 const potionWorkers={hp:null,mp:null},potionWorkerPromises={hp:null,mp:null};
@@ -61,6 +61,7 @@ function populatePotionMenus(){
       lastPotionSelection[kind]=select.value;
       localStorage.setItem(`maple_potion_${kind}`,select.value);
       // Counts of a new item are NOT comparable with the old item's stack.
+      if(typeof clearPotionEvidence==='function')clearPotionEvidence(kind);
       if(previous!==select.value&&extras[kind+'Current']!==null){
         extras[kind+'Current']=null;extras.pending[kind]=null;
         potionSamples[kind]=null;potionAlign[kind]=null;
@@ -129,6 +130,25 @@ function potionAlignedCrop(kind,frame,hotbar){
   const base=potionRect(hotbar,kind);
   const {dx=0,dy=0}=potionAlign[kind]||{};
   return potionSourceData({...base,x:base.x+dx,y:base.y+dy},frame);
+}
+// Reuse the same MapleStory *font* for every consumable. Unlike the legacy
+// item-image references, this method never checks the selected HP/MP item.
+function potionUniversalCapture(kind,frame,hotbar){
+  if(typeof potionUniversalFontMatch!=='function')return null;
+  const base=potionRect(hotbar,kind);
+  const prior=potionAlign[kind];
+  const shifts=prior?[prior,{dx:0,dy:0},{dx:0,dy:2},{dx:0,dy:4}]:
+    [{dx:0,dy:0},{dx:0,dy:2},{dx:1,dy:2},{dx:-1,dy:2},{dx:0,dy:4}];
+  const visited=new Set();
+  for(const {dx,dy} of shifts){
+    if(visited.has(`${dx},${dy}`))continue;
+    visited.add(`${dx},${dy}`);
+    const raw=potionSourceData({...base,x:base.x+dx,y:base.y+dy},frame);
+    if(!raw)continue;
+    const reading=potionUniversalFontMatch(kind,raw);
+    if(reading){potionAlign[kind]={dx,dy};return {reading,raw};}
+  }
+  return null;
 }
 function potionSequenceMatch(kind,raw){
   // A learned *whole-count* reference is never extrapolated to an unseen count.
@@ -261,6 +281,8 @@ async function getPotionWorker(kind){
 async function readPotionImage(kind,raw){
   const digits=potionDigitMatch(kind,raw);
   if(digits)return digits;
+  const general=typeof potionUniversalFontMatch==='function'?potionUniversalFontMatch(kind,raw):null;
+  if(general)return general;
   const known=potionSequenceMatch(kind,raw);
   if(known)return known;
   const remembered=potionPatternLookup(kind,raw);
@@ -282,37 +304,53 @@ async function readPotionImage(kind,raw){
   return {value:accepted,confidence:best?.[1]?.best||0,agreement:best?.[1]?.votes||0,source:'ocr',
     note:passes.map(p=>`${p.mode}:${p.raw||'?'}(${Math.round(p.confidence)}%)`).join(' / ')+(accepted===null?' · uncertain':'')};
 }
+function clearPotionEvidence(kind){
+  extras.pending[kind]=null;
+}
+function potionEvidence(kind,value){
+  const now=Date.now(),prev=extras.pending[kind];
+  const current=prev?.value===value&&now-(prev.at||0)<=14000?prev:null;
+  const count=(current?.count||0)+1;
+  extras.pending[kind]={value,count,at:now};
+  return count;
+}
 function handlePotionReading(kind,result,canvas){
   const current=extras[kind+'Current'];
   const value=result.value;
-  if(value===null||value===undefined){extras.pending[kind]=null;return `${kind.toUpperCase()}: ${result.note}`;}
+  if(value===null||value===undefined){
+    // Do not erase a promising candidate because a single frame was unreadable.
+    // The 14-second expiration in potionEvidence bounds stale confirmations.
+    return `${kind.toUpperCase()}: ${result.note} · last confirmed count retained`;
+  }
   if(current===null){
     // A strong, game-specific digit/sequence match can establish the first
     // count automatically. Unknown numbers read by generic OCR still require
     // an explicit baseline so a missing hundreds digit cannot become profit.
     const trusted=result.source==='sequence'||result.source==='digit-templates'||
-      result.note?.startsWith('calibrated pixel');
+      result.source==='font-universal'||result.note?.startsWith('calibrated pixel');
     if(!trusted&&!(result.source==='ocr'&&result.confidence>=88&&result.agreement>=2)){
       extras.pending[kind]=null;
       return `${kind.toUpperCase()}: OCR suggests ${fmt(value)} but digit length is unverified; waiting for a strong reading (or set count manually).`;
     }
-    const prev=extras.pending[kind];
-    extras.pending[kind]=prev?.value===value?{value,count:prev.count+1}:{value,count:1};
-    if(extras.pending[kind].count>=(trusted?3:4)){
+    const count=potionEvidence(kind,value);
+    // An item-independent font match needs 4 independent frames, since the
+    // background can be quite different for a previously unseen consumable.
+    const needed=result.source==='font-universal'?4:trusted?3:4;
+    if(count>=needed){
       extras[kind+'Current']=value;extras.potionWhen=new Date();extras.lastError='';
       extras.pending[kind]=null;storePotionSample(kind,value,canvas);
       return `${kind.toUpperCase()}: starting stack ${fmt(value)} confirmed automatically (${result.note})`;
     }
-    return `${kind.toUpperCase()}: verifying starting ${fmt(value)} (${extras.pending[kind].count}/${trusted?3:4} frames)`;
+    return `${kind.toUpperCase()}: verifying starting ${fmt(value)} (${count}/${needed} captures; ${result.note})`;
   }
   const change=Math.abs(value-current);
-  // At short scan intervals a missing hundreds digit produces enormous false use.
+  // At short scan intervals a missing hundreds digit produces an enormous false use.
   const maxDifference=Math.max(6,Math.ceil(current*.12));
   if(change>maxDifference){extras.pending[kind]=null;return `${kind.toUpperCase()}: ignored ${fmt(current)} → ${fmt(value)} (implausibly large; confirm manually if real).`;}
-  const previous=extras.pending[kind];
-  extras.pending[kind]=previous?.value===value?{value,count:previous.count+1}:{value,count:1};
-  const confirmations=result.source==='sequence'||/^(calibrated pixel|independent pixel digits|verified reference)/.test(result.note||'')?2:3;
-  if(extras.pending[kind].count>=confirmations){
+  const count=potionEvidence(kind,value);
+  const confirmations=result.source==='font-universal'?3:
+    result.source==='sequence'||/^(calibrated pixel|independent pixel digits|verified reference)/.test(result.note||'')?2:3;
+  if(count>=confirmations){
     acceptPotion(kind,value);
     storePotionSample(kind,value,canvas);
     return `${kind.toUpperCase()}: confirmed ${fmt(value)} (${result.note})`;
@@ -335,7 +373,7 @@ async function potionScan(generation){
     // Use the same frozen frame for both potions. Fast pixel matching searches
     // nearby offsets; an isolated HP and MP OCR worker is used only if needed.
     const jobs=await Promise.all(['hp','mp'].map(async kind=>{
-      const located=potionLocatedDigits(kind,frame,hotbar);
+      const located=potionLocatedDigits(kind,frame,hotbar)||potionUniversalCapture(kind,frame,hotbar);
       const raw=located?.raw||potionAlignedCrop(kind,frame,hotbar);
       if(!raw)return {kind,raw:null,reading:{value:null,note:'Quantity crop outside capture'}};
       potionSamples[kind]={item:$(kind+'PotionSelect').value,lastCanvas:raw};
@@ -358,7 +396,7 @@ async function potionScan(generation){
     extras.lastPotionAttempt=Date.now();
     const unsure=messages.some(m=>/ignored|uncertain|verifying|confirm starting count|not available/.test(m));
     extras.potionStatus=extras.hpCurrent===null||extras.mpCurrent===null?
-      'Hotbar found · confirm starting stack counts below':
+      'Hotbar found · automatically verifying starting stack counts':
       unsure?'Hotbar found · checking uncertain digits · last verified counts shown':
       'Hotbar found · verified '+new Date().toLocaleTimeString();
     $('potDebug').textContent=messages.join('\n')+'\nOnly repeated verified values change session totals.';
