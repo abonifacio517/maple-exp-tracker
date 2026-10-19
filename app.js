@@ -46,7 +46,7 @@ function reset(){
   $('lastScan').textContent='—';$('expStatus').textContent='Waiting';$('levelStatus').textContent='Waiting';
   $('scanDuration').textContent='—';$('ocrDetails').textContent='OCR has not started.';badge('Idle');
   $('characterLevel').textContent='—';$('levelSource').textContent='Level needed to calculate %';
-  $('expFraction').textContent='— / — EXP';$('expRemaining').textContent='— remaining';$('requiredExp').textContent='—';$('levelStatus').textContent='Waiting';$('quickLevel').value='';
+  $('expFraction').textContent='— / — EXP';$('expRemaining').textContent='— remaining';$('requiredExp').textContent='—';$('kpqClears').textContent='—';$('levelStatus').textContent='Waiting';$('quickLevel').value='';
 }
 function stopSharing(){
   pause();if(state.stream)state.stream.getTracks().forEach(t=>t.stop());
@@ -557,6 +557,10 @@ function renderStats(){
   $('characterLevel').textContent=state.currentLevel===null?'—':String(state.currentLevel);
   const needed=expRequirement(state.currentLevel);
   $('requiredExp').textContent=needed===null?'—':fmt(needed);
+  // Estimated clears from the fixed KPQ completion reward only; mob EXP is excluded.
+  const kpqClears=needed===null||state.currentExp===null?null:
+    Math.ceil(Math.max(0,needed-state.currentExp)/2550);
+  $('kpqClears').textContent=kpqClears===null?'—':fmt(kpqClears);
   $('expFraction').textContent=state.currentExp===null||needed===null?'— / — EXP':`${fmt(state.currentExp)} / ${fmt(needed)} EXP`;
   $('expRemaining').textContent=state.currentExp===null||needed===null?'— remaining':`${fmt(Math.max(0,needed-state.currentExp))} remaining`;
 
