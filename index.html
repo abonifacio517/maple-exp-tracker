@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0c1117">
   <meta name="description" content="A lightweight, browser-based MapleStory EXP tracker that reads your on-screen EXP every five seconds.">
-  <title>Maple EXP — Alpha 0.2.9</title>
+  <title>Maple EXP — Alpha 0.2.10</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -15,7 +15,7 @@
         <span class="brand-mark" aria-hidden="true">✦</span>
         <div><h1>Maple <span>EXP</span></h1><p>Classic World training tracker</p></div>
       </div>
-      <div class="header-right"><span class="header-note">Alpha 0.2.9 · Screen-only recognition</span><span class="state-pill" id="sharePill">Not sharing</span></div>
+      <div class="header-right"><span class="header-note">Alpha 0.2.10 · Screen-only recognition</span><span class="state-pill" id="sharePill">Not sharing</span></div>
     </header>
 
     <video id="video" autoplay muted playsinline hidden></video>
@@ -127,7 +127,7 @@
             <button class="button ghost" id="resetBtn">Reset session</button>
           </div>
         </div>
-        <p class="connection-hint">Share MapleStory's window. The EXP HUD, inventory mesos counter, and the first two hotbar slots are captured in small crops. There is no game preview. EXP scans every 5 seconds; mesos checks every 2 seconds when your inventory is visible. Potions are checked separately with verified quantity reads. If recognition is uncertain, use the manual stack correction. The percentage is calculated from your EXP and the level table; the on-screen % is not read.</p>
+        <p class="connection-hint">Share MapleStory's window. The EXP HUD, inventory mesos counter, and the first two hotbar slots are captured in small crops. There is no game preview. EXP scans every 5 seconds; mesos checks every 2 seconds when your inventory is visible. HP and MP potion stacks are checked every 2 seconds while tracking; uncertain reads wait for verification. If recognition is uncertain, use the manual stack correction. The percentage is calculated from your EXP and the level table; the on-screen % is not read.</p>
       </section>
 
       <section class="lower-layout">

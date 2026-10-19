@@ -1,7 +1,7 @@
 'use strict';
 // Separate potion reader. Screen pixels only; no game-client hooks, memory reads or input.
 // OCR is advisory until verified; users can label exact stack images to calibrate.
-const POTION_MS=1400;
+const POTION_MS=2000; // Attempt HP/MP scans every 2 seconds; avoid overlapping OCR work.
 let potionTimer=null,potionGeneration=0,potionBusy=false;
 // Separate HP and MP OCR workers prevent a difficult HP digit from blocking MP.
 const potionWorkers={hp:null,mp:null},potionWorkerPromises={hp:null,mp:null};
@@ -306,7 +306,7 @@ function handlePotionReading(kind,result,canvas){
     return `${kind.toUpperCase()}: verifying starting ${fmt(value)} (${extras.pending[kind].count}/${trusted?3:4} frames)`;
   }
   const change=Math.abs(value-current);
-  // At a 1.25-second poll a missing hundreds digit produces enormous false use.
+  // At short scan intervals a missing hundreds digit produces enormous false use.
   const maxDifference=Math.max(6,Math.ceil(current*.12));
   if(change>maxDifference){extras.pending[kind]=null;return `${kind.toUpperCase()}: ignored ${fmt(current)} → ${fmt(value)} (implausibly large; confirm manually if real).`;}
   const previous=extras.pending[kind];

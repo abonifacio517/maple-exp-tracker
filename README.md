@@ -1,8 +1,14 @@
-# Maple EXP Tracker — Alpha 0.2.9
+# Maple EXP Tracker — Alpha 0.2.10
 
 A browser-based, **screen-only** MapleStory Classic World EXP, mesos, and potion tracker. The website only analyzes pixels from the window you approve for screen sharing. No game-memory reading, injection, packet access, or automated game input. Passive screen capture is not automatically authorized by Nexon's terms; check with Nexon if compliance is important.
 
-## What's new in Alpha 0.2.9
+## What's new in Alpha 0.2.10
+
+- HP and MP hotbar scans are attempted every 2 seconds while tracking, independently of EXP and mesos.
+- OCR may still take longer than 2 seconds, and overlapping scans are safely skipped. The existing multi-frame confirmations remain in place.
+- No changes to EXP, level, mesos recognition or profit calculation.
+
+## Previous work: Alpha 0.2.9
 
 **Potion quantity recognition fix.** The digits in MapleStory's hotbar quantities are at the bottom-left of each slot, while the faint labels at the top indicate hotkeys. The primary problem in Alpha 0.2.8 was a misaligned crop: as little as one pixel made the strict digit templates fail. The reader now searches around the expected quantity area, chooses only an unambiguous high-confidence digit match, and remembers the successful alignment to reduce CPU usage in later scans.
 
