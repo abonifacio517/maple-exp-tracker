@@ -11,12 +11,12 @@ const POTION_FONT_TEMPLATES = (() => {
         for (const sample of samples) {
           const w=spec.w,h=spec.h;
           if(sample.length!==w*h)continue;
-          all.push({digit:Number(digit),w,h,signal:potionFontHighPass(sample,w,h)});
+          all.push({digit:Number(digit),w,h,signal:potionFontHighPass(sample,w,h),brightMask:potionFontBrightMask(sample)});
         }
       }
     }
   }
-  for(const ref of POTION_73_88_GLYPHS) all.push({digit:ref.digit,w:ref.w,h:ref.h,signal:potionFontHighPass(ref.values,ref.w,ref.h)});
+  for(const ref of POTION_73_88_GLYPHS) all.push({digit:ref.digit,w:ref.w,h:ref.h,signal:potionFontHighPass(ref.values,ref.w,ref.h),brightMask:potionFontBrightMask(ref.values)});
   return all;
 })();
 function potionFontHighPass(values,w,h) {
@@ -34,27 +34,55 @@ function potionFontHighPass(values,w,h) {
   }
   return out;
 }
-function potionFontGlyphCandidates(values,w,h,targetX,targetY) {
+// Independent intensity-based check. High-pass shape matching can make the
+// same 3/8 error repeatedly when background icon pixels resemble digit strokes.
+// The secondary channel compares the *bright centers* of the printed glyphs.
+// This is a rejection signal, never a guarantee or a second independent frame.
+function potionFontBrightMask(values){
+  return Uint8Array.from(values, v=>v>=103?1:0);
+}
+function potionFontBrightError(observed,reference){
+  let mismatched=0,active=0;
+  for(let i=0;i<observed.length;i++){
+    mismatched+=observed[i]!==reference[i]?1:0;
+    active+=(observed[i]||reference[i])?1:0;
+  }
+  return active?mismatched/active:1;
+}
+function potionFontGlyphCandidates(values,w,h,targetX,targetY,cache) {
   const scores=new Array(10).fill(Infinity);
   const goodPositions=new Array(10).fill(null);
+  const brightScores=new Array(10).fill(Infinity);
   for(const glyph of POTION_FONT_TEMPLATES){
     for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){
       const x=targetX+dx,y=targetY+dy;
       if(x<0||y<0||x+glyph.w>w||y+glyph.h>h)continue;
-      const pixels=new Float32Array(glyph.w*glyph.h);
-      for(let cy=0;cy<glyph.h;cy++)for(let cx=0;cx<glyph.w;cx++){
-        pixels[cy*glyph.w+cx]=values[(y+cy)*w+x+cx];
+      const key=`${x},${y},${glyph.w},${glyph.h}`;
+      let cached=cache.get(key);
+      if(!cached){
+        const pixels=new Float32Array(glyph.w*glyph.h);
+        for(let cy=0;cy<glyph.h;cy++)for(let cx=0;cx<glyph.w;cx++)
+          pixels[cy*glyph.w+cx]=values[(y+cy)*w+x+cx];
+        cached={signal:potionFontHighPass(pixels,glyph.w,glyph.h),bright:potionFontBrightMask(pixels)};
+        cache.set(key,cached);
       }
-      const current=potionFontHighPass(pixels,glyph.w,glyph.h);
       let diff=0;
+      const current=cached.signal;
       for(let i=0;i<current.length;i++)diff+=Math.abs(current[i]-glyph.signal[i]);
       const score=diff/current.length;
-      if(score<scores[glyph.digit]){scores[glyph.digit]=score;goodPositions[glyph.digit]={x,y};}
+      // The bright-center mask intentionally excludes shadows. Keep the
+      // best result for each glyph under both comparisons independently.
+      const bright=potionFontBrightError(cached.bright,glyph.brightMask);
+      if(bright<brightScores[glyph.digit])brightScores[glyph.digit]=bright;
+      if(score<scores[glyph.digit]){scores[glyph.digit]=score;goodPositions[glyph.digit]={x,y,bright};}
     }
   }
-  return scores.map((error,digit)=>({digit,error,position:goodPositions[digit]})).sort((a,b)=>a.error-b.error);
+  return scores.map((error,digit)=>({digit,error,position:goodPositions[digit],brightError:brightScores[digit]}))
+    .sort((a,b)=>a.error-b.error);
 }
+const potionFontLastIssue={hp:'',mp:''};
 function potionUniversalFontMatch(kind,raw){
+  potionFontLastIssue[kind]='No confident font match';
   if(!raw||!POTION_FONT_TEMPLATES.length)return null;
   const w=raw.width,h=raw.height;
   const pixels=raw.getContext('2d',{willReadFrequently:true}).getImageData(0,0,w,h).data;
@@ -63,13 +91,14 @@ function potionUniversalFontMatch(kind,raw){
   // Counts are left-aligned in the bottom-left of the slot. The expected
   // positions do not depend on the color or name of the assigned consumable.
   const slotX = kind==='mp' ? [4,16,27] : [4,14,25];
-  const readings=[];
+  const readings=[],cropCache=new Map();
+  let sawShapeDisagreement=false;
   for(const length of [3,2]){
     // A lone glyph is easy to hallucinate inside the item artwork; use OCR
     // rather than accept one digit without evidence that the count ends there.
     const xs=length===3?slotX:length===2?[4,kind==='mp'?16:14]:[4];
     if(xs[xs.length-1]+9>w)continue;
-    const candidates=xs.map(x=>potionFontGlyphCandidates(values,w,h,x,4));
+    const candidates=xs.map(x=>potionFontGlyphCandidates(values,w,h,x,4,cropCache));
     const best=candidates.map(x=>x[0]);
     if(best.some(x=>!x||x.error>17.5))continue;
     // For three-digit stacks, require a strong prefix to distinguish a true
@@ -77,25 +106,44 @@ function potionUniversalFontMatch(kind,raw){
     if(length===3&&(best[0].error>13.5||best[1].error>16||best[2].error>14))continue;
     // Reject ambiguous digits: we prefer no reading to fabricated expenses.
     if(candidates.some(c=>c.length>1&&c[1].error-c[0].error<3.0))continue;
-    // 3 and 8 share almost the same silhouette in the hotbar font.
-    // Check their scores explicitly even if another digit is runner-up.
-    // A very close 3/8 decision must never turn into potion expenses.
-    const confusable38=candidates.map(c=>{
-      const three=c.find(x=>x.digit===3),eight=c.find(x=>x.digit===8);
-      if(!three||!eight)return null;
-      return Math.abs(three.error-eight.error);
-    });
-    if(candidates.some((c,i)=>(best[i].digit===3||best[i].digit===8)&&confusable38[i]!==null&&confusable38[i]<4.5))continue;
+    // Explicitly consider 3, 8 AND 7: a crop may hallucinate a 7 even if
+    // 3/8 aren't among the two closest high-pass candidates. If any of these
+    // are plausible, require the second bright-core comparison to agree.
+    const disputed=[];
+    for(let i=0;i<candidates.length;i++){
+      const c=candidates[i],winner=c[0];
+      const confusables=c.filter(x=>[3,7,8].includes(x.digit));
+      const risk=[3,7,8].includes(winner.digit)||confusables.some(x=>x.error-winner.error<6);
+      if(!risk)continue;
+      // Bright-core distance is a separate, background-sensitive check. If
+      // artwork hides the glyph, the correct response is UNKNOWN, not a guess.
+      const brightRank=c.slice().sort((a,b)=>a.brightError-b.brightError);
+      const brightBest=brightRank[0],secondBright=brightRank[1];
+      const gap=secondBright?secondBright.brightError-brightBest.brightError:0;
+      if(!brightBest||brightBest.digit!==winner.digit||
+         winner.brightError>.36||gap<.035){
+        disputed.push({position:i,shape:winner.digit,brightness:brightBest?.digit??null,
+          difference:Number(gap.toFixed(3))});
+      }
+    }
+    if(disputed.length){
+      sawShapeDisagreement=true;
+      continue;
+    }
     const value=Number(best.map(x=>x.digit).join(''));
     if(!Number.isSafeInteger(value)||value<0||value>9999)continue;
     const avg=best.reduce((a,b)=>a+b.error,0)/length;
-    readings.push({value,error:avg,length,disambiguated38:best.every((d,i)=>
-      (d.digit!==3&&d.digit!==8)||(confusable38[i]!==null&&confusable38[i]>=7))});
+    readings.push({value,error:avg,length,shapeCrossChecked:true});
   }
-  if(!readings.length)return null;
+  if(!readings.length){
+    potionFontLastIssue[kind]=sawShapeDisagreement?
+      'Pixel shape and bright digit centers disagree (possible 3/7/8 confusion)':'Digit pattern was too weak or incomplete';
+    return null;
+  }
   readings.sort((a,b)=>b.length-a.length||a.error-b.error);
   const best=readings[0];
+  potionFontLastIssue[kind]='';
   return {value:best.value,confidence:Math.max(0,Math.min(94,Math.round(100-best.error*3))),source:'font-universal',
-    disambiguated38:best.disambiguated38,
-    note:`shared hotbar font ${best.value} (shape error ${best.error.toFixed(1)}; 3/8 ${best.disambiguated38?'clear':'cautious'})`};
+    shapeCrossChecked:true,
+    note:`shared hotbar font ${best.value} (shape error ${best.error.toFixed(1)}; bright-core check passed)`};
 }

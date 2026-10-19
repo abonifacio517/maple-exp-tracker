@@ -1,8 +1,22 @@
-# Maple EXP Tracker — Alpha 0.2.12
+# Maple EXP Tracker — Alpha 0.2.13
 
 A browser-based, **screen-only** MapleStory Classic World EXP, mesos, and potion tracker. The website only analyzes pixels from the window you approve for screen sharing. No game-memory reading, injection, packet access, or automated game input. Passive screen capture is not automatically authorized by Nexon's terms; check with Nexon if compliance is important.
 
-## What's new in Alpha 0.2.12
+## What's new in Alpha 0.2.13 — protect against systematic potion misreads
+
+- Fixed the misleading `3/8 clear` label. That was only a gap between two pixel-template scores, not an independent accuracy guarantee.
+- When common lookalikes `3`, `7`, and `8` are plausible, compare the bright centers of the glyphs against the outlined-shape classifier. Disagreeing comparisons now reject the quantity rather than reporting false certainty.
+- Use the **same cached crop features** for repeated glyph-template comparisons. In local JavaScript tests on reference images, each quantity check fell from around 10 seconds to under 1 second; actual browser/device speed may differ.
+- Compare the legacy item-specific pixel reader against the universal reader when both produce an answer; disagreements show diagnostics, not fabricated consumption.
+- Hold sudden three-to-six item changes involving confusable final digits for correction, and always hold an unverified `3 ↔ 8` swap. Legitimate rapid consumption may need manual verification; that limitation is intentional.
+- Improve rejection messages so an unreadable capture can reveal a mismatch between digit outline and bright digit centers.
+- EXP, level, mesos recognition, two-second potion polling, consumable pricing, and profit formulas are untouched.
+
+**Validation:** Tested against the original bright-pixel template samples of `3`, `7` and `8` and a subset of supplied Orange Potion / Lemon screenshots. A live-game `HP 87` read has not been independently validated; screen-only recognition cannot guarantee error-free results. This version is deployed through **GitHub Pages**, not Netlify.
+
+## Previous release: Alpha 0.2.12
+
+## Changes in Alpha 0.2.12
 
 - Added user-verified `88` and `73` game-font references from two screenshots of the same hotbar slot. These supply examples of 8, 3 and 7 in the shared, item-independent matcher.
 - Added an explicit **3 vs 8 candidate separation test** to block ambiguous reads before they affect potion costs.

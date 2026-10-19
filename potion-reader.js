@@ -280,8 +280,12 @@ async function getPotionWorker(kind){
 }
 async function readPotionImage(kind,raw){
   const digits=potionDigitMatch(kind,raw);
-  if(digits)return digits;
   const general=typeof potionUniversalFontMatch==='function'?potionUniversalFontMatch(kind,raw):null;
+  // Two different pixel classifiers disagreeing is a reason to abstain, not
+  // to silently trust whichever was called first. Especially for 3/8/7.
+  if(digits&&general&&digits.value!==general.value)
+    return {value:null,source:'conflict',note:`pixel classifiers disagree (${digits.value} vs ${general.value}); holding last verified count`};
+  if(digits)return digits;
   if(general)return general;
   const known=potionSequenceMatch(kind,raw);
   if(known)return known;
@@ -302,7 +306,7 @@ async function readPotionImage(kind,raw){
   const best=ranking[0],conflict=ranking[1]&&best[1].votes===ranking[1][1].votes;
   const accepted=best&&!conflict&&(best[1].votes>=2||best[1].best>=90)?best[0]:null;
   return {value:accepted,confidence:best?.[1]?.best||0,agreement:best?.[1]?.votes||0,source:'ocr',
-    note:passes.map(p=>`${p.mode}:${p.raw||'?'}(${Math.round(p.confidence)}%)`).join(' / ')+(accepted===null?' · uncertain':'')};
+    note:passes.map(p=>`${p.mode}:${p.raw||'?'}(${Math.round(p.confidence)}%)`).join(' / ')+(accepted===null?' · uncertain':'')+(accepted===null&&typeof potionFontLastIssue!=='undefined'?` · font: ${potionFontLastIssue[kind]}`:'')};
 }
 function clearPotionEvidence(kind){
   extras.pending[kind]=null;
@@ -336,6 +340,9 @@ function handlePotionReading(kind,result,canvas){
     // An item-independent font match needs 4 independent frames, since the
     // background can be quite different for a previously unseen consumable.
     const needed=result.source==='font-universal'?4:trusted?3:4;
+    // Do not infer a multi-digit starting stack from an ambiguous shape, even
+    // if the guess is repeated in several frames. Leave it tentative.
+    if(result.source==='font-universal'&&!result.shapeCrossChecked)return `${kind.toUpperCase()}: tentative ${fmt(value)} · waiting for bright-core validation`;
     if(count>=needed){
       extras[kind+'Current']=value;extras.potionWhen=new Date();extras.lastError='';
       extras.pending[kind]=null;storePotionSample(kind,value,canvas);
@@ -350,8 +357,23 @@ function handlePotionReading(kind,result,canvas){
   // otherwise keep the previously confirmed amount and avoid fake spending.
   const lastDigit3and8=(Math.floor(current/10)===Math.floor(value/10))&&
     ((current%10===3&&value%10===8)||(current%10===8&&value%10===3));
-  if(lastDigit3and8 && !(result.source==='font-universal'&&result.disambiguated38&&result.confidence>=78)){
-    return `${kind.toUpperCase()}: possible 3/8 confusion (${fmt(current)} → ${fmt(value)}) · keeping confirmed count; correct manually if real.`;
+  if(lastDigit3and8){
+    // Even a perfect *template* score is not independent evidence if every
+    // frame is the same rendering. False 3/8 swaps corrupt usage and profit.
+    // Manual verification is the safe fallback until a separate recognizer
+    // confirms both the old and new quantity.
+    clearPotionEvidence(kind);
+    return `${kind.toUpperCase()}: possible 3/8 substitution (${fmt(current)} → ${fmt(value)}) · not counted; verify manually if the change is real.`;
+  }
+  // A misread 3 can resemble 7 or 8. Reject multi-item jumps involving
+  // any of these confusables unless *another* classifier independently agrees;
+  // otherwise a repeated systematic error would manufacture potion costs.
+  const suspectDigits=[3,7,8];
+  if(change>=3&&change<=6&&
+     (suspectDigits.includes(current%10)||suspectDigits.includes(value%10))&&
+     result.source==='font-universal'){
+    clearPotionEvidence(kind);
+    return `${kind.toUpperCase()}: possible 3/7/8 digit confusion (${fmt(current)} → ${fmt(value)}) · held for manual confirmation`;
   }
   // At short scan intervals a missing hundreds digit produces an enormous false use.
   const maxDifference=Math.max(6,Math.ceil(current*.12));
@@ -386,7 +408,15 @@ async function potionScan(generation){
       const raw=located?.raw||potionAlignedCrop(kind,frame,hotbar);
       if(!raw)return {kind,raw:null,reading:{value:null,note:'Quantity crop outside capture'}};
       potionSamples[kind]={item:$(kind+'PotionSelect').value,lastCanvas:raw};
-      const reading=located?.reading||await readPotionImage(kind,raw);
+      let reading=located?.reading||await readPotionImage(kind,raw);
+      // Fast aligned template reads may conflict with the shared-font reader.
+      // Do not accept either classification when they disagree.
+      if(located?.reading&&typeof potionUniversalFontMatch==='function'){
+        const independent=potionUniversalFontMatch(kind,raw);
+        if(independent&&independent.value!==reading.value){
+          reading={value:null,source:'conflict',note:`separate pixel models disagree (${reading.value} vs ${independent.value})`};
+        }
+      }
       return {kind,raw,reading};
     }));
     if(generation!==potionGeneration||!state.running)return;
