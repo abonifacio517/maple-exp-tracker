@@ -2,7 +2,7 @@
 // Optional net-mesos measurements. Works only with browser-provided
 // video frames; never accesses MapleStory processes, memory, files, or controls.
 const extras={inventory:null,lastFind:0,inventoryOpen:false,
-  mesosStart:null,mesosCurrent:null,mesoPending:null,mesoWhen:null,mesoStartWhen:null,mesoBusy:false,mesoStatus:'',
+  mesosStart:null,mesosCurrent:null,mesoPending:null,mesoVotes:[],mesoWhen:null,mesoStartWhen:null,mesoBusy:false,mesoStatus:'',
   lastMesoAttempt:0,lastInvFind:0};
 function anchorMatcher(spec,s,kind){
   const pts=spec.points.filter((p,i)=>i%(kind==='hotbar'?5:2)===0).map(([x,y,v])=>[Math.round(x*s),Math.round(y*s),v]);
@@ -156,21 +156,51 @@ function showExtraStats(){
     (extras.mesoWhen?'Inventory open · last confirmed '+extras.mesoWhen.toLocaleTimeString():extras.mesoPending?'Confirming '+fmt(extras.mesoPending.value)+'…':'Inventory open · reading balance…'):
     (extras.mesoWhen?'Inventory closed · last confirmed '+extras.mesoWhen.toLocaleTimeString():'Waiting for inventory'));
 }
-function acceptMesos(value){
+// Confirmation is based on SEPARATE captured frames, not on several OCR
+// filters of the same image. Keep a rolling record across occasional failures.
+function acceptMesos(read){
+  const value=read?.value;
   if(!Number.isSafeInteger(value)||value<0||value>1000000000000)return false;
-  const prev=extras.mesoPending;
-  extras.mesoPending=prev?.value===value?{value,count:prev.count+1}:{value,count:1};
-  // Important: agreement in different image filters is NOT independent evidence.
-  // Require two separate scans showing the same balance, preventing one mistaken
-  // OCR result from being silently treated as a confirmed balance.
-  if(extras.mesoPending.count<2)return false;
-  if(extras.mesosStart===null){extras.mesosStart=value;extras.mesoStartWhen=new Date();}
-  extras.mesosCurrent=value;extras.mesoWhen=new Date();return true;
+  if(value===extras.mesosCurrent){
+    extras.mesoWhen=new Date();extras.mesoVotes=[];extras.mesoPending=null;
+    return true;
+  }
+  const now=Date.now();
+  extras.mesoVotes=(extras.mesoVotes||[]).filter(v=>now-v.time<30000).slice(-9);
+  extras.mesoVotes.push({value,time:now,source:read.source||'unknown',quality:read.quality||0});
+  // The 10-capture rolling history tolerates intermittent unreadable results,
+  // but never counts a single OCR pass as multiple independent observations.
+  const recent=extras.mesoVotes.slice(-10);
+  const groups=new Map();
+  for(const vote of recent){
+    const g=groups.get(vote.value)||{count:0,strong:0,quality:0};
+    g.count++;g.quality+=vote.quality;
+    if(vote.source==='font'||vote.source==='ocr-agreement')g.strong++;
+    groups.set(vote.value,g);
+  }
+  const rank=[...groups].sort((a,b)=>b[1].count-a[1].count || b[1].quality-a[1].quality);
+  const leader=rank[0],runner=rank[1];
+  // Strong independent recognition needs three captures; OCR-only reads
+  // need four. Large/suspicious jumps need an additional capture.
+  const trusted=leader[1].strong>=2;
+  let needed=trusted?3:4;
+  const current=extras.mesosCurrent;
+  if(current!==null){
+    const huge=Math.abs(leader[0]-current)>Math.max(1000000,Math.ceil(current*.35));
+    const digits=Math.abs(String(leader[0]).length-String(current).length)>1;
+    if(huge||digits)needed++;
+  }
+  extras.mesoPending={value:leader[0],count:leader[1].count,needed};
+  if(leader[1].count<needed || (runner && runner[1].count>=leader[1].count))return false;
+  if(extras.mesosStart===null){extras.mesosStart=leader[0];extras.mesoStartWhen=new Date();}
+  extras.mesosCurrent=leader[0];extras.mesoWhen=new Date();
+  extras.mesoPending=null;extras.mesoVotes=[];
+  return true;
 }
 function resetExtras(){
   if(typeof stopMesosWatch==='function')stopMesosWatch();
   Object.assign(extras,{inventory:null,lastFind:0,inventoryOpen:false,
-    mesosStart:null,mesosCurrent:null,mesoPending:null,mesoWhen:null,mesoStartWhen:null,mesoBusy:false,mesoStatus:'',
+    mesosStart:null,mesosCurrent:null,mesoPending:null,mesoVotes:[],mesoWhen:null,mesoStartWhen:null,mesoBusy:false,mesoStatus:'',
     lastMesoAttempt:0,lastInvFind:0});
   if(state.running && state.stream)beginMesosWatch();
   showExtraStats();
@@ -276,59 +306,96 @@ function locateMesosField(frame,inv){
   return {rect,note:`Mesos textbox x=${x0}..${x1}, y=${best.start}..${best.end}, capture ${rect.w}×${rect.h}`};
 }
 function parseMesosText(raw){
-  const text=String(raw||'').trim().replace(/\s+/g,'');
+  const text=String(raw||'').trim().replace(/\s+/g,'').replace(/(?<=\d)\.(?=\d{3}(?:$|[,]))/g,',');
   // Valid groupings like 466,629, 1,234,567, or plain 466629.
   if(!/^(?:\d{1,3}(?:,\d{3})+|\d{1,12})$/.test(text))return null;
   const n=Number(text.replace(/,/g,''));
   return Number.isSafeInteger(n)&&n>=0&&n<=1000000000000?n:null;
 }
+// Ink-only preparation on the original pixels before nearest-neighbour
+// enlargement. This suppresses colored textbox rails and background noise.
 function inkOnlyMesosImage(rect,sourceFrame=null){
-  // Second OCR pass: collapse the white box to black text on white background.
-  // Avoid palette/shadow colors from the inventory border.
-  const image=snapshotImage(rect,'gray',sourceFrame);
-  if(!image)return null;
-  const ctx=image.getContext('2d',{willReadFrequently:true});
-  const pixels=ctx.getImageData(0,0,image.width,image.height);
-  for(let i=0;i<pixels.data.length;i+=4){
-    const gray=pixels.data[i];
-    const v=gray<175?0:255;
-    pixels.data[i]=pixels.data[i+1]=pixels.data[i+2]=v;
+  const W=sourceFrame?.width??video.videoWidth,H=sourceFrame?.height??video.videoHeight;
+  if(!rect||rect.x<0||rect.y<0||rect.x+rect.w>W||rect.y+rect.h>H)return null;
+  const raw=document.createElement('canvas');
+  raw.width=rect.w;raw.height=rect.h;
+  const ctx=raw.getContext('2d',{willReadFrequently:true});
+  if(sourceFrame){
+    const bytes=new Uint8ClampedArray(rect.w*rect.h*4);
+    for(let y=0;y<rect.h;y++){
+      const begin=((rect.y+y)*W+rect.x)*4;
+      bytes.set(sourceFrame.data.subarray(begin,begin+rect.w*4),y*rect.w*4);
+    }
+    ctx.putImageData(new ImageData(bytes,rect.w,rect.h),0,0);
+  }else ctx.drawImage(video,rect.x,rect.y,rect.w,rect.h,0,0,rect.w,rect.h);
+  const data=ctx.getImageData(0,0,raw.width,raw.height);
+  for(let y=0;y<raw.height;y++)for(let x=0;x<raw.width;x++){
+    const i=(y*raw.width+x)*4,r=data.data[i],g=data.data[i+1],b=data.data[i+2];
+    const ink=Math.max(r,g,b)<183&&Math.max(r,g,b)-Math.min(r,g,b)<45;
+    // Rightmost pixels often include a vertical textbox border rather than a
+    // number. Remove that edge as well as the top/bottom rail if captured.
+    const safe=x>=2&&x<raw.width-2&&y>=1&&y<raw.height-2;
+    const v=ink&&safe?0:255;
+    data.data[i]=data.data[i+1]=data.data[i+2]=v;
   }
-  ctx.putImageData(pixels,0,0);
+  ctx.putImageData(data,0,0);
+  const zoom=8,pad=22;
+  const image=document.createElement('canvas');
+  image.width=raw.width*zoom+2*pad;image.height=raw.height*zoom+2*pad;
+  const c=image.getContext('2d');c.fillStyle='white';c.fillRect(0,0,image.width,image.height);
+  c.imageSmoothingEnabled=false;c.drawImage(raw,pad,pad,raw.width*zoom,raw.height*zoom);
   return image;
 }
 async function readMesosFast(worker,rect,sourceFrame){
-  if(!rect)return {value:null,note:'Number area not found.'};
+  if(!rect)return {value:null,note:'Mesos field not visible.'};
+  // First, attempt to recognize individual glyphs from the authentic
+  // screenshot-trained mesos font atlas. Missing digits are never guessed.
+  const font=typeof readMesosDigits==='function'?readMesosDigits(sourceFrame,rect):{value:null,note:'Font reader unavailable'};
+  if(!worker){
+    if(font.value!==null&&font.score>=.78)
+      return {value:font.value,source:'font',quality:font.score,note:'font: '+font.note+' · OCR unavailable'};
+    return {value:null,note:'font: '+font.note+' · OCR unavailable'};
+  }
   await worker.setParameters({
     tessedit_char_whitelist:'0123456789,',
     tessedit_pageseg_mode:Tesseract.PSM.SINGLE_LINE
   });
-  const details=[],candidates=[];
-  const modes=['raw','gray','ink'];
-  for(const mode of modes){
+  const details=[`font: ${font.note}`],ocr=[];
+  // OCR remains the fallback for glyphs absent from the verified template
+  // library (notably 0, 1, 5 and 8) and a cross-check for known digits.
+  for(const mode of ['raw','ink']){
     const canvas=mode==='ink'?inkOnlyMesosImage(rect,sourceFrame):snapshotImage(rect,mode,sourceFrame);
     if(!canvas)break;
     const out=await worker.recognize(canvas);
     const raw=String(out.data.text||'').trim(),conf=Math.round(Number(out.data.confidence)||0);
-    const parsed=parseMesosText(raw);
+    const value=parseMesosText(raw);
     details.push(`${mode}: ${JSON.stringify(raw)} (${conf}%)`);
-    // Multi-frame confirmation remains mandatory. This minimum excludes most
-    // broken OCR results while admitting softer original MapleStory numerals.
-    if(parsed!==null && conf>=45)candidates.push({value:parsed,conf,mode});
-    // Save OCR work when the original image is already very clear.
-    if(mode==='raw'&&parsed!==null&&conf>=85)break;
+    // Weak OCR can contribute supporting evidence if both independently
+    // processed images agree. It can never immediately change mesos totals.
+    if(value!==null&&conf>=22)ocr.push({value,conf,mode});
+    if(mode==='raw'&&font.value!==null&&font.value===value&&conf>=75)break;
   }
-  if(!candidates.length)return {value:null,note:details.join(' | ')+' · no valid candidate'};
-  const votes=new Map();
-  for(const v of candidates){
-    const x=votes.get(v.value)||{count:0,max:0};
-    x.count++;x.max=Math.max(x.max,v.conf);votes.set(v.value,x);
+  const ocrCounts=new Map();
+  for(const v of ocr){const g=ocrCounts.get(v.value)||{n:0,total:0,max:0};g.n++;g.total+=v.conf;g.max=Math.max(g.max,v.conf);ocrCounts.set(v.value,g);}
+  const ranked=[...ocrCounts.entries()].sort((a,b)=>b[1].n-a[1].n||b[1].total-a[1].total);
+  const top=ranked[0];
+  if(font.value!==null&&font.score>=.72){
+    // High-confidence disagreement with an independent engine is an
+    // explicit ambiguity rather than permission to overwrite the balance.
+    if(top&&top[0]!==font.value&&top[1].max>=72)
+      return {value:null,source:'conflict',note:details.join(' | ')+' · font/OCR conflict'};
+    return {value:font.value,source:'font',quality:font.score,
+      note:details.join(' | ')+(top?.[0]===font.value?' · font and OCR agree':' · font candidate; confirm over time')};
   }
-  const ranked=[...votes.entries()].sort((a,b)=>b[1].count-a[1].count||b[1].max-a[1].max);
-  const [value,rank]=ranked[0];
-  const disagreement=ranked.length>1 && ranked[1][1].count===rank.count;
-  if(disagreement) return {value:null,note:details.join(' | ')+' · conflicting OCR passes'};
-  return {value,note:details.join(' | ')+(rank.count>=2?' · filters agree':' · confirm on next frame')};
+  if(ranked.length>1&&ranked[0][1].n===ranked[1][1].n)
+    return {value:null,source:'conflict',note:details.join(' | ')+' · conflicting OCR values'};
+  if(top&&top[1].n>=2)
+    return {value:top[0],source:'ocr-agreement',quality:Math.min(1,top[1].total/180),
+      note:details.join(' | ')+' · OCR preprocessing agrees; verifying across frames'};
+  if(top&&top[1].max>=78)
+    return {value:top[0],source:'ocr-single',quality:top[1].max/150,
+      note:details.join(' | ')+' · high-confidence OCR candidate; needs extra captures'};
+  return {value:null,source:'uncertain',note:details.join(' | ')+' · insufficient evidence'};
 }
 async function scanMesos(generation){
   if(!state.running||!state.stream||!video.videoWidth||extras.mesoBusy||generation!==mesosGeneration)return;
@@ -345,14 +412,16 @@ async function scanMesos(generation){
     const inv=extras.inventory;
     extras.inventoryOpen=!!inv;
     if(!inv){
-      extras.mesoPending=null;
+      extras.mesoPending=null;extras.mesoVotes=[];
       extras.mesoStatus=extras.mesoWhen?'Inventory footer not visible · last confirmed '+extras.mesoWhen.toLocaleTimeString():
         'Waiting for visible inventory footer · checking again shortly';
       return;
     }
     extras.mesoStatus='Inventory found · reading…';
     showExtraStats();
-    const worker=await getMesosWorker();
+    let worker=null;
+    try{worker=await getMesosWorker();}
+    catch(error){worker=null;}
     if(generation!==mesosGeneration||!state.running)return;
     // Reacquire from the new frozen frame below. Inventory may have moved
     // while the OCR worker loaded, so don't reject a stale screen coordinate.
@@ -364,7 +433,7 @@ async function scanMesos(generation){
     let freshInv=inv;
     if(!activeInventoryAnchor(frozen,freshInv))freshInv=findInventoryFooter(frozen);
     if(!freshInv){
-      extras.inventory=null;extras.inventoryOpen=false;extras.mesoPending=null;
+      extras.inventory=null;extras.inventoryOpen=false;extras.mesoPending=null;extras.mesoVotes=[];
       extras.lastInvFind=0;
       extras.mesoStatus='Inventory moved or footer obscured · searching again';
       return;
@@ -375,15 +444,16 @@ async function scanMesos(generation){
     if(generation!==mesosGeneration||!state.running)return;
     extras.lastMesoAttempt=Date.now();
     if(read.value!==null){
-      const accepted=acceptMesos(read.value);
+      const accepted=acceptMesos(read);
       extras.mesoStatus=accepted?`Confirmed ${fmt(read.value)} · ${new Date().toLocaleTimeString()}`:
-        `Verifying ${fmt(read.value)} · another capture in ~2s`;
+        `Verifying ${fmt(extras.mesoPending?.value??read.value)} · ${extras.mesoPending?.count??1}/${extras.mesoPending?.needed??3} matching scans`;
     }else{
-      extras.mesoPending=null;
+      // Do not wipe valid previous observations because a single capture was blurry.
+      extras.mesoVotes=(extras.mesoVotes||[]).filter(v=>Date.now()-v.time<30000);
       extras.mesoStatus=field.rect?(extras.mesoWhen?'OCR uncertain · showing last confirmed balance':'Mesos digits unclear · checking again'):'Inventory found · number field obstructed or unreadable';
     }
     $('mesoDebug').textContent=`Inventory match ${Math.round(freshInv.score*100)}% · Mesos field: ${field.note}\nOCR: ${read.note}\n`+
-      (extras.mesoPending?`Matching frames: ${Math.min(extras.mesoPending.count,2)}/2`:'No confirmed candidate')+
+      (extras.mesoPending?`Matching frames: ${extras.mesoPending.count}/${extras.mesoPending.needed}`:'No confirmed candidate')+
       '\nNext mesos scan: ~2 seconds (EXP scanning independently).';
   }catch(error){
     extras.mesoStatus='Mesos scan issue · keeping last confirmed balance';
@@ -420,6 +490,6 @@ $('setMesoSnapshot').addEventListener('click',()=>{
   const value=safeAmount($('manualMesoBalance').value,1000000000000);
   if(value===null){$('mesoDebug').textContent='Enter an exact non-negative meso balance.';return;}
   if(extras.mesosStart===null){extras.mesosStart=value;extras.mesoStartWhen=new Date();}
-  extras.mesosCurrent=value;extras.mesoWhen=new Date();extras.mesoPending=null;
+  extras.mesosCurrent=value;extras.mesoWhen=new Date();extras.mesoPending=null;extras.mesoVotes=[];
   $('manualMesoBalance').value='';$('mesoDebug').textContent='Manual mesos snapshot saved. Net change uses confirmed balances.';showExtraStats();
 });

@@ -1,26 +1,19 @@
-# Maple EXP Tracker — Alpha 0.2.19
+# Maple EXP Tracker — Alpha 0.2.20
 
-This release is the third visual polish pass.
+This release improves screen-only **mesos recognition** without changing the EXP and level recognition code.
 
-## What's new
-- Pushed the overall UI further toward a MapleStory-inspired look.
-- Refined panel styling and rounded edges so the windows feel softer and less boxy.
-- Improved the dark mode with a stronger **Sleepywood-inspired** palette.
-- Refined the floating mini HUD so it feels closer to an in-game Maple HUD.
-- Kept the EXP badge header, mesos coin header, and glossy Maple-style EXP progress bar.
-- Removed unnecessary decorative window control icons from the tracker UI.
+## Improvements
 
-## Tracking behavior
-- EXP tracking logic is unchanged.
-- Mesos tracking logic is unchanged.
-- Potion tracking remains disabled while it is being redesigned.
+- A dedicated template reader compares individual glyphs against confirmed digits from user-supplied inventory screenshots (427,993, 466,629, and 428,381). The reference library presently covers 1, 2, 3, 4, 6, 7, 8, and 9. Missing digits (0 and 5) are **not** guessed; OCR handles them until real samples can be collected.
+- The mesos field is separated from surrounding HUD rails, isolated as dark numerals on white, and upscaled 8× with nearest-neighbour interpolation for fallback OCR.
+- Confidence is based on digit-template ambiguity, independent OCR preprocessing agreement, and **repeated captured frames**. An OCR confidence percentage on its own is insufficient.
+- A rolling 30-second / 10-reading voting window survives intermittent unreadable frames, and significant balance jumps need additional confirmation.
+- Conflicting high-confidence template and OCR readings leave the previous confirmed balance unchanged.
+- The diagnostics still expose the digit matching and OCR results for troubleshooting.
 
-## Deploy
-This project is designed to be deployed as a static site on GitHub Pages.
+## Boundaries
 
-The supplied pixel-art EXP and mesos images are embedded in the main page and mini HUD so they work on GitHub Pages without separate asset requests.
-
-
-## Notes
-- The mini HUD uses Document Picture-in-Picture. The browser's native window bar cannot be fully removed in a web-only version.
-- This pass removes the extra in-app HUD title bar, refreshes the EXP and mesos header art, and improves dark-mode button contrast.
+- OCR and digit templates are not guaranteed to be correct on every screen size or quantity.
+- All recognition happens from user-approved screen capture. No MapleStory memory, files, packets, or controls are touched.
+- EXP, level tracking, the website theme, and the mini HUD are unchanged; potion tracking remains disabled.
+- The app is a static website for GitHub Pages.
