@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#8bb7df">
   <meta name="description" content="A lightweight, browser-based MapleStory EXP tracker that reads your on-screen EXP every five seconds.">
-  <title>Van's Maple EXP Tracker — Alpha 0.2.24</title>
+  <title>Van's Maple EXP Tracker — Alpha 0.2.25</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -15,18 +15,18 @@
         <img class="brand-sprite" src="van-sprite.svg" alt="Van's MapleStory character sprite" width="85" height="123">
         <div>
           <h1>Van's <span>Maple EXP Tracker</span></h1>
-          <p>Classic World training tracker · MapleStory inspired UI</p>
+          <p>Classic World training tracker</p>
         </div>
       </div>
       <div class="header-right">
         <div class="header-topline">
-          <span class="header-note">Alpha 0.2.24 · Screen-only recognition</span>
+          <span class="header-note">Alpha 0.2.25 · Screen-only recognition</span>
           <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false" title="Toggle light and dark mode">
             <span class="theme-toggle-label">Sleepywood mode</span>
             <span class="theme-toggle-track"><span class="theme-toggle-thumb"></span></span>
           </button>
         </div>
-        <span class="state-pill" id="sharePill">Not sharing</span>
+        <span class="state-pill" id="sharePill"><span class="share-indicator" aria-hidden="true"></span><span id="shareLabel">Not sharing</span></span>
       </div>
     </header>
 
@@ -63,7 +63,7 @@
         <div class="window-chrome" aria-hidden="true"><span class="window-label">EXP TRACKER</span></div>
         <div class="dashboard-top hero-top">
           <div class="panel-hero panel-hero-exp">
-            <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAARQAAABUCAYAAABDX8ihAAAEiUlEQVR4nO3dS2hUZxjG8ZOL15ikk4RWgxmHJAYljliNFxShuBAXXiApGtFaWmwrXfaC1LYuCqmKIiiCotKWiK5U0F2iuHGh0SatMbYupkFMYlNM0tpi4qWNXbSr8nytn31Pzkz8/5ZPJt/5OJN5OOTlnAkCAAAAAAAAAAAAAAAAAAAAAAAAACMhK+oN/FNRYvaTqPcAZIqBW+1p9RnOjnoDAEYPCgWAGQoFgBkKBYAZCgWAmdyoDuya5lTOmidfXzK5LNT9AOmsr7dL5qkgkJ+jqKY/XKEAMEOhADBDoQAwQ6EAMEOhADAT+pTHapqzYdMmu02FaN2Scpn3//bAZP3u/kGZ3xt8JPPKKQUyv/hdr9dxCyeOlfmiqhdl3nytW+ZrF/udH9eNXdlZeojR1tnnWP+hY6Vo1JVu83p97c4ZXq+PavrDFQoAMxQKADMUCgAzFAoAMxQKADOR3ctjdW/OyzPiJuu4fHPzttfrh4f1XCJZs1TmiYrp3nuS689dIPMP36mXeUvzaZkvXF4r83nlJTJvutwh892fN8j81XMnZe57fioS+n3/5L23Zd52LSXzaeWVMs8Urs9RqqN1hHfyF65QAJihUACYoVAAmKFQAJihUACYiWzK4+t4Y6POR3gf/2VNzUcyd01/SsqqTI77491fZL73qJ6qbFm7Uuanmi7IvDiYK/OPt26VeVnlTJk/eqzvOfI9P/f+kHEwtXSyzA/ueVPmyUWv6IVCdjzwuzcnU3CFAsAMhQLADIUCwAyFAsAMhQLATMZMefBsunv1E8w6e3T+7sY1Mn/j/R0yHzd+oszzC4ueYnfPbs5M/eS3zq6fZP5g6H6Y28HfuEIBYIZCAWCGQgFghkIBYIZCAWCGKY+xMbk5Mj9z4rDM82PFXut/dfq8zG/+0OW1TkH+JJkPP9H31PTf6ZT5tKpqr+P6np+CmH5S3P0h/T0+Dfu/lHlefuFT7A7/F1coAMxQKADMUCgAzFAoAMxQKADMRDbl6evVUwmr7+uJyuPf9aPEVtdvlvmkwpjJcePT9bRlYc0cmedNGC/z7bsOyLzh0w9kvvuLszLPHTNW5mGfn5xc/SddUa2fOJfpXJ+jqHCFAsAMhQLADIUCwAyFAsAMhQLATOhTnoFb7VkqTwWBvmnEIdOnP1nZurur5y81WT/Hsf5b61bIfPueIzL/+spVmb9eXyvzipfyZN79q9fbG/r5mTBOT52GHurvCUo3rmlOqqNV5q7PXdi4QgFghkIBYIZCAWCGQgFghkIBYCaS/wT/m6LEbL/xQJrp+f6KzFu/va5/wfMduNrWLvP+gQGZF8f0vTCf7dqnt5OtNzS1dIrMTzYelPmyVetlfqNFP3EuMWux1358nTp2SOZ1r20xWT8qUU1zXLhCAWCGQgFghkIBYIZCAWCGQgFgJq3+QzyaxeLJQceP9FjI3yVHfteRyy+8+fn29W0+B43Fk3HHj5oceY0j73Hs5wWf/fiKxZPNjuMuD/O4oxVXKADMUCgAzFAoAMxQKADMUCgAAAAAAAAAAAAA8Fz7E+pV4TwoL82KAAAAAElFTkSuQmCC" alt="EXP" class="hero-icon hero-exp-art" />
+            <svg class="hero-icon hero-exp-art minimal-icon" viewBox="0 0 64 64" role="img" aria-label="EXP growth"><rect x="6" y="6" width="52" height="52" rx="15" fill="currentColor" opacity=".10"/><path d="M14 45l12-13 9 8 15-19" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M40 21h10v10" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <div>
               <div class="eyebrow"><span class="live-spark"></span> YOUR TRAINING SESSION</div>
               <h2>EXP progress</h2>
@@ -112,7 +112,7 @@
         <div class="window-chrome" aria-hidden="true"><span class="window-label">MESOS TRACKER</span></div>
         <div class="profit-title-row hero-top">
           <div class="panel-hero panel-hero-mesos">
-            <img src="data:image/png;base64,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" alt="Mesos coin" class="hero-icon hero-coin-art" />
+            <svg class="hero-icon hero-coin-art minimal-icon" viewBox="0 0 64 64" role="img" aria-label="Mesos"><rect x="6" y="6" width="52" height="52" rx="15" fill="currentColor" opacity=".10"/><circle cx="32" cy="32" r="18" fill="none" stroke="currentColor" stroke-width="3.5"/><path d="M38 24h-8a6 6 0 0 0 0 12h4a6 6 0 0 1 0 12h-9M32 18v30" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="3.5"/></svg>
             <div>
               <div class="eyebrow">YOUR MESOS</div>
               <h2>Net mesos change</h2>
@@ -138,8 +138,8 @@
       <section class="lower-layout">
         <aside class="right-panels">
           <details class="panel expandable more-stats">
-            <div class="window-chrome" aria-hidden="true"><span class="window-label">SESSION DETAILS</span></div>
-            <summary>Session details <span class="chevron">⌄</span></summary>
+            
+            <summary>SESSION DETAILS <span class="chevron">⌄</span></summary>
             <div class="data-row"><span>EXP gained, last 5 min</span><strong id="rolling">0</strong></div>
             <div class="data-row"><span>Level % gained</span><strong id="pctGained">0.00%</strong></div>
             <div class="data-row"><span>Level % per hour</span><strong id="pctHour">—</strong></div>
@@ -151,8 +151,8 @@
           </details>
 
           <details class="panel expandable diagnostics-panel">
-            <div class="window-chrome" aria-hidden="true"><span class="window-label">SCAN DETAILS</span></div>
-            <summary>Scan details & correction <span class="chevron">⌄</span></summary>
+            
+            <summary>SCAN DETAILS &amp; CORRECTION <span class="chevron">⌄</span></summary>
             <div class="data-row"><span>Last scan</span><strong id="lastScan">—</strong></div>
             <div class="data-row"><span>Scan duration</span><strong id="scanDuration">—</strong></div>
             <div class="data-row"><span>EXP read</span><strong id="expStatus">Waiting</strong></div>
@@ -168,8 +168,8 @@
         </aside>
       </section>
           <details class="panel expandable settings-panel">
-            <div class="window-chrome" aria-hidden="true"><span class="window-label">OPTION SETTINGS</span></div>
-            <summary>OCR settings <span class="chevron">⌄</span></summary>
+            
+            <summary>OCR SETTINGS <span class="chevron">⌄</span></summary>
             <p class="detail-help">Only adjust these if EXP is being read incorrectly. Default settings are tuned for small MapleStory digits.</p>
             <div class="quick-level settings-level">
             <label for="quickLevel">Manual level override (if OCR misses your level)</label>
