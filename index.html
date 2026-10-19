@@ -3,24 +3,31 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0c1117">
+  <meta name="theme-color" content="#7aa8d8">
   <meta name="description" content="A lightweight, browser-based MapleStory EXP tracker that reads your on-screen EXP every five seconds.">
-  <title>Maple EXP — Alpha 0.2.14</title>
+  <title>Maple EXP — Alpha 0.2.15</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="app-shell">
     <header class="app-header">
       <div class="brand">
-        <span class="brand-mark" aria-hidden="true">✦</span>
-        <div><h1>Maple <span>EXP</span></h1><p>Classic World training tracker</p></div>
+        <span class="brand-mark" aria-hidden="true">🍁</span>
+        <div>
+          <h1>Maple <span>EXP</span></h1>
+          <p>Classic World training tracker · MapleStory inspired UI</p>
+        </div>
       </div>
-      <div class="header-right"><span class="header-note">Alpha 0.2.14 · Screen-only recognition</span><span class="state-pill" id="sharePill">Not sharing</span></div>
+      <div class="header-right">
+        <span class="header-note">Alpha 0.2.15 · Screen-only recognition</span>
+        <span class="state-pill" id="sharePill">Not sharing</span>
+      </div>
     </header>
 
     <video id="video" autoplay muted playsinline hidden></video>
     <main>
       <section class="dashboard panel" aria-label="Live training dashboard">
+        <div class="window-chrome" aria-hidden="true"><span class="window-label">CHARACTER STATS</span><span class="window-tools"><span class="window-min"></span><span class="window-square"></span></span></div>
         <div class="dashboard-top">
           <div>
             <div class="eyebrow"><span class="live-spark"></span> YOUR TRAINING SESSION</div>
@@ -30,7 +37,8 @@
         </div>
 
         <div class="character-card level-card">
-          <div class="character-details"><span class="character-overline">CURRENT LEVEL</span>
+          <div class="character-details">
+            <span class="character-overline">CURRENT LEVEL</span>
             <div class="level-title">Level <strong id="characterLevel">—</strong></div>
             <small id="levelSource">Level needed to calculate %</small>
           </div>
@@ -42,6 +50,7 @@
             </div>
           </div>
         </div>
+
         <div class="level-row"><span>Progress to next level</span><strong id="progressLabel">—</strong></div>
         <div class="exp-track" role="progressbar" aria-label="Progress toward next level" aria-valuemin="0" aria-valuemax="100">
           <div class="exp-fill" id="progressBar"></div>
@@ -69,9 +78,15 @@
         </div>
       </section>
 
-
       <section class="profit-panel panel" aria-label="Net mesos change">
-        <div class="profit-title-row"><div><div class="eyebrow">YOUR MESOS</div><h2>Net mesos change</h2></div><span id="profitBadge" class="profit-badge">Waiting for a balance</span></div>
+        <div class="window-chrome" aria-hidden="true"><span class="window-label">MESOS INVENTORY</span><span class="window-tools"><span class="window-min"></span><span class="window-square"></span></span></div>
+        <div class="profit-title-row">
+          <div>
+            <div class="eyebrow">YOUR MESOS</div>
+            <h2>Net mesos change</h2>
+          </div>
+          <span id="profitBadge" class="profit-badge">Waiting for a balance</span>
+        </div>
         <div class="profit-total"><strong id="netProfit" class="profit-unknown">—</strong><span class="profit-unit">mesos</span></div>
         <div class="profit-breakdown meso-only-breakdown">
           <div><span>Last confirmed balance</span><strong id="mesoBalance">—</strong></div>
@@ -87,11 +102,19 @@
       </section>
 
       <section class="action-panel panel" aria-label="Capture and tracking controls">
+        <div class="window-chrome" aria-hidden="true"><span class="window-label">SYSTEM MENU</span><span class="window-tools"><span class="window-min"></span><span class="window-square"></span></span></div>
+        <div class="dashboard-top action-top">
+          <div>
+            <div class="eyebrow">WINDOW CAPTURE</div>
+            <h2>Game connection</h2>
+          </div>
+          <span class="reading-pill capture-pill" id="statusText">Waiting for screen sharing.</span>
+        </div>
         <div class="action-content">
-          <div class="action-label"><span class="status-light" id="statusDot"></span><div><h2>Game connection</h2><p id="statusText" aria-live="polite">Waiting for screen sharing.</p></div></div>
+          <div class="action-label"><span class="status-light" id="statusDot"></span><div><h3>Connection status</h3><p aria-live="polite">Share MapleStory's window and keep this page open.</p></div></div>
           <div class="action-buttons">
             <button class="button primary" id="shareBtn">Share game window</button>
-            <button class="button overlay-toggle" id="overlayBtn" type="button" title="Show live stats in an always-on-top mini window">↗ Open mini overlay</button>
+            <button class="button overlay-toggle" id="overlayBtn" type="button" title="Show live stats in an always-on-top mini window">↗ Open maple HUD</button>
             <button class="button" id="startBtn" disabled>Resume</button>
             <button class="button" id="pauseBtn" disabled>Pause</button>
             <button class="button subtle" id="autoDetectBtn" disabled>Find HUD again</button>
@@ -99,14 +122,26 @@
             <button class="button ghost" id="resetBtn">Reset session</button>
           </div>
         </div>
-        <p class="connection-hint">Share MapleStory's window and keep this page open while tracking. EXP updates every 5 seconds; mesos checks every 2 seconds when your inventory is visible. Open mini overlay to see important stats over your game or other windows. The on-screen EXP percentage is calculated from current EXP and level requirements.</p>
+        <p class="connection-hint">EXP updates every 5 seconds; mesos checks every 2 seconds when your inventory is visible. Open the mini overlay to keep your key stats visible over MapleStory or any other window.</p>
       </section>
 
       <section class="lower-layout">
         <aside class="right-panels">
-          <section class="panel more-stats"><h2>More session details</h2><div class="data-row"><span>EXP gained, last 5 min</span><strong id="rolling">0</strong></div><div class="data-row"><span>Level % gained</span><strong id="pctGained">0.00%</strong></div><div class="data-row"><span>Level % per hour</span><strong id="pctHour">—</strong></div><div class="data-row"><span>Detected level-ups</span><strong id="levelUps">0</strong></div><div class="data-row"><span>EXP to next level</span><strong id="requiredExp">—</strong></div><div class="data-row"><span>Level recognition</span><strong id="levelStatus">Waiting</strong></div><p class="detail-help">Level requirements from <a href="https://meowdb.com/msclassic/guides/exp-table-level-1-to-100" target="_blank" rel="noopener noreferrer">MeowDB Classic EXP table</a>, levels 1–99. Orange-badge level digits use pixel templates first. Unknown digits use whole-number and isolated-digit OCR, then their pixel shapes are learned from repeated consistent screen reads. Manual level override remains available. Level % is calculated from current EXP divided by the EXP requirement, never read from on-screen %.</p></section>
+          <section class="panel more-stats">
+        <div class="window-chrome" aria-hidden="true"><span class="window-label">SESSION DETAILS</span><span class="window-tools"><span class="window-min"></span><span class="window-square"></span></span></div>
+            <h2>More session details</h2>
+            <div class="data-row"><span>EXP gained, last 5 min</span><strong id="rolling">0</strong></div>
+            <div class="data-row"><span>Level % gained</span><strong id="pctGained">0.00%</strong></div>
+            <div class="data-row"><span>Level % per hour</span><strong id="pctHour">—</strong></div>
+            <div class="data-row"><span>Detected level-ups</span><strong id="levelUps">0</strong></div>
+            <div class="data-row"><span>EXP to next level</span><strong id="requiredExp">—</strong></div>
+            <div class="data-row"><span>Level recognition</span><strong id="levelStatus">Waiting</strong></div>
+            <p class="detail-help">Level requirements from <a href="https://meowdb.com/msclassic/guides/exp-table-level-1-to-100" target="_blank" rel="noopener noreferrer">MeowDB Classic EXP table</a>, levels 1–99. Orange-badge level digits use pixel templates first. Unknown digits use whole-number and isolated-digit OCR, then their pixel shapes are learned from repeated consistent screen reads. Manual level override remains available. Level % is calculated from current EXP divided by the EXP requirement, never read from on-screen %.</p>
+          </section>
 
-          <details class="panel expandable settings-panel"><summary>OCR settings <span class="chevron">⌄</span></summary>
+          <details class="panel expandable settings-panel">
+        <div class="window-chrome" aria-hidden="true"><span class="window-label">OPTION SETTINGS</span><span class="window-tools"><span class="window-min"></span><span class="window-square"></span></span></div>
+            <summary>OCR settings <span class="chevron">⌄</span></summary>
             <p class="detail-help">Only adjust these if EXP is being read incorrectly. Default settings are tuned for small MapleStory digits.</p>
             <div class="control-field"><label for="ocrMode">Recognition</label><select id="ocrMode"><option value="accuracy" selected>Highest accuracy</option><option value="balanced">Balanced (faster)</option></select></div>
             <div class="control-field"><label for="inkMode">Text color</label><select id="inkMode"><option value="auto" selected>Auto detect</option><option value="light">Light on dark</option><option value="dark">Dark on light</option></select></div>
@@ -116,8 +151,13 @@
             <div class="crop-grid"><div><span>EXP OCR view <small id="expPreviewLabel">—</small></span><div class="crop"><canvas id="expCrop"></canvas></div></div></div>
           </details>
 
-          <details class="panel expandable diagnostics-panel"><summary>Scan details & correction <span class="chevron">⌄</span></summary>
-            <div class="data-row"><span>Last scan</span><strong id="lastScan">—</strong></div><div class="data-row"><span>Scan duration</span><strong id="scanDuration">—</strong></div><div class="data-row"><span>EXP read</span><strong id="expStatus">Waiting</strong></div><div class="data-row"><span>Level recognition</span><strong id="levelStatusDetail">See level status above</strong></div>
+          <details class="panel expandable diagnostics-panel">
+        <div class="window-chrome" aria-hidden="true"><span class="window-label">SCAN LOG</span><span class="window-tools"><span class="window-min"></span><span class="window-square"></span></span></div>
+            <summary>Scan details & correction <span class="chevron">⌄</span></summary>
+            <div class="data-row"><span>Last scan</span><strong id="lastScan">—</strong></div>
+            <div class="data-row"><span>Scan duration</span><strong id="scanDuration">—</strong></div>
+            <div class="data-row"><span>EXP read</span><strong id="expStatus">Waiting</strong></div>
+            <div class="data-row"><span>Level recognition</span><strong id="levelStatusDetail">See level status above</strong></div>
             <pre id="ocrDetails">OCR has not started.</pre>
             <p class="detail-help">Mesos scan diagnostic</p><pre id="mesoDebug">No snapshots yet</pre>
             <p class="detail-help">Unverified EXP reads are not added. Level % is calculated from current EXP and the level requirement. If the level is missing, use Set level above. Changing your level safely starts a new EXP baseline.</p>
