@@ -5,36 +5,38 @@
   const button = document.getElementById('overlayBtn');
   if (!button) return;
 
-  let miniWindow = null, timer = null, compact = false;
+  let miniWindow = null, timer = null, graphOpen = false;
   const sourceValue = id => document.getElementById(id)?.textContent?.trim() || '—';
   const currentTheme = () => (window.__getMapleTheme ? window.__getMapleTheme() : (document.body.classList.contains('theme-dark') ? 'dark' : 'light'));
-  const expArtSrc = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAARQAAABUCAYAAABDX8ihAAAEiUlEQVR4nO3dS2hUZxjG8ZOL15ikk4RWgxmHJAYljliNFxShuBAXXiApGtFaWmwrXfaC1LYuCqmKIiiCotKWiK5U0F2iuHGh0SatMbYupkFMYlNM0tpi4qWNXbSr8nytn31Pzkz8/5ZPJt/5OJN5OOTlnAkCAAAAAAAAAAAAAAAAAAAAAAAAACMhK+oN/FNRYvaTqPcAZIqBW+1p9RnOjnoDAEYPCgWAGQoFgBkKBYAZCgWAmdyoDuya5lTOmidfXzK5LNT9AOmsr7dL5qkgkJ+jqKY/XKEAMEOhADBDoQAwQ6EAMEOhADAT+pTHapqzYdMmu02FaN2Scpn3//bAZP3u/kGZ3xt8JPPKKQUyv/hdr9dxCyeOlfmiqhdl3nytW+ZrF/udH9eNXdlZeojR1tnnWP+hY6Vo1JVu83p97c4ZXq+PavrDFQoAMxQKADMUCgAzFAoAMxQKADOR3ctjdW/OyzPiJuu4fHPzttfrh4f1XCJZs1TmiYrp3nuS689dIPMP36mXeUvzaZkvXF4r83nlJTJvutwh892fN8j81XMnZe57fioS+n3/5L23Zd52LSXzaeWVMs8Urs9RqqN1hHfyF65QAJihUACYoVAAmKFQAJihUACYiWzK4+t4Y6POR3gf/2VNzUcyd01/SsqqTI77491fZL73qJ6qbFm7Uuanmi7IvDiYK/OPt26VeVnlTJk/eqzvOfI9P/f+kHEwtXSyzA/ueVPmyUWv6IVCdjzwuzcnU3CFAsAMhQLADIUCwAyFAsAMhQLATMZMefBsunv1E8w6e3T+7sY1Mn/j/R0yHzd+oszzC4ueYnfPbs5M/eS3zq6fZP5g6H6Y28HfuEIBYIZCAWCGQgFghkIBYIZCAWCGKY+xMbk5Mj9z4rDM82PFXut/dfq8zG/+0OW1TkH+JJkPP9H31PTf6ZT5tKpqr+P6np+CmH5S3P0h/T0+Dfu/lHlefuFT7A7/F1coAMxQKADMUCgAzFAoAMxQKADMRDbl6evVUwmr7+uJyuPf9aPEVtdvlvmkwpjJcePT9bRlYc0cmedNGC/z7bsOyLzh0w9kvvuLszLPHTNW5mGfn5xc/SddUa2fOJfpXJ+jqHCFAsAMhQLADIUCwAyFAsAMhQLATOhTnoFb7VkqTwWBvmnEIdOnP1nZurur5y81WT/Hsf5b61bIfPueIzL/+spVmb9eXyvzipfyZN79q9fbG/r5mTBOT52GHurvCUo3rmlOqqNV5q7PXdi4QgFghkIBYIZCAWCGQgFghkIBYCaS/wT/m6LEbL/xQJrp+f6KzFu/va5/wfMduNrWLvP+gQGZF8f0vTCf7dqnt5OtNzS1dIrMTzYelPmyVetlfqNFP3EuMWux1358nTp2SOZ1r20xWT8qUU1zXLhCAWCGQgFghkIBYIZCAWCGQgFgJq3+QzyaxeLJQceP9FjI3yVHfteRyy+8+fn29W0+B43Fk3HHj5oceY0j73Hs5wWf/fiKxZPNjuMuD/O4oxVXKADMUCgAzFAoAMxQKADMUCgAAAAAAAAAAAAA8Fz7E+pV4TwoL82KAAAAAElFTkSuQmCC';
-  const mesosArtSrc = 'data:image/png;base64,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';
+  // Small geometric SVG marks replace the previous bulky pixel-art assets in the HUD.
+  const expMark = '<svg viewBox="0 0 28 28" width="24" height="24" aria-hidden="true"><path d="M3 21L10 13l5 4 10-12M18 5h7v7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const mesoMark = '<svg viewBox="0 0 28 28" width="21" height="21" aria-hidden="true"><circle cx="14" cy="14" r="11" fill="none" stroke="currentColor" stroke-width="2"/><path d="M18 8h-6a4 4 0 0 0 0 8h4a4 4 0 0 1 0 8h-6M14 4v20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
 
   const html = `
     <div class="hud-window">
-      <div class="hud-controls">
-        <button id="hudCompact" class="hud-btn" title="Toggle condensed layout">Compact</button>
-        <button id="hudClose" class="hud-btn close" title="Close overlay">Close ×</button>
-      </div>
       <div class="hud-body">
         <section class="hud-card primary-card">
-          <div class="card-head"><img src="${expArtSrc}" alt="EXP"><span>EXP TRACKER</span><span class="hud-level-chip">Lv. <span id="hudLevel">—</span></span></div>
-          <div class="primary-number" id="hudPerHour">0</div>
-          <div class="primary-caption">EXP per hour</div>
-          <div class="split-line">
-            <div><div class="mini-label">Time to level</div><div class="mini-figure" id="hudEta">—</div></div>
-            <div class="align-right"><div class="mini-label">KPQ clears</div><div class="mini-figure" id="hudKpq">—</div></div>
-          </div>
+          <div class="card-head">${expMark}<span>EXP TRACKER</span><span class="hud-level-chip">Lv. <span id="hudLevel">—</span></span></div>
           <div class="bar-head"><span>Level progress</span><strong id="hudPct">—</strong></div>
           <div class="track"><div id="hudBar" class="fill"></div></div>
           <div class="bar-foot"><span id="hudExp">— / — EXP</span><span id="hudRemain">—</span></div>
+          <div class="hud-metrics">
+            <div class="hud-metric"><div class="mini-label">EXP / hour</div><strong id="hudPerHour">0</strong></div>
+            <div class="hud-metric"><div class="mini-label">Time to level</div><strong id="hudEta">—</strong></div>
+            <div class="hud-metric"><div class="mini-label">KPQ clears remaining</div><strong id="hudKpq">—</strong></div>
+          </div>
         </section>
         <section class="hud-card mesos-card">
-          <div class="card-head"><img src="${mesosArtSrc}" alt="Mesos"><span>MESOS TRACKER</span></div>
+          <div class="card-head">${mesoMark}<span>MESOS TRACKER · WIP</span></div>
           <div class="meso-amount" id="hudMesos">—</div>
           <div class="primary-caption">Net mesos change</div>
           <div class="mesos-footer"><span id="hudMesoBadge" class="pill">Awaiting inventory</span><span id="hudStatus">Waiting for tracker</span></div>
+        </section>
+        <button type="button" id="hudGraphToggle" class="hud-chart-toggle" aria-expanded="false" aria-controls="hudGraphPanel">Show EXP/min graph <span aria-hidden="true">▾</span></button>
+        <section id="hudGraphPanel" class="hud-card hud-chart-panel" hidden>
+          <div class="hud-chart-title">EXP per minute <small>Experimental · confirmed gains</small></div>
+          <canvas id="hudGraph" role="img" aria-label="EXP gained per minute over the last 20 minutes"></canvas>
+          <div id="hudGraphNote" class="hud-chart-note">Collecting EXP readings…</div>
         </section>
       </div>
     </div>`;
@@ -73,10 +75,81 @@
     body.theme-dark .pill{background:linear-gradient(180deg,#4b455b,#3a3d4e);color:#e2e7ef;border-color:#1d2131}.pill.positive{color:#458f5a}.pill.negative{color:#cb575d}
     body.compact .hud-window{padding-top:38px}body.compact .hud-body{gap:8px}body.compact .primary-number{font-size:30px}body.compact .meso-amount{font-size:25px}body.compact .primary-caption,body.compact .bar-foot{display:none}
     @media(prefers-reduced-motion:reduce){.fill{transition:none}}
+    /* Compact, spaced three-column stats and an optional on-demand line graph. */
+    .hud-window{padding:12px 6px 8px;min-height:100%}
+    .hud-body{gap:9px}
+    .card-head svg{flex:none;color:#356fa3}.theme-dark .card-head svg{color:#a8d3ff}
+    .hud-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;border-top:1px solid #a8bfd0;margin-top:16px;padding-top:14px}
+    .theme-dark .hud-metrics{border-color:#65677d}
+    .hud-metric{min-width:0;padding:0 9px;border-right:1px solid #a8bfd0;display:flex;flex-direction:column;gap:7px}
+    .hud-metric:first-child{padding-left:0}.hud-metric:last-child{padding-right:0;border:0}
+    .theme-dark .hud-metric{border-color:#65677d}
+    .hud-metric .mini-label{font-size:10px;line-height:1.35;min-height:27px;text-transform:none;letter-spacing:.01em}
+    .hud-metric strong{font-size:clamp(15px,5vw,19px);line-height:1.2;font-weight:900;color:#bc7414;font-variant-numeric:tabular-nums;white-space:nowrap}
+    .theme-dark .hud-metric strong{color:#f4c15b}
+    .hud-chart-toggle{width:100%;min-height:32px;border:1px solid #8ea8bf;border-radius:11px;background:transparent;color:#426b89;font:bold 11px Verdana,sans-serif;cursor:pointer}
+    .theme-dark .hud-chart-toggle{border-color:#857e98;color:#d7dcf0}
+    .hud-chart-toggle[aria-expanded="true"]{background:rgba(98,143,184,.12)}
+    .hud-chart-panel{padding:11px 12px}
+    .hud-chart-panel[hidden]{display:none}
+    .hud-chart-title{font-size:12px;font-weight:900;display:flex;align-items:center;justify-content:space-between;gap:8px}
+    .hud-chart-title small{font-size:9px;font-weight:700;color:#647889}
+    .theme-dark .hud-chart-title small{color:#cbd0dd}
+    #hudGraph{display:block;width:100%;height:152px;margin-top:7px}
+    .hud-chart-note{font-size:10px;color:#647889;margin-top:3px}
+    .theme-dark .hud-chart-note{color:#cbd0dd}
   `;
 
   function syncTheme(doc){
     doc.body.classList.toggle('theme-dark', currentTheme() === 'dark');
+  }
+
+
+  function drawGraph(doc){
+    const panel=doc.getElementById('hudGraphPanel');
+    if(!graphOpen||!panel||panel.hidden)return;
+    const canvas=doc.getElementById('hudGraph'),note=doc.getElementById('hudGraphNote');
+    if(!canvas)return;
+    const raw=typeof state!=='undefined'&&Array.isArray(state.expMinuteHistory)?state.expMinuteHistory:[];
+    const now=Date.now(),currentMinute=Math.floor(now/60000),firstMinute=currentMinute-19;
+    const values=Array(20).fill(0),observed=new Set();
+    for(const entry of raw){
+      if(!entry||!Number.isFinite(entry.ts)||!Number.isFinite(entry.amount)||entry.amount<=0)continue;
+      const i=Math.floor(entry.ts/60000)-firstMinute;
+      if(i>=0&&i<20){values[i]+=entry.amount;observed.add(i);}
+    }
+    const width=Math.max(255,Math.round(canvas.getBoundingClientRect().width||320)),height=152;
+    const ratio=Math.min(2,doc.defaultView?.devicePixelRatio||1);
+    canvas.width=Math.round(width*ratio);canvas.height=Math.round(height*ratio);
+    const ctx=canvas.getContext('2d');
+    ctx.scale(ratio,ratio);
+    const dark=doc.body.classList.contains('theme-dark');
+    const grid=dark?'#606679':'#cad8e3',ink=dark?'#d6d9e7':'#627889',line=dark?'#a8d3ff':'#367eae';
+    const pad={left:42,right:10,top:10,bottom:23},w=width-pad.left-pad.right,h=height-pad.top-pad.bottom;
+    ctx.font='10px Verdana, sans-serif';ctx.lineWidth=1;
+    let max=Math.max(...values);if(max<=0)max=100;
+    const magnitude=Math.pow(10,Math.floor(Math.log10(max)));
+    const ceiling=Math.ceil(max/magnitude)*magnitude;
+    const label=n=>n>=1000?(n/1000).toFixed(n%1000?1:0)+'k':String(Math.round(n));
+    for(let k=0;k<=2;k++){
+      const y=pad.top+h-k*h/2;ctx.strokeStyle=grid;ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(width-pad.right,y);ctx.stroke();
+      ctx.fillStyle=ink;ctx.textAlign='right';ctx.fillText(label(ceiling*k/2),pad.left-6,y+3);
+    }
+    ctx.fillStyle=ink;ctx.textAlign='left';ctx.fillText('20m ago',pad.left,height-4);ctx.textAlign='right';ctx.fillText('Now',width-pad.right,height-4);
+    if(observed.size){
+      ctx.beginPath();
+      values.forEach((v,i)=>{const x=pad.left+w*i/19,y=pad.top+h-h*v/ceiling;if(!i)ctx.moveTo(x,y);else ctx.lineTo(x,y);});
+      ctx.strokeStyle=line;ctx.lineWidth=2;ctx.lineJoin='round';ctx.lineCap='round';ctx.stroke();
+      const x=pad.left+w,y=pad.top+h-h*values[19]/ceiling;
+      ctx.beginPath();ctx.arc(x,y,2.6,0,Math.PI*2);ctx.fillStyle=line;ctx.fill();
+      note.textContent='Last 20 one-minute intervals · confirmed EXP only';
+    }else note.textContent='Collecting confirmed EXP gains. A graph will appear after your first gain.';
+  }
+
+  function resizeHud(){
+    if(!miniWindow||miniWindow.closed)return;
+    try{if(typeof miniWindow.resizeTo==='function')miniWindow.resizeTo(graphOpen?430:390,graphOpen?620:400);}
+    catch(_error){/* Browser may prohibit resizing; the window remains scrollable. */}
   }
 
   function update(){
@@ -109,11 +182,12 @@
     const status = at('hudStatus');
     if (status) status.textContent = sourceValue('readingBadge') + ' · ' + (sourceValue('sharePill') || '');
     syncTheme(doc);
+    if(graphOpen)drawGraph(doc);
   }
 
   function closed(){
     if (timer !== null) { clearInterval(timer); timer = null; }
-    miniWindow = null;
+    miniWindow = null;graphOpen=false;
     button.textContent = '↗ Open maple HUD';
     button.setAttribute('aria-pressed', 'false');
   }
@@ -129,19 +203,22 @@
       return;
     }
     try {
-      const pip = await window.documentPictureInPicture.requestWindow({ width: 372, height: 392 });
+      const pip = await window.documentPictureInPicture.requestWindow({ width: 390, height: 400 });
       miniWindow = pip;
-      pip.document.title = 'Maple EXP · Mini overlay';
+      pip.document.title = "Van's Maple EXP Tracker · HUD";
       const style = pip.document.createElement('style');
       style.textContent = css;
       pip.document.head.appendChild(style);
       pip.document.body.innerHTML = html;
       syncTheme(pip.document);
-      pip.document.getElementById('hudClose').addEventListener('click', () => pip.close());
-      pip.document.getElementById('hudCompact').addEventListener('click', () => {
-        compact = !compact;
-        pip.document.body.classList.toggle('compact', compact);
-        pip.document.getElementById('hudCompact').textContent = compact ? 'Expand' : 'Compact';
+      pip.document.getElementById('hudGraphToggle').addEventListener('click',()=>{
+        graphOpen=!graphOpen;
+        const toggle=pip.document.getElementById('hudGraphToggle');
+        toggle.setAttribute('aria-expanded',String(graphOpen));
+        toggle.innerHTML=(graphOpen?'Hide EXP/min graph':'Show EXP/min graph')+' <span aria-hidden="true">'+(graphOpen?'▴':'▾')+'</span>';
+        pip.document.getElementById('hudGraphPanel').hidden=!graphOpen;
+        resizeHud();
+        if(graphOpen)drawGraph(pip.document);
       });
       pip.addEventListener('pagehide', closed, { once: true });
       button.textContent = '× Close maple HUD';
