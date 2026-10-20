@@ -1076,3 +1076,29 @@ body.theme-dark .brand-sprite--sleepywood{
     height:74px;
   }
 }
+
+/* Alpha 0.2.36 — Unified header: version above the mode switch in both themes. */
+.app-header .header-right .header-topline{
+  display:flex;
+  width:100%;
+  flex-direction:column;
+  flex-wrap:nowrap;
+  align-items:flex-end;
+  justify-content:flex-start;
+  gap:7px;
+}
+.app-header .header-right .header-note,
+.app-header .header-right .theme-toggle{
+  align-self:flex-end;
+}
+@media(max-width:670px){
+  .app-header .header-right .header-topline{
+    order:0;
+    width:100%;
+    align-items:flex-end;
+  }
+  .app-header .header-right .state-pill{
+    order:1;
+    align-self:flex-end;
+  }
+}
