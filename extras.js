@@ -606,6 +606,61 @@ function safeAmount(raw,max){
   if(!/^\d+$/.test(text))return null;
   const number=Number(text);return Number.isSafeInteger(number)&&number<=max?number:null;
 }
+// The classifier is trained only after the user explicitly verifies an
+// exact in-game balance. Teaching never silently harvests screenshots.
+const mesosLearner=window.MapleMesosAI;
+if(mesosLearner){
+  $('mesoAIEnabled').checked=mesosLearner.summary().enabled;
+  $('mesoAIEnabled').addEventListener('change',()=>{
+    mesosLearner.setEnabled($('mesoAIEnabled').checked);
+    reportMesoAI();
+  });
+  $('teachMesoAIBtn').addEventListener('click',()=>{
+    const raw=$('manualMesoBalance').value;
+    const value=safeAmount(raw,1000000000000);
+    if(value===null){
+      $('mesoAIStatus').textContent='Enter the exact balance shown in your MapleStory inventory first.';
+      return;
+    }
+    if(!extras.mesoLastCrop||Date.now()-extras.mesoLastCropAt>90000){
+      $('mesoAIStatus').textContent=
+        'Open the inventory in your shared game window first. No recent digits are available to teach.';
+      return;
+    }
+    const learned=mesosLearner.learn(extras.mesoLastCrop.frame,extras.mesoLastCrop.rect,String(value));
+    if(!learned.ok){
+      $('mesoAIStatus').textContent='Could not learn safely: '+learned.reason+
+        ' Use Save snapshot to confirm the balance without training.';
+      return;
+    }
+    // This is an explicitly confirmed reading; it can update session history.
+    saveMesosSnapshot(value);
+    extras.mesoStatus='Player verified balance '+fmt(value)+' · '+learned.reason;
+    $('manualMesoBalance').value='';
+    showExtraStats();
+    reportMesoAI();
+    $('mesoAIDetails').textContent=learned.reason+
+      '\n'+mesosLearner.summary().digits+' of 10 digits learned. Corrections stay in this browser.';
+    $('mesoDebug').textContent='Locally taught digit shapes from confirmed '+fmt(value);
+  });
+  $('clearMesosAIBtn').addEventListener('click',()=>{
+    if(!window.confirm('Clear all locally learned mesos digit examples? This cannot be undone.'))return;
+    mesosLearner.clear();
+    if(extras.mesoGuessSource==='ai'){
+      extras.mesoGuess=null;extras.mesoGuessAt=0;
+    }
+    reportMesoAI();
+    $('mesoAIDetails').textContent='All learned digit patterns cleared. Raw OCR is still available.';
+    showExtraStats();
+  });
+  reportMesoAI();
+}else{
+  $('mesoAIEnabled').disabled=true;
+  $('teachMesoAIBtn').disabled=true;
+  $('clearMesosAIBtn').disabled=true;
+  $('mesoAIStatus').textContent='Local AI module could not load. Raw OCR remains available.';
+}
+
 $('setMesoSnapshot').addEventListener('click',()=>{
   const value=safeAmount($('manualMesoBalance').value,1000000000000);
   if(value===null){$('mesoDebug').textContent='Enter an exact non-negative meso balance.';return;}
