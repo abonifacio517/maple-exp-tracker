@@ -299,6 +299,14 @@ function rememberMesosCrop(frame,rect){
   extras.mesoLastCrop={frame:{width:w,height:h,data:bits},rect:{x:0,y:0,w,h}};
   extras.mesoLastCropAt=Date.now();
 }
+// A common OCR/segmenter failure is to return all digits except the first.
+// Preserve the previous full estimate for an exact leading-digit drop rather
+// than letting that visibly incorrect suffix replace the player's balance.
+function missingLeadingMesosDigit(value,reference){
+  if(!Number.isSafeInteger(value)||!Number.isSafeInteger(reference))return false;
+  const short=String(value),full=String(reference);
+  return full.length===short.length+1&&full.slice(1)===short;
+}
 function reportMesoAI(){
   const learner=window.MapleMesosAI;
   if(!learner)return;
@@ -411,12 +419,17 @@ async function scanMesos(generation){
       (ai.value!==null?`AI candidate: ${fmt(ai.value)} · visual match ${Math.round(ai.confidence*100)}% (not calibrated probability)\n`:
         `No reliable local prediction: ${ai.reason||'Needs labeled examples'}\n`)+
       'Local digit guesses are never automatically trusted as earned mesos.';
-    if(ai.value!==null){
+    const previousBalance=extras.mesosCurrent??extras.mesoGuess;
+    const aiDroppedLead=missingLeadingMesosDigit(ai.value,previousBalance);
+    if(ai.value!==null&&!aiDroppedLead){
       extras.mesoGuess=ai.value;
       extras.mesoGuessAt=Date.now();
       extras.mesoGuessConfidence=Math.round(ai.confidence*100);
       extras.mesoGuessSource='ai';
       extras.mesoStatus=`Local AI estimates ${fmt(ai.value)} · unverified`;
+    }else if(aiDroppedLead){
+      extras.mesoStatus='Possible missing first digit in local AI reading · retaining prior balance';
+      $('mesoAIDetails').textContent+='\nPossible lost leading digit; keeping previous balance and checking raw OCR.';
     }
     // No templates or enhanced passes. Retain the latest OCR guess while
     // the worker is on cooldown, keeping the expensive pass throttled.
@@ -437,23 +450,33 @@ async function scanMesos(generation){
     if(read.value!==null){
       // Use the trained digit estimate when its match is strong; otherwise keep
       // existing raw OCR fallback. Neither estimate alone confirms earnings.
-      const preferAI=ai.value!==null&&ai.confidence>=.65;
+      // Prefer a complete OCR candidate over a shorter AI segmentation, and
+      // never auto-confirm a candidate that exactly drops an existing first
+      // digit. Legitimate decreases can still be confirmed manually.
+      const preferAI=ai.value!==null&&ai.confidence>=.65&&!aiDroppedLead&&
+        (String(ai.value).length>=String(read.value).length||read.confidence<35);
       const displayValue=preferAI?ai.value:read.value;
-      extras.mesoGuess=displayValue;
-      extras.mesoGuessAt=Date.now();
-      extras.mesoGuessConfidence=preferAI?Math.round(ai.confidence*100):read.confidence;
-      extras.mesoGuessSource=preferAI?'ai':'raw';
+      const dropDetected=missingLeadingMesosDigit(displayValue,previousBalance);
+      if(!dropDetected){
+        extras.mesoGuess=displayValue;
+        extras.mesoGuessAt=Date.now();
+        extras.mesoGuessConfidence=preferAI?Math.round(ai.confidence*100):read.confidence;
+        extras.mesoGuessSource=preferAI?'ai':'raw';
+      }
       const eligible=read.strict&&read.confidence>=55&&
-        !(ai.value!==null&&ai.value!==read.value&&ai.confidence>=.65);
+        !missingLeadingMesosDigit(read.value,extras.mesosCurrent)&&
+        !(ai.value!==null&&!aiDroppedLead&&ai.value!==read.value&&ai.confidence>=.65);
       const accepted=eligible?acceptMesos(read):false;
-      extras.mesoStatus=accepted?
-        `Confirmed ${fmt(read.value)} from repeated OCR reads`:
+      extras.mesoStatus=dropDetected?
+        'Possible missing first digit · retaining previous balance, see OCR diagnostics':
+        accepted?`Confirmed ${fmt(read.value)} from repeated OCR reads`:
         (preferAI?`Local AI estimate ${fmt(ai.value)} (unverified) · raw OCR ${fmt(read.value)}`:
           `OCR estimate ${fmt(read.value)} (${read.confidence}% confidence) · unverified`)+
         (eligible?' · awaiting repeat':' · verify in game');
     }else{
-      extras.mesoStatus=ai.value!==null?
+      extras.mesoStatus=ai.value!==null&&!aiDroppedLead?
         `Local AI estimates ${fmt(ai.value)} · raw OCR unreadable · unverified`:
+        aiDroppedLead?'Possible missing first digit in local AI reading · retaining prior balance':
         extras.mesoGuess!==null?'Raw OCR unreadable now · retaining previous unverified estimate':
         'Textbox found · OCR could not extract a number';
     }
