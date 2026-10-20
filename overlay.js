@@ -18,21 +18,29 @@
       <div class="hud-brand"><img src="${spriteSrc}" alt=""><div class="hud-brand-copy"><strong>Van's EXP Tracker</strong><small>LIVE TRAINING HUD</small></div></div>
       <div class="hud-body">
         <section class="hud-card primary-card">
-          <div class="card-head">${expMark}<span>EXP TRACKER</span><span class="hud-level-chip">Lv. <span id="hudLevel">—</span></span></div>
-          <div class="bar-head"><span>Level progress</span><strong id="hudPct">—</strong></div>
-          <div class="track"><div id="hudBar" class="fill"></div></div>
-          <div class="bar-foot"><span id="hudExp">— / — EXP</span><span id="hudRemain">—</span></div>
-          <div class="hud-metrics">
-            <div class="hud-metric"><div class="mini-label">EXP / hour</div><strong id="hudPerHour">0</strong></div>
-            <div class="hud-metric"><div class="mini-label">Time to level</div><strong id="hudEta">—</strong></div>
-            <div class="hud-metric"><div class="mini-label">KPQ clears remaining</div><strong id="hudKpq">—</strong></div>
+          <div class="card-head">${expMark}<span>EXP TRACKER</span></div>
+          <div class="hud-content">
+            <div class="hud-level-row">
+              <div class="hud-level-title">Level <strong class="hud-level-value" id="hudLevel">—</strong></div>
+              <strong class="hud-percent" id="hudPct">—</strong>
+            </div>
+            <div class="bar-head">Progress to next level</div>
+            <div class="track" role="progressbar" aria-label="EXP progress to next level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="hudBar" class="fill"></div></div>
+            <div class="bar-foot"><span id="hudExp">— / — EXP</span><span id="hudRemain">—</span></div>
+            <div class="hud-metrics">
+              <div class="hud-metric"><div class="mini-label">EXP / hour</div><strong id="hudPerHour">0</strong></div>
+              <div class="hud-metric"><div class="mini-label">Time to level</div><strong id="hudEta">—</strong></div>
+              <div class="hud-metric"><div class="mini-label">KPQ clears remaining</div><strong id="hudKpq">—</strong></div>
+            </div>
           </div>
         </section>
         <section class="hud-card mesos-card">
           <div class="card-head">${mesoMark}<span>MESOS TRACKER · WIP</span></div>
-          <div class="meso-amount" id="hudMesos">—</div>
-          <div class="primary-caption">Net mesos change</div>
-          <div class="mesos-footer"><span id="hudMesoBadge" class="pill">Awaiting inventory</span><span id="hudStatus">Waiting for tracker</span></div>
+          <div class="mesos-content">
+            <div class="meso-amount" id="hudMesos">—</div>
+            <div class="primary-caption">Net mesos change</div>
+            <div class="mesos-footer"><span id="hudMesoBadge" class="pill">Awaiting inventory</span><span id="hudStatus">Waiting for tracker</span></div>
+          </div>
         </section>
         <button type="button" id="hudGraphToggle" class="hud-chart-toggle" aria-expanded="false" aria-controls="hudGraphPanel">Show EXP/min graph <span aria-hidden="true">▾</span></button>
         <section id="hudGraphPanel" class="hud-card hud-chart-panel" hidden>
@@ -45,110 +53,84 @@
 
   const css = `
     :root{font-family:Verdana,Tahoma,"Trebuchet MS",Arial,sans-serif}
-    *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%}
-    body{padding:6px;background:linear-gradient(180deg,#cde2f8,#eff6fd);color:#293948;user-select:none}
-    body.theme-dark{background:linear-gradient(180deg,#2a2637,#181a22);color:#f1f5fb}
-    .hud-window{position:relative;display:flex;flex-direction:column;min-height:100%;padding:42px 6px 6px;border:3px solid #30475f;border-radius:24px;background:linear-gradient(180deg,#fbfeff,#e8f1f8);box-shadow:0 16px 30px rgba(67,94,122,.18), inset 0 2px 0 rgba(255,255,255,.92)}
-    body.theme-dark .hud-window{border-color:#181a23;background:linear-gradient(180deg,#454055,#2f3240);box-shadow:0 16px 30px rgba(0,0,0,.35), inset 0 2px 0 rgba(255,255,255,.08)}
-    .hud-controls{position:absolute;top:10px;right:10px;z-index:2;display:flex;gap:8px}
-    .split-line,.bar-head,.bar-foot,.mesos-footer{display:flex;align-items:center;justify-content:space-between;gap:10px}
-    .hud-btn{border:2px solid #385974;border-radius:999px;background:linear-gradient(180deg,#ffffff,#dfeaf3);color:#35556d;font:900 11px Verdana,sans-serif;padding:6px 10px;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.9)}
-    body.theme-dark .hud-btn{background:linear-gradient(180deg,#5f5973,#45495a);color:#eef5ff;border-color:#1d2131;box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
-    .hud-body{display:grid;gap:10px;padding:0}
-    .hud-card{border:2px solid #8ea8bf;border-radius:18px;padding:14px;background:linear-gradient(180deg,#f9fbfe,#edf4fa);box-shadow:inset 0 1px 0 rgba(255,255,255,.9)}
-    .primary-card{position:relative;overflow:hidden}
-    .primary-card::after{content:"";position:absolute;right:-12px;top:-8px;width:90px;height:90px;border-radius:50%;background:radial-gradient(circle, rgba(255,255,255,.32), transparent 68%);pointer-events:none}
-    body.theme-dark .hud-card{border-color:#857e98;background:linear-gradient(180deg,#37374a,#2b2d39);box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
-    .card-head{display:flex;align-items:center;gap:10px;color:#647889;font-size:11px;font-weight:900;letter-spacing:.06em}
-    body.theme-dark .card-head{color:#d2d4e1}.hud-level-chip{margin-left:auto;white-space:nowrap;font-weight:900;color:#bc7414}.theme-dark .hud-level-chip{color:#f4c15b}.card-head img{image-rendering:pixelated;image-rendering:crisp-edges}.card-head img:first-child{width:72px;height:auto}.mesos-card .card-head img{width:28px;height:auto}
-    .primary-number{font-size:clamp(30px,10vw,44px);line-height:1;font-weight:900;color:#356fa3;letter-spacing:-.06em;margin:8px 0 4px;font-variant-numeric:tabular-nums}
-    body.theme-dark .primary-number{color:#a8d3ff}.primary-caption,.mini-label,.bar-foot,.mesos-footer{color:#647889;font-size:11px;font-weight:800}
-    body.theme-dark .primary-caption,body.theme-dark .mini-label,body.theme-dark .bar-foot,body.theme-dark .mesos-footer{color:#d2d4e1}
-    .mini-figure{margin-top:4px;color:#bc7414;font-size:19px;font-weight:900;font-variant-numeric:tabular-nums}.align-right{text-align:right}
-    body.theme-dark .mini-figure{color:#f4c15b}.bar-head{margin:12px 0 7px;color:#293948;font-size:11px;font-weight:900}.bar-head strong{color:#bc7414}
-    body.theme-dark .bar-head{color:#eef4fb}body.theme-dark .bar-head strong{color:#f4c15b}
-    .track{position:relative;isolation:isolate;overflow:hidden;height:28px;padding:4px;border:2px solid #46525d;border-radius:12px;background:linear-gradient(180deg,#f6fafc 0%,#d3dbe1 10%,#7d8b96 28%,#47535c 48%,#8797a2 78%,#ecf1f5 92%,#b9c5ce 100%);box-shadow:0 2px 0 rgba(255,255,255,.75), inset 0 1px 0 rgba(255,255,255,.9)}
-    .track::before{content:"";position:absolute;inset:4px;border-radius:6px;z-index:0;background:linear-gradient(180deg,#a7afb6,#6e777f 56%,#c4cbd1);box-shadow:inset 0 2px 3px rgba(26,38,47,.55)}
-    .fill{position:relative;z-index:1;width:0%;height:100%;border-radius:6px;border:1px solid #6c9604;background:repeating-linear-gradient(90deg,transparent 0 30px,rgba(86,112,5,.28) 31px 32px,transparent 33px 34px), linear-gradient(180deg,#fffbb0 0%,#edf96a 16%,#caeb1e 40%,#95c708 68%,#6e9b05 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.85), inset 0 -2px 0 rgba(88,123,5,.8), 0 0 6px rgba(215,239,103,.35);transition:width .35s ease}
-    .fill::after{content:"";position:absolute;left:0;right:0;top:0;height:45%;border-radius:6px 6px 2px 2px;background:linear-gradient(180deg,rgba(255,255,255,.62),rgba(255,255,255,.08))}
-    .meso-amount{font-size:31px;line-height:1.05;font-weight:900;color:#526c7e;letter-spacing:-.05em;margin:10px 0 4px;font-variant-numeric:tabular-nums;word-break:break-word}
-    body.theme-dark .meso-amount{color:#e0e8f1}.meso-amount.positive{color:#458f5a}.meso-amount.negative{color:#cb575d}
-    .pill{display:inline-flex;align-items:center;justify-content:center;padding:6px 10px;border-radius:999px;border:2px solid #30475f;background:linear-gradient(180deg,#f7fbff,#e6eef5);color:#647889;font-size:10px;font-weight:900;max-width:170px;text-align:center}
-    body.theme-dark .pill{background:linear-gradient(180deg,#4b455b,#3a3d4e);color:#e2e7ef;border-color:#1d2131}.pill.positive{color:#458f5a}.pill.negative{color:#cb575d}
-    body.compact .hud-window{padding-top:38px}body.compact .hud-body{gap:8px}body.compact .primary-number{font-size:30px}body.compact .meso-amount{font-size:25px}body.compact .primary-caption,body.compact .bar-foot{display:none}
-    @media(prefers-reduced-motion:reduce){.fill{transition:none}}
-    /* Compact, spaced three-column stats and an optional on-demand line graph. */
-    .hud-window{padding:12px 6px 8px;min-height:100%}
-    .hud-body{gap:9px}
-    .card-head svg{flex:none;color:#356fa3}.theme-dark .card-head svg{color:#a8d3ff}
-    .hud-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;border-top:1px solid #a8bfd0;margin-top:16px;padding-top:14px}
-    .theme-dark .hud-metrics{border-color:#65677d}
-    .hud-metric{min-width:0;padding:0 9px;border-right:1px solid #a8bfd0;display:flex;flex-direction:column;gap:7px}
-    .hud-metric:first-child{padding-left:0}.hud-metric:last-child{padding-right:0;border:0}
-    .theme-dark .hud-metric{border-color:#65677d}
-    .hud-metric .mini-label{font-size:10px;line-height:1.35;min-height:27px;text-transform:none;letter-spacing:.01em}
-    .hud-metric strong{font-size:clamp(15px,5vw,19px);line-height:1.2;font-weight:900;color:#bc7414;font-variant-numeric:tabular-nums;white-space:nowrap}
-    .theme-dark .hud-metric strong{color:#f4c15b}
-    .hud-chart-toggle{width:100%;min-height:32px;border:1px solid #8ea8bf;border-radius:11px;background:transparent;color:#426b89;font:bold 11px Verdana,sans-serif;cursor:pointer}
-    .theme-dark .hud-chart-toggle{border-color:#857e98;color:#d7dcf0}
-    .hud-chart-toggle[aria-expanded="true"]{background:rgba(98,143,184,.12)}
-    .hud-chart-panel{padding:11px 12px}
+    *{box-sizing:border-box}
+    html,body{margin:0;width:100%;min-height:100%;height:100%}
+    body{padding:5px;background:#e8f4fc;color:#243d53;user-select:none}
+    body.theme-dark{background:#0d151e;color:#f6f8fb}
+    .hud-window{min-height:100%;padding:10px;border:1px solid #afc9de;border-radius:16px;background:#fff;box-shadow:0 8px 24px rgba(46,85,115,.12)}
+    body.theme-dark .hud-window{border-color:#34485c;background:#131d29;box-shadow:0 9px 24px rgba(0,0,0,.34)}
+    .hud-brand{display:flex;align-items:center;gap:10px;margin:0 0 10px;padding:1px 4px 10px;border-bottom:1px solid #c7dceb}
+    body.theme-dark .hud-brand{border-color:#34485c}
+    .hud-brand img{display:block;object-fit:contain;width:43px;height:52px;flex:none}
+    .hud-brand-copy{display:grid;gap:5px;min-width:0}
+    .hud-brand-copy strong{font-size:15px;font-weight:900;color:#243d53;letter-spacing:-.025em}
+    .hud-brand-copy small{font-size:9px;letter-spacing:.055em;color:#6b8294;font-weight:800}
+    body.theme-dark .hud-brand-copy strong{color:#f6f8fb}
+    body.theme-dark .hud-brand-copy small{color:#9fb4c8}
+    .hud-body{display:grid;gap:9px;min-width:0}
+    .hud-card{overflow:hidden;border:1px solid #bcd6e9;border-radius:14px;background:#fff}
+    body.theme-dark .hud-card{border-color:#34485c;background:#131d29}
+    .card-head{display:flex;align-items:center;gap:8px;min-height:37px;padding:7px 12px;background:#75a7d0;border-bottom:1px solid #8cb7d9;color:#fff;font-size:11px;font-weight:900;letter-spacing:.075em}
+    body.theme-dark .card-head{background:#233e5d;border-color:#365576}
+    .card-head svg{width:19px;height:19px;color:inherit;flex:none}
+    .mesos-card .card-head svg{width:23px;height:23px}
+    .hud-content,.mesos-content{padding:12px 13px}
+    .hud-level-row{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:9px}
+    .hud-level-title{display:flex;align-items:center;gap:8px;font-size:21px;font-weight:900;color:#28435a;white-space:nowrap}
+    body.theme-dark .hud-level-title{color:#f8fbff}
+    .hud-level-value{display:inline-flex;justify-content:center;align-items:center;min-width:45px;min-height:37px;padding:3px 9px;border:2px solid #cc8124;border-radius:10px;background:linear-gradient(180deg,#ffe7a1,#ffba4b);color:#63370b;font-size:24px;line-height:1.05;font-weight:900;letter-spacing:-.025em;box-shadow:inset 0 2px 0 rgba(255,255,255,.6),0 2px 5px rgba(71,43,10,.12);font-variant-numeric:tabular-nums}
+    body.theme-dark .hud-level-value{color:#63370b}
+    .hud-percent{color:#327fae;font-size:14px;font-weight:900;white-space:nowrap;font-variant-numeric:tabular-nums}
+    body.theme-dark .hud-percent{color:#d5e8f9}
+    .bar-head{margin:0 0 6px;color:#597186;font-size:11px;font-weight:700}
+    body.theme-dark .bar-head{color:#b9ccdd}
+    .track{isolation:isolate;overflow:hidden;height:23px;padding:3px;border:1px solid #93aec6;border-radius:9px;background:#e3f0f8;box-shadow:none}
+    body.theme-dark .track{border-color:#455568;background:#273645}
+    .fill{position:relative;width:0%;height:100%;border:0;border-radius:6px;background:linear-gradient(180deg,#d6f88a 0%,#a8e757 23%,#74c72b 69%,#54a51b 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.38),inset 0 -2px 0 rgba(45,115,18,.22);transition:width .35s ease}
+    .fill::after{content:"";position:absolute;inset:0 0 auto;height:65%;border-radius:6px 6px 0 0;background:linear-gradient(180deg,rgba(255,255,255,.24),transparent 70%)}
+    .bar-foot{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-top:9px;color:#597186;font-size:10px;font-weight:700;font-variant-numeric:tabular-nums}
+    .bar-foot span:last-child{text-align:right}
+    body.theme-dark .bar-foot{color:#c1cede}
+    .hud-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:13px;padding-top:13px;border-top:1px solid #c2d9e9}
+    body.theme-dark .hud-metrics{border-color:#34485c}
+    .hud-metric{display:flex;flex-direction:column;justify-content:space-between;min-width:0;gap:9px;padding:9px 7px;border:1px solid #c2d9e9;border-radius:9px;background:#f2f9fe}
+    body.theme-dark .hud-metric{background:#1b2938;border-color:#344757}
+    .hud-metric .mini-label{min-height:27px;color:#5d7c91;font-size:10px;line-height:1.3;font-weight:700;letter-spacing:.005em}
+    body.theme-dark .hud-metric .mini-label{color:#c4d1e0}
+    .hud-metric strong{font-size:clamp(14px,4.45vw,18px);color:#243d53;font-weight:900;line-height:1.2;font-variant-numeric:tabular-nums;white-space:nowrap;letter-spacing:-.02em}
+    body.theme-dark .hud-metric strong{color:#f6f8fb}
+    .mesos-content{padding-top:9px}
+    .meso-amount{font-size:25px;line-height:1.12;font-weight:900;color:#243d53;letter-spacing:-.035em;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+    body.theme-dark .meso-amount{color:#f6f8fb}
+    .meso-amount.positive{color:#258352}
+    .meso-amount.negative{color:#bb4b58}
+    body.theme-dark .meso-amount.positive{color:#7fd7a4}
+    body.theme-dark .meso-amount.negative{color:#ff909a}
+    .primary-caption{margin-top:5px;font-size:10px;color:#657e90;font-weight:700}
+    body.theme-dark .primary-caption{color:#9eb4c8}
+    .mesos-footer{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;color:#657e90;font-size:10px;font-weight:700}
+    body.theme-dark .mesos-footer{color:#9eb4c8}
+    .pill{display:inline-flex;align-items:center;justify-content:center;padding:5px 9px;border-radius:999px;border:1px solid #bcd6e9;background:#eaf5fc;color:#5d7c91;font-size:10px;font-weight:900;max-width:170px;text-align:center}
+    body.theme-dark .pill{border-color:#34485c;background:#1c2a38;color:#bccbdd}
+    .pill.positive{color:#268553}
+    .pill.negative{color:#b44b58}
+    body.theme-dark .pill.positive{color:#7fd7a4}
+    body.theme-dark .pill.negative{color:#ff909a}
+    .hud-chart-toggle{min-height:33px;width:100%;border:1px solid #b8d3e7;border-radius:9px;background:#eaf5fc;color:#315e7e;font:800 11px Verdana,Tahoma,sans-serif;cursor:pointer}
+    body.theme-dark .hud-chart-toggle{border-color:#34485c;background:#1b2938;color:#c3ddf3}
+    .hud-chart-toggle[aria-expanded="true"]{background:#d9effc}
+    body.theme-dark .hud-chart-toggle[aria-expanded="true"]{background:#223e57}
+    .hud-chart-panel{padding:12px 13px}
     .hud-chart-panel[hidden]{display:none}
-    .hud-chart-title{font-size:12px;font-weight:900;display:flex;align-items:center;justify-content:space-between;gap:8px}
-    .hud-chart-title small{font-size:9px;font-weight:700;color:#647889}
-    .theme-dark .hud-chart-title small{color:#cbd0dd}
+    .hud-chart-title{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;font-weight:900;color:#243d53}
+    body.theme-dark .hud-chart-title{color:#f6f8fb}
+    .hud-chart-title small{color:#657e90;font-size:9px;font-weight:700;text-align:right}
+    body.theme-dark .hud-chart-title small{color:#a7bbce}
     #hudGraph{display:block;width:100%;height:152px;margin-top:7px}
-    .hud-chart-note{font-size:10px;color:#647889;margin-top:3px}
-    .theme-dark .hud-chart-note{color:#cbd0dd}
-
-    /* Alpha 0.2.26: match the app's charcoal/navy dark theme. Light HUD CSS stays untouched. */
-    .hud-brand{display:none}
-    body.theme-dark{background:#0d151e;color:#f3f8fd;padding:5px}
-    body.theme-dark .hud-window{
-      border:1px solid #34475b;border-radius:17px;
-      background:#131e29;padding:11px 12px 12px;
-      box-shadow:0 9px 24px rgba(0,0,0,.34);
-    }
-    body.theme-dark .hud-brand{display:flex;align-items:center;gap:10px;margin:0 0 10px;padding:0 4px 8px;border-bottom:1px solid #314355}
-    body.theme-dark .hud-brand img{display:block;object-fit:contain;width:39px;height:50px;filter:none}
-    body.theme-dark .hud-brand-copy{display:grid;gap:5px}
-    body.theme-dark .hud-brand-copy strong{font-size:15px;font-weight:900;letter-spacing:-.025em;color:#f5faff}
-    body.theme-dark .hud-brand-copy small{font-size:9px;color:#9eb1c5;letter-spacing:.05em;font-weight:800}
-    body.theme-dark .hud-body{gap:8px}
-    body.theme-dark .hud-card{
-      background:transparent;border:0;padding:6px 4px;
-      box-shadow:none;border-radius:0;
-    }
-    body.theme-dark .primary-card::after{display:none}
-    body.theme-dark .card-head{font-size:10px;color:#c9d7e7;letter-spacing:.08em}
-    body.theme-dark .card-head svg{color:#e6b45b}
-    body.theme-dark .primary-card .card-head svg{color:#68b9f6}
-    body.theme-dark .hud-level-chip{font-size:15px;font-weight:900;color:#f8fbff;letter-spacing:-.01em}
-    body.theme-dark .bar-head{margin:10px 0 7px;font-size:11px;color:#c9d7e7}
-    body.theme-dark .bar-head strong{color:#f2f8ff}
-    body.theme-dark .track{
-      height:22px;padding:2px;border:1px solid #415367;border-radius:10px;background:#263747;
-      box-shadow:none;
-    }
-    body.theme-dark .track::before{display:none}
-    body.theme-dark .fill{border:0;border-radius:7px;background:linear-gradient(90deg,#259df0,#40b5ff);box-shadow:none}
-    body.theme-dark .fill::after{background:linear-gradient(180deg,rgba(255,255,255,.15),transparent)}
-    body.theme-dark .bar-foot{font-size:11px;color:#c1d0e0;font-weight:500;gap:8px}
-    body.theme-dark .hud-metrics{margin-top:14px;padding-top:13px;border-top:1px solid #34485c}
-    body.theme-dark .hud-metric{border-color:#34485c;padding:0 11px;gap:9px}
-    body.theme-dark .hud-metric:first-child{padding-left:0}
-    body.theme-dark .hud-metric .mini-label{color:#afc1d3;font-size:10px;min-height:28px;font-weight:600}
-    body.theme-dark .hud-metric strong{color:#fafcff;font-size:clamp(14px,4.8vw,18px);font-weight:900}
-    body.theme-dark .mesos-card{border-top:1px solid #34485c;padding:10px 4px 5px}
-    body.theme-dark .mesos-card .card-head{font-size:10px}
-    body.theme-dark .meso-amount{color:#f5f8fc;margin:5px 0 3px;font-size:26px}
-    body.theme-dark .primary-caption,body.theme-dark .mesos-footer{color:#9eb4c8;font-size:10px}
-    body.theme-dark .mesos-footer{margin-top:10px;flex-wrap:wrap;justify-content:space-between;gap:6px}
-    body.theme-dark .pill{border:1px solid #34495e;background:#1e2b39;color:#b4c5d5;box-shadow:none}
-    body.theme-dark .hud-chart-toggle{border:1px solid #34495e;border-radius:9px;background:#1a2938;color:#c3ddf3;min-height:34px}
-    body.theme-dark .hud-chart-toggle[aria-expanded="true"]{background:#223d57}
-    body.theme-dark .hud-chart-panel{border:1px solid #34495e;border-radius:12px;background:#182636;padding:12px}
-    body.theme-dark .hud-chart-title small,body.theme-dark .hud-chart-note{color:#a7bbce}
+    .hud-chart-note{margin-top:3px;color:#657e90;font-size:10px}
+    body.theme-dark .hud-chart-note{color:#a7bbce}
+    @media(max-width:350px){.hud-metrics{gap:5px}.hud-metric{padding:9px 5px}.hud-metric strong{font-size:14px}.hud-content{padding:10px}.hud-level-title{font-size:19px}}
+    @media(prefers-reduced-motion:reduce){.fill{transition:none}}
   `;
 
   function syncTheme(doc){
@@ -224,7 +206,9 @@
     if (fill) {
       const original = document.getElementById('progressBar');
       const w = parseFloat(original?.style?.width || '');
-      fill.style.width = Number.isFinite(w) ? Math.min(100, Math.max(0, w)) + '%' : '0%';
+      const percent = Number.isFinite(w) ? Math.min(100, Math.max(0, w)) : 0;
+      fill.style.width = percent + '%';
+      fill.parentElement?.setAttribute('aria-valuenow', String(percent));
     }
     const meso = document.getElementById('netProfit'), cl = meso?.className || '', val = at('hudMesos'), badge = at('hudMesoBadge');
     const kind = cl.includes('profit-positive') ? 'positive' : cl.includes('profit-negative') ? 'negative' : '';
