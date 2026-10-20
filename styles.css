@@ -1183,3 +1183,42 @@ body.theme-dark .profit-badge.neutral{
   background:var(--panel-2);color:var(--ink);border:1px solid var(--frame-soft);border-radius:8px}
 #teachMesoAIBtn{white-space:normal;text-align:center}
 @media(max-width:600px){.meso-ai-training .button{width:100%}}
+
+/* Alpha 0.2.45 — net mesos gains, clear signed profit/loss in both game themes */
+.net-mesos-highlight{
+  margin:14px 0 12px;padding:15px 17px 13px;border-radius:17px;
+  background:linear-gradient(155deg,var(--paper),var(--panel-2));
+  border:2px solid var(--frame-soft);
+  transition:border-color .16s ease;
+}
+.net-mesos-heading{display:flex;justify-content:space-between;align-items:center;
+  flex-wrap:wrap;gap:8px;color:var(--heading);font-size:12px;font-weight:900;letter-spacing:.065em}
+.net-mesos-highlight .profit-badge{white-space:normal;min-height:29px;padding:5px 11px;box-shadow:none}
+.net-mesos-total{display:flex;align-items:baseline;flex-wrap:wrap;gap:10px;margin:13px 0 8px}
+.net-mesos-total strong{font-size:clamp(34px,5vw,55px);line-height:1.1;letter-spacing:-.045em;
+  overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.net-mesos-total .profit-unit{font-size:14px;font-weight:800}
+.net-mesos-formula{font-size:11px;font-weight:750;color:var(--muted);line-height:1.5;margin:0}
+.net-mesos-highlight[data-status="positive"]{border-color:var(--success)}
+.net-mesos-highlight[data-status="negative"]{border-color:var(--danger)}
+.net-mesos-highlight .profit-positive{color:var(--success)}
+.net-mesos-highlight .profit-negative{color:var(--danger)}
+.net-mesos-highlight .profit-zero{color:var(--muted)}
+body.theme-dark .net-mesos-highlight .profit-positive{color:#8fe2a7}
+body.theme-dark .net-mesos-highlight .profit-negative{color:#ff99a1}
+body.theme-light .net-mesos-highlight .profit-positive{color:#287747}
+body.theme-light .net-mesos-highlight .profit-negative{color:#bd424b}
+.net-mesos-highlight .profit-badge.positive{color:#287747;background:#e8f7ed;border:1px solid #7bbb92}
+.net-mesos-highlight .profit-badge.negative{color:#bd424b;background:#fff0f1;border:1px solid #dda2aa}
+body.theme-dark .net-mesos-highlight .profit-badge.positive{color:#95e6ad;background:#193a2c;border:1px solid #4b9364}
+body.theme-dark .net-mesos-highlight .profit-badge.negative{color:#ffb6bb;background:#46252f;border:1px solid #a86475}
+.meso-current-balance{display:flex;justify-content:space-between;align-items:center;
+  flex-wrap:wrap;gap:10px;padding:11px 14px;border:1px solid var(--frame-soft);
+  border-radius:12px;background:var(--paper);margin:10px 0 12px}
+.meso-current-balance>div{display:flex;flex-direction:column;gap:4px;min-width:0}
+.meso-current-balance span,.meso-current-balance small{font-size:11px;font-weight:750;color:var(--muted)}
+.meso-current-balance strong{font-size:22px;font-weight:900;font-variant-numeric:tabular-nums;
+  color:var(--heading);overflow-wrap:anywhere}
+.meso-current-balance strong.profit-estimate{color:var(--metric-blue)}
+body.theme-dark .meso-current-balance strong.profit-estimate{color:#b9d8ed}
+@media(max-width:600px){.net-mesos-highlight{padding:12px}.net-mesos-heading{align-items:flex-start}}
