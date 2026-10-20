@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#8bb7df">
   <meta name="description" content="A lightweight, browser-based MapleStory EXP tracker that reads your on-screen EXP every five seconds.">
-  <title>Van's Maple EXP Tracker — Alpha 0.2.44</title>
-  <link rel="stylesheet" href="styles.css?v=0.2.43">
+  <title>Van's Maple EXP Tracker — Alpha 0.2.45</title>
+  <link rel="stylesheet" href="styles.css?v=0.2.45">
   <style>
     /* Essential EXP stat contrast: kept inline so an older cached theme stylesheet cannot turn numbers white. */
     body.theme-light #perHour,
@@ -30,7 +30,7 @@
       </div>
       <div class="header-right">
         <div class="header-topline">
-          <span class="header-note">Alpha 0.2.44 · Screen-only recognition</span>
+          <span class="header-note">Alpha 0.2.45 · Screen-only recognition</span>
           <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false" title="Toggle light and dark mode">
             <span class="theme-toggle-label">Sleepywood mode</span>
             <span class="theme-toggle-track"><span class="theme-toggle-thumb"></span></span>
@@ -64,7 +64,7 @@
             <button class="button ghost" id="resetBtn">Reset session</button>
           </div>
         </div>
-        <p class="connection-hint">EXP updates every 5 seconds; mesos checks the inventory textbox about every 1.3 seconds when visible. Open the mini overlay to keep your key stats visible over MapleStory or any other window.</p>
+        <p class="connection-hint">EXP updates every 5 seconds; mesos samples the inventory periodically when visible. Open the mini overlay to keep your key stats visible over MapleStory or any other window.</p>
       </section>
       <div class="toolbar-timer panel"><span>SESSION TIME</span><strong id="elapsed">00:00</strong></div>
     </div>
@@ -139,18 +139,25 @@
               <h2>Mesos balance</h2>
             </div>
           </div>
-          <div class="profit-badges"><span class="wip-label" title="Balance tracking is still experimental">WORK IN PROGRESS</span><span id="profitBadge" class="profit-badge">Waiting for a balance</span></div>
+          <div class="profit-badges"><span class="wip-label" title="Balance tracking is still experimental">WORK IN PROGRESS</span></div>
         </div>
         <p class="mesos-disclaimer">Experimental: OCR and local AI guesses may be wrong. Confirm in-game before relying on mesos totals.</p>
-        <div class="profit-total"><strong id="netProfit" class="profit-unknown">—</strong><span class="profit-unit" id="mesoBalanceLabel">mesos · last confirmed balance</span></div>
-        <div class="profit-breakdown meso-only-breakdown">
-          <div><span>Mesos gained from snapshots</span><strong id="mesoGained">—</strong></div>
-          <div><span>Mesos gained / hour</span><strong id="mesoPerHour">—</strong></div>
-          <div><span>Estimated consumable spending</span><strong id="potionSpend">0</strong></div>
+        <div class="net-mesos-highlight" id="netMesoPanel">
+          <div class="net-mesos-heading"><span>NET MESOS GAIN</span><span id="profitBadge" class="profit-badge">Waiting for mesos</span></div>
+          <div class="profit-total net-mesos-total"><strong id="netProfit" class="profit-unknown">—</strong><span class="profit-unit">mesos</span></div>
+          <p class="net-mesos-formula" id="netMesoFormula">Confirmed gross gains − estimated HP/MP potion usage this session</p>
         </div>
-        <span id="mesoBalance" hidden>—</span>
+        <div class="meso-current-balance">
+          <div><span id="mesoBalanceLabel">Current mesos · last confirmed balance</span><strong id="mesoBalance">—</strong></div>
+          <small id="mesoReadingStatus">Waiting for inventory</small>
+        </div>
+        <div class="profit-breakdown meso-only-breakdown">
+          <div><span>Gross mesos gained</span><strong id="mesoGained">—</strong></div>
+          <div><span>Mesos gained / hour</span><strong id="mesoPerHour">—</strong></div>
+          <div><span>Session potion cost (estimated)</span><strong id="potionSpend">0</strong></div>
+        </div>
         <span id="mesoDelta" hidden>—</span>
-        <p class="profit-help" id="profitExplanation">Open the inventory to read its white mesos number field. Mesos/hour uses confirmed balance increases across snapshots and active session time. Consumable expenses are estimated separately at published NPC shop prices, not deducted a second time.</p>
+        <p class="profit-help" id="profitExplanation">Net mesos gain = confirmed positive mesos changes minus the estimated NPC cost of HP/MP potions used since this mesos session started. OCR/AI guesses cannot alter the net result.</p>
         <div class="potion-tracker" aria-label="Manual potion usage tracker">
           <div class="potion-heading"><strong>HP / MP potion tracking</strong><span class="wip-label">MANUAL</span></div>
           <p class="detail-help">Select a potion or recovery food and enter its current count. NPC shop prices are shown in each dropdown (from <a href="https://meowdb.com/msclassic/npc-shops/item-efficiency/consumables" target="_blank" rel="noopener noreferrer">MeowDB's Classic consumables table</a>). The first update sets a baseline; later decreases estimate usage. Purchased or obtained items may have a different effective cost.</p>
@@ -288,11 +295,11 @@
   <script src="pixel-matcher.js"></script>
   <script src="level-atlas.js"></script>
   <script src="level-templates.js"></script>
-  <script src="app.js?v=0.2.37"></script>
+  <script src="app.js?v=0.2.45"></script>
   <script src="inventory-footer.js?v=0.2.44"></script>
   <!-- Mesos digit templates removed from automatic scan; raw OCR only. -->
   <script src="mesos-ai.js?v=0.2.44"></script>
-  <script src="extras.js?v=0.2.44"></script>
-  <script src="overlay.js?v=0.2.37"></script>
+  <script src="extras.js?v=0.2.45"></script>
+  <script src="overlay.js?v=0.2.45"></script>
 </body>
 </html>
