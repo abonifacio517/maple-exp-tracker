@@ -3,7 +3,8 @@
 // video frames; never accesses MapleStory processes, memory, files, or controls.
 const extras={inventory:null,lastFind:0,inventoryOpen:false,
   mesosStart:null,mesosCurrent:null,mesoPending:null,mesoVotes:[],mesoWhen:null,mesoStartWhen:null,mesoBusy:false,mesoStatus:'',
-  lastMesoAttempt:0,lastInvFind:0,mesoSnapshots:[],mesoGained:0,mesoRawNote:''};
+  lastMesoAttempt:0,lastInvFind:0,mesoSnapshots:[],mesoGained:0,mesoRawNote:'',
+  mesoGuess:null,mesoGuessAt:0,mesoGuessConfidence:0};
 function anchorMatcher(spec,s,kind){
   const pts=spec.points.filter((p,i)=>i%(kind==='hotbar'?5:2)===0).map(([x,y,v])=>[Math.round(x*s),Math.round(y*s),v]);
   const n=pts.length,mean=pts.reduce((sum,p)=>sum+p[2],0)/n;
@@ -138,28 +139,35 @@ async function recognizeSnapshot(rect,worker,kind='mesos'){
     note:details.join(' | ')+(best?(agreement?' | preprocessing agrees':' | checking again on next frame'):' | no reliable OCR candidate')};
 }
 function showExtraStats(){
-  const balance=extras.mesosCurrent,known=balance!==null;
+  const confirmed=extras.mesosCurrent;
+  const guess=extras.mesoGuess;
+  const unverified=Number.isSafeInteger(guess)&&guess!==confirmed;
+  const balance=unverified?guess:confirmed;
+  const known=balance!==null;
   const sessionMs=typeof sessionElapsedMs==='function'?sessionElapsedMs():0;
   const firstSnapshot=extras.mesoSnapshots[0];
   const observedHours=firstSnapshot?Math.max(0,sessionMs-firstSnapshot.elapsed)/3600000:0;
   $('mesoBalance').textContent=known?fmt(balance):'—';
   $('netProfit').textContent=known?fmt(balance):'—';
-  $('netProfit').className=known?'profit-zero':'profit-unknown';
-  $('mesoDelta').textContent='—'; // legacy hidden value, not displayed or double-counted
+  $('netProfit').className=known?(unverified?'profit-unknown':'profit-zero'):'profit-unknown';
+  $('mesoBalanceLabel').textContent=unverified?'mesos · raw OCR estimate (unverified)':
+    'mesos · last confirmed balance';
+  $('mesoDelta').textContent='—';
   $('mesoGained').textContent=extras.mesoSnapshots.length?fmt(extras.mesoGained):'—';
   $('mesoPerHour').textContent=extras.mesoSnapshots.length>1&&observedHours>1/3600?
     fmt(Math.round(extras.mesoGained/observedHours)):'—';
   $('potionSpend').textContent=fmt(potionSpent());
   const badge=$('profitBadge');
-  badge.textContent=known?'Balance confirmed':'Waiting for balance';
-  badge.className='profit-badge '+(known?'positive':'neutral');
-  $('profitExplanation').textContent=known?
-    'Mesos gained/hour sums positive differences between confirmed inventory snapshots and divides by active time since the first mesos snapshot. Spending and potion estimates appear separately; potion costs are not deducted twice.':
-    'Open your inventory to establish a mesos snapshot. The reader tracks its white numeric textbox anywhere in the shared game frame.';
-  $('mesoScanStatus').textContent=extras.mesoStatus || (extras.inventoryOpen?
-    (extras.mesoWhen?'Inventory visible · last confirmed '+extras.mesoWhen.toLocaleTimeString():
-      extras.mesoPending?'Checking '+fmt(extras.mesoPending.value)+'…':'Inventory visible · reading…'):
-    (extras.mesoWhen?'Inventory closed · last confirmed '+extras.mesoWhen.toLocaleTimeString():'Waiting for inventory'));
+  badge.textContent=unverified?'OCR estimate · unverified':
+    confirmed!==null?'Balance confirmed':'Waiting for balance';
+  badge.className='profit-badge '+(unverified?'neutral':confirmed!==null?'positive':'neutral');
+  $('profitExplanation').textContent=unverified?
+    'This is the raw OCR guess, shown immediately even at low confidence. Confirm it in-game. Mesos/hour and gained totals only use repeated, higher-confidence readings or manual snapshots.':
+    confirmed!==null?
+    'Mesos gained/hour uses confirmed inventory snapshots and active session time; estimated potion spending is separate.':
+    'Open your inventory to read its original white mesos textbox. OCR guesses are displayed immediately with an unverified label.';
+  $('mesoScanStatus').textContent=extras.mesoStatus||(
+    extras.inventoryOpen?'Inventory visible · awaiting raw OCR':'Waiting for inventory');
 }
 function saveMesosSnapshot(value){
   if(!Number.isSafeInteger(value)||value<0||value>1000000000000)return false;
@@ -171,6 +179,7 @@ function saveMesosSnapshot(value){
   }
   if(extras.mesosStart===null){extras.mesosStart=value;extras.mesoStartWhen=new Date();}
   extras.mesosCurrent=value;extras.mesoWhen=new Date();
+  extras.mesoGuess=null;extras.mesoGuessAt=0;
   extras.mesoPending=null;extras.mesoVotes=[];
   return true;
 }
@@ -207,7 +216,8 @@ function resetExtras(){
   Object.assign(extras,{inventory:null,lastFind:0,inventoryOpen:false,
     mesosStart:null,mesosCurrent:null,mesoPending:null,mesoVotes:[],mesoWhen:null,mesoStartWhen:null,
     mesoBusy:false,mesoStatus:'',lastMesoAttempt:0,lastInvFind:0,
-    mesoSnapshots:[],mesoGained:0,mesoRawNote:''});
+    mesoSnapshots:[],mesoGained:0,mesoRawNote:'',
+    mesoGuess:null,mesoGuessAt:0,mesoGuessConfidence:0});
   // Resetting the mesos session does not erase manual potion spending.
   if(state.running&&state.stream)beginMesosWatch();
   showExtraStats();
@@ -273,25 +283,21 @@ function offsetMesosHit(hit,x,y){
 }
 function drawMesosPreview(rect,frame){
   if(!rect||!frame)return;
-  // Enlarging and repainting multiple canvases every scan is expensive.
-  // Only render previews while OCR settings are open.
-  const preview=$('mesoRawCrop');
-  if(!preview?.closest('details')?.open)return;
+  const canvas=$('mesoRawCrop');
+  if(!canvas?.closest('details')?.open)return;
   const now=Date.now();
   if(now-lastMesosPreview<MESO_PREVIEW_REFRESH_MS)return;
   lastMesosPreview=now;
-  const views=[
-    ['mesoRawCrop',snapshotImage(rect,'raw',frame)],
-    ['mesoEnhancedCrop',inkOnlyMesosImage(rect,frame)]
-  ];
-  for(const [id,image] of views){
-    if(!image)continue;
-    const canvas=$(id);if(!canvas)continue;
-    const width=Math.min(520,image.width),height=Math.max(24,Math.round(image.height*width/image.width));
-    canvas.width=width;canvas.height=height;
-    const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;ctx.clearRect(0,0,width,height);
-    ctx.drawImage(image,0,0,width,height);
-  }
+  // Display original-color source crop only; no enhancement or thresholds.
+  const image=snapshotImage(rect,'raw',frame);
+  if(!image)return;
+  const width=Math.min(520,image.width);
+  const height=Math.max(24,Math.round(image.height*width/image.width));
+  canvas.width=width;canvas.height=height;
+  const ctx=canvas.getContext('2d');
+  ctx.imageSmoothingEnabled=false;
+  ctx.clearRect(0,0,width,height);
+  ctx.drawImage(image,0,0,width,height);
 }
 function parseMesosText(raw){
   const text=String(raw||'').trim().replace(/\s+/g,'').replace(/(?<=\d)\.(?=\d{3}(?:$|[,]))/g,',');
@@ -343,63 +349,35 @@ function inkOnlyMesosImage(rect,sourceFrame=null){
   c.imageSmoothingEnabled=false;c.drawImage(raw,pad,pad,raw.width*zoom,raw.height*zoom);
   return image;
 }
+// One single raw-color OCR pass: no glyph templates, binarization, contrast
+// adjustment, enhancement or agreement between different image filters.
 async function readMesosFast(worker,rect,sourceFrame){
   if(!rect)return {value:null,source:'none',note:'Mesos textbox not visible.'};
-  const font=typeof readMesosDigits==='function'?
-    readMesosDigits(sourceFrame,rect):{value:null,candidate:null,score:0,note:'Digit templates unavailable'};
-  const details=[`templates: ${font.note||'—'}`];
-  // Trusted digit atlas reading: still confirm on another captured frame.
-  if(font.value!==null&&font.score>=.83)
-    return {value:font.value,source:'font',quality:font.score,note:details.join(' | ')+' · verified template candidate'};
-  if(!worker)return {value:null,source:'templates-uncertain',
-    note:details.join(' | ')+' · OCR comparison required'};
-  // This dedicated mesos worker is configured once at creation; updating
-  // parameters on every uncertain scan added unnecessary worker round-trips.
-  const rawReads=[];
-  // Keep the raw and enhanced candidates even if Tesseract gives the
-  // enhanced black-on-white crop 0% confidence: a zero is not proof that the
-  // legible digits are wrong. It cannot be the sole acceptance evidence.
-  for(const mode of ['raw','enhanced']){
-    const image=mode==='enhanced'?inkOnlyMesosImage(rect,sourceFrame):snapshotImage(rect,'raw',sourceFrame);
-    if(!image)continue;
-    const result=await worker.recognize(image);
-    const text=String(result.data.text||'').trim();
-    const confidence=Math.round(Number(result.data.confidence)||0);
-    const value=parseMesosText(text);
-    details.push(`${mode} OCR: ${JSON.stringify(text)} [${confidence}%] => ${value===null?'?':fmt(value)}`);
-    rawReads.push({mode,value,confidence});
-    if(mode==='raw'&&value!==null&&confidence>=89 && font.candidate==null)break;
+  if(!worker)return {value:null,source:'ocr-unavailable',note:'Raw OCR worker unavailable.'};
+  // Pixel colors are unchanged. snapshotImage uses nearest-neighbour display
+  // enlargement only, to let OCR see the tiny game font at readable scale.
+  const image=snapshotImage(rect,'raw',sourceFrame);
+  if(!image)return {value:null,source:'crop-invalid',note:'Raw textbox crop unavailable.'};
+  const result=await worker.recognize(image);
+  const raw=String(result?.data?.text||'').trim();
+  const confidence=Math.max(0,Math.min(100,Math.round(Number(result?.data?.confidence)||0)));
+  let value=parseMesosText(raw);
+  let strict=value!==null;
+  // Best-effort fallback is DISPLAY ONLY: recover plausible digits even when
+  // OCR inserts a stray symbol. Such guesses can never become rate snapshots.
+  if(value===null){
+    const groups=raw.match(/[0-9][0-9,.\s]*[0-9]|[0-9]/g)||[];
+    const digits=groups.join('').replace(/\D/g,'');
+    if(digits.length>=1&&digits.length<=12){
+      const guessed=Number(digits);
+      if(Number.isSafeInteger(guessed)&&guessed<=1000000000000)value=guessed;
+    }
   }
-  const raw=rawReads.find(v=>v.mode==='raw');
-  const enhanced=rawReads.find(v=>v.mode==='enhanced');
-  const tentative=Number.isSafeInteger(font.candidate)?font.candidate:null;
-  // Agreement between two pixel thresholds AND independently processed OCR,
-  // confirmed again over at least three separate screen frames.
-  if(tentative!==null && enhanced?.value===tentative){
-    const rawMismatch=raw?.value!==null&&raw?.value!==tentative;
-    if(rawMismatch&&raw.confidence>=86)
-      return {value:null,source:'conflict',note:details.join(' | ')+
-        ' · high-confidence raw OCR conflicts with template/enhanced reading; no auto-confirmation'};
-    return {value:tentative,source:'visual-consensus',quality:rawMismatch?.55:.67,
-      note:details.join(' | ')+(rawMismatch?
-        ' · raw OCR disagreement; provisional template/enhanced consensus (requires 3+ frames)':
-        ' · template thresholds and enhanced OCR agree (requires 3+ frames)')};
-  }
-  if(raw?.value!==null&&enhanced?.value!==null &&
-      raw.value===enhanced.value&&raw.confidence>=42&&enhanced.confidence>=25 &&
-      (tentative===null||tentative===raw.value))
-    return {value:raw.value,source:'ocr-agreement',quality:Math.min(1,(raw.confidence+enhanced.confidence)/200),
-      note:details.join(' | ')+' · two processed OCR reads agree; confirm across frames'};
-  // If the partial atlas disagrees with a decent raw OCR result, withhold rather
-  // than rewriting a 3/8/5 as another numeral.
-  if(tentative!==null && raw?.value!==null && raw.value!==tentative)
-    return {value:null,source:'conflict',note:details.join(' | ')+
-      ' · conflicting digits; no verified enhancement agreement; keeping previous balance'};
-  if(raw?.value!==null&&raw.confidence>=82&&tentative===null)
-    return {value:raw.value,source:'ocr-single',quality:raw.confidence/100,
-      note:details.join(' | ')+' · strong raw OCR candidate; requires repeated scans'};
-  return {value:null,source:'uncertain',note:details.join(' | ')+
-    ' · no trustworthy cross-check; previous balance retained'};
+  return {value,source:'raw-ocr',confidence,quality:confidence/100,strict,
+    note:`Raw, unfiltered OCR: ${JSON.stringify(raw)} [${confidence}% confidence] => ${value===null?'no digits':fmt(value)}`+
+      (value===null?' · no recognizable number':
+        strict?' · shown immediately; confirm across frames for rate calculations':
+          ' · recovered digit guess only; not eligible for rate calculations')};
 }
 async function scanMesos(generation){
   if(!state.running||!state.stream||!video.videoWidth||extras.mesoBusy||generation!==mesosGeneration)return;
@@ -440,32 +418,38 @@ async function scanMesos(generation){
     const field=locateMesosField(frame,hit,offsetX,offsetY);
     if(!field.rect)return;
     drawMesosPreview(field.rect,frame);
-    // Fast local templates run on every visible scan. Slow Tesseract is only
-    // attempted periodically when the digit atlas cannot establish a reading.
-    let read=await readMesosFast(null,field.rect,frame);
-    if(read.value===null){
-      if(Date.now()-lastMesosOCR>=MESO_OCR_RETRY_MS){
-        lastMesosOCR=Date.now();
-        let worker=null;
-        try{worker=await getMesosWorker();}catch(_error){/* template-only fallback */}
-        if(generation!==mesosGeneration||!state.running)return;
-        if(worker)read=await readMesosFast(worker,field.rect,frame);
-      }else{
-        read={...read,source:'ocr-cooldown',
-          note:read.note+' · OCR deferred to keep the tracker responsive'};
-      }
+    // No templates or enhanced passes. Retain the latest OCR guess while
+    // the worker is on cooldown, keeping the expensive pass throttled.
+    if(Date.now()-lastMesosOCR<MESO_OCR_RETRY_MS){
+      extras.mesoStatus=extras.mesoGuess!==null?
+        'Last raw OCR estimate '+fmt(extras.mesoGuess)+' · next read shortly (unverified)':
+        'Raw OCR scan scheduled shortly';
+      return;
     }
+    lastMesosOCR=Date.now();
+    const worker=await getMesosWorker();
+    if(generation!==mesosGeneration||!state.running)return;
+    const read=await readMesosFast(worker,field.rect,frame);
     if(generation!==mesosGeneration||!state.running)return;
     extras.lastMesoAttempt=Date.now();
     extras.mesoRawNote=read.note;
     $('mesoOCRDetails').textContent=`${field.note}\n${read.note}\nCandidate: ${read.value===null?'unreadable':fmt(read.value)} (${read.source||'unknown'})`;
     if(read.value!==null){
-      const accepted=acceptMesos(read);
-      extras.mesoStatus=accepted?`Confirmed ${fmt(read.value)} at ${new Date().toLocaleTimeString()}`:
-        `Verifying ${fmt(extras.mesoPending?.value??read.value)} · ${extras.mesoPending?.count??1}/${extras.mesoPending?.needed??2} frames`;
+      // Show immediately regardless of OCR confidence. Low-confidence and
+      // salvage-mode guesses NEVER overwrite the confirmed mesos history.
+      extras.mesoGuess=read.value;
+      extras.mesoGuessAt=Date.now();
+      extras.mesoGuessConfidence=read.confidence;
+      const eligible=read.strict&&read.confidence>=55;
+      const accepted=eligible?acceptMesos(read):false;
+      extras.mesoStatus=accepted?
+        `Confirmed ${fmt(read.value)} from repeated raw OCR reads`:
+        `OCR estimate ${fmt(read.value)} (${read.confidence}% confidence) · unverified`+
+        (eligible?' · awaiting repeat':' · verify in game');
     }else{
-      extras.mesoVotes=(extras.mesoVotes||[]).filter(v=>Date.now()-v.time<14000);
-      extras.mesoStatus='Textbox found · digit recognition uncertain';
+      extras.mesoStatus=extras.mesoGuess!==null?
+        'Raw OCR unreadable now · retaining previous unverified estimate':
+        'Textbox found · OCR could not extract a number';
     }
     $('mesoDebug').textContent=extras.mesoStatus+'\n'+$('mesoOCRDetails').textContent;
   }catch(error){
