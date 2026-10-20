@@ -1,6 +1,12 @@
-# Van's Maple EXP Tracker — Alpha 0.2.31
+# Van's Maple EXP Tracker — Alpha 0.2.32
 
 This release improves screen-only **mesos recognition** without changing the EXP and level recognition code.
+
+## Alpha 0.2.32 — Reliable Henesys metric contrast
+
+- Corrected the original Henesys style rule that was forcing EXP/hour, ETA, and KPQ values to white on pale cards.
+- Added an HTML-level contrast safeguard for those three figures and versioned the stylesheet URL so Chrome loads fresh styles rather than stale cached CSS.
+- Both themes keep the same text tone as their mesos balance figures. Tracking logic and HUD remain unchanged.
 
 ## Alpha 0.2.31 — EXP metric contrast
 
