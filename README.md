@@ -1,6 +1,14 @@
-# Van's Maple EXP Tracker — Alpha 0.2.25
+# Van's Maple EXP Tracker — Alpha 0.2.26
 
 This release improves screen-only **mesos recognition** without changing the EXP and level recognition code.
+
+## Alpha 0.2.26 — Dark-mode refresh
+
+- Dark mode now follows a compact charcoal-and-navy visual language with flat cards, thin borders, blue full-width section bars and a bright blue EXP progress bar. Light-mode colors are intentionally unchanged.
+- Reduced page width and spacing; session timer moves into the header beside Van's sprite. Live EXP stats form a compact, responsive grid.
+- Replaced the generic mesos currency mark with an original gold coin and engraved maple leaf, closer in spirit to MapleStory's mesos imagery (not an official extracted asset).
+- The browser Picture-in-Picture HUD has matching dark-only styling, clearer metric spacing, a small Van sprite and the same gold meso coin. The experimental EXP/min graph is retained.
+- Recognition, OCR, KPQ estimate math and screen-only permissions are unchanged.
 
 ## Alpha 0.2.25 — Minimal HUD and experimental EXP/min chart
 
