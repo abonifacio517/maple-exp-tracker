@@ -7,13 +7,15 @@
 
   let miniWindow = null, timer = null, graphOpen = false;
   const sourceValue = id => document.getElementById(id)?.textContent?.trim() || '—';
+  const spriteSrc = new URL('van-sprite.svg', document.baseURI).href;
   const currentTheme = () => (window.__getMapleTheme ? window.__getMapleTheme() : (document.body.classList.contains('theme-dark') ? 'dark' : 'light'));
   // Small geometric SVG marks replace the previous bulky pixel-art assets in the HUD.
   const expMark = '<svg viewBox="0 0 28 28" width="24" height="24" aria-hidden="true"><path d="M3 21L10 13l5 4 10-12M18 5h7v7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  const mesoMark = '<svg viewBox="0 0 28 28" width="21" height="21" aria-hidden="true"><circle cx="14" cy="14" r="11" fill="none" stroke="currentColor" stroke-width="2"/><path d="M18 8h-6a4 4 0 0 0 0 8h4a4 4 0 0 1 0 8h-6M14 4v20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+  const mesoMark = '<svg viewBox="0 0 56 56" width="28" height="28" aria-hidden="true"><defs><linearGradient id="hudMesoGold" x1="0" y1="0" x2=".9" y2="1"><stop offset="0" stop-color="#fff1a6"/><stop offset=".45" stop-color="#fbd15a"/><stop offset="1" stop-color="#bf751e"/></linearGradient></defs><circle cx="28" cy="28" r="24" fill="#754418" stroke="#57300f" stroke-width="2"/><circle cx="27" cy="26" r="21" fill="url(#hudMesoGold)" stroke="#ffdc75" stroke-width="2"/><circle cx="27" cy="26" r="17" fill="none" stroke="#b06d26" stroke-width="1.7"/><path d="M27 10L31 19 37 16 35 22 43 26 36 30 39 36 30 33 29 43 25 43 24 33 15 36 18 30 11 26 19 22 17 16 23 19Z" fill="#a9621d" stroke="#8b4b16" stroke-width=".8" stroke-linejoin="round"/></svg>';
 
   const html = `
     <div class="hud-window">
+      <div class="hud-brand"><img src="${spriteSrc}" alt=""><div class="hud-brand-copy"><strong>Van's EXP Tracker</strong><small>LIVE TRAINING HUD</small></div></div>
       <div class="hud-body">
         <section class="hud-card primary-card">
           <div class="card-head">${expMark}<span>EXP TRACKER</span><span class="hud-level-chip">Lv. <span id="hudLevel">—</span></span></div>
@@ -98,6 +100,55 @@
     #hudGraph{display:block;width:100%;height:152px;margin-top:7px}
     .hud-chart-note{font-size:10px;color:#647889;margin-top:3px}
     .theme-dark .hud-chart-note{color:#cbd0dd}
+
+    /* Alpha 0.2.26: match the app's charcoal/navy dark theme. Light HUD CSS stays untouched. */
+    .hud-brand{display:none}
+    body.theme-dark{background:#0d151e;color:#f3f8fd;padding:5px}
+    body.theme-dark .hud-window{
+      border:1px solid #34475b;border-radius:17px;
+      background:#131e29;padding:11px 12px 12px;
+      box-shadow:0 9px 24px rgba(0,0,0,.34);
+    }
+    body.theme-dark .hud-brand{display:flex;align-items:center;gap:10px;margin:0 0 10px;padding:0 4px 8px;border-bottom:1px solid #314355}
+    body.theme-dark .hud-brand img{display:block;object-fit:contain;width:39px;height:50px;filter:none}
+    body.theme-dark .hud-brand-copy{display:grid;gap:5px}
+    body.theme-dark .hud-brand-copy strong{font-size:15px;font-weight:900;letter-spacing:-.025em;color:#f5faff}
+    body.theme-dark .hud-brand-copy small{font-size:9px;color:#9eb1c5;letter-spacing:.05em;font-weight:800}
+    body.theme-dark .hud-body{gap:8px}
+    body.theme-dark .hud-card{
+      background:transparent;border:0;padding:6px 4px;
+      box-shadow:none;border-radius:0;
+    }
+    body.theme-dark .primary-card::after{display:none}
+    body.theme-dark .card-head{font-size:10px;color:#c9d7e7;letter-spacing:.08em}
+    body.theme-dark .card-head svg{color:#e6b45b}
+    body.theme-dark .primary-card .card-head svg{color:#68b9f6}
+    body.theme-dark .hud-level-chip{font-size:15px;font-weight:900;color:#f8fbff;letter-spacing:-.01em}
+    body.theme-dark .bar-head{margin:10px 0 7px;font-size:11px;color:#c9d7e7}
+    body.theme-dark .bar-head strong{color:#f2f8ff}
+    body.theme-dark .track{
+      height:22px;padding:2px;border:1px solid #415367;border-radius:10px;background:#263747;
+      box-shadow:none;
+    }
+    body.theme-dark .track::before{display:none}
+    body.theme-dark .fill{border:0;border-radius:7px;background:linear-gradient(90deg,#259df0,#40b5ff);box-shadow:none}
+    body.theme-dark .fill::after{background:linear-gradient(180deg,rgba(255,255,255,.15),transparent)}
+    body.theme-dark .bar-foot{font-size:11px;color:#c1d0e0;font-weight:500;gap:8px}
+    body.theme-dark .hud-metrics{margin-top:14px;padding-top:13px;border-top:1px solid #34485c}
+    body.theme-dark .hud-metric{border-color:#34485c;padding:0 11px;gap:9px}
+    body.theme-dark .hud-metric:first-child{padding-left:0}
+    body.theme-dark .hud-metric .mini-label{color:#afc1d3;font-size:10px;min-height:28px;font-weight:600}
+    body.theme-dark .hud-metric strong{color:#fafcff;font-size:clamp(14px,4.8vw,18px);font-weight:900}
+    body.theme-dark .mesos-card{border-top:1px solid #34485c;padding:10px 4px 5px}
+    body.theme-dark .mesos-card .card-head{font-size:10px}
+    body.theme-dark .meso-amount{color:#f5f8fc;margin:5px 0 3px;font-size:26px}
+    body.theme-dark .primary-caption,body.theme-dark .mesos-footer{color:#9eb4c8;font-size:10px}
+    body.theme-dark .mesos-footer{margin-top:10px;flex-wrap:wrap;justify-content:space-between;gap:6px}
+    body.theme-dark .pill{border:1px solid #34495e;background:#1e2b39;color:#b4c5d5;box-shadow:none}
+    body.theme-dark .hud-chart-toggle{border:1px solid #34495e;border-radius:9px;background:#1a2938;color:#c3ddf3;min-height:34px}
+    body.theme-dark .hud-chart-toggle[aria-expanded="true"]{background:#223d57}
+    body.theme-dark .hud-chart-panel{border:1px solid #34495e;border-radius:12px;background:#182636;padding:12px}
+    body.theme-dark .hud-chart-title small,body.theme-dark .hud-chart-note{color:#a7bbce}
   `;
 
   function syncTheme(doc){
