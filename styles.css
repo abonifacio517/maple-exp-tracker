@@ -1128,3 +1128,24 @@ body.theme-dark .brand-sprite--sleepywood{
 .meso-preview-grid canvas{width:100%;height:auto;min-height:50px;max-height:160px;object-fit:contain;object-position:left center;border:1px solid var(--frame-soft);border-radius:8px;background:#fff;image-rendering:pixelated}
 #mesoOCRDetails{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px;padding:11px;margin:12px 0 0;background:var(--panel-2);color:var(--ink);border-radius:8px}
 @media(max-width:650px){.potion-grid,.meso-preview-grid{grid-template-columns:1fr}.potion-inputs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Alpha 0.2.38 price-in-dropdown consumables */
+.potion-entry .potion-shop-price{
+  display:flex;
+  align-items:center;
+  align-self:end;
+  min-height:42px;
+  border:1px solid var(--frame-soft);
+  border-radius:9px;
+  background:var(--paper-2);
+  padding:8px 10px;
+  font-size:11px;
+  line-height:1.35;
+  font-weight:800;
+  color:var(--heading);
+}
+.potion-entry select{line-height:1.4}
+.potion-entry select option{background:var(--paper);color:var(--heading)}
+@media(max-width:450px){
+  .potion-inputs{grid-template-columns:minmax(0,1fr)}
+}
