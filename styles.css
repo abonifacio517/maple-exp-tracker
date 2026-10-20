@@ -1102,3 +1102,29 @@ body.theme-dark .brand-sprite--sleepywood{
     align-self:flex-end;
   }
 }
+
+/* Alpha 0.2.37 mesos and potions */
+.potion-tracker{margin-top:15px;padding:16px;border:1px solid var(--frame-soft);border-radius:14px;background:var(--paper)}
+.potion-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+.potion-heading>strong{font-size:16px;color:var(--heading)}
+.potion-tracker .detail-help{margin:8px 0 12px;font-size:12px;line-height:1.5;color:var(--muted)}
+.potion-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.potion-entry{border:1px solid var(--frame-soft);background:var(--panel-1);border-radius:12px;padding:13px;min-width:0;display:grid;gap:9px}
+.potion-entry>label{font-size:12px;color:var(--heading);font-weight:800}
+.potion-entry select,.potion-entry input{width:100%;box-sizing:border-box;min-width:0;padding:9px;border-radius:9px;border:1px solid var(--frame-soft);background:var(--input);color:var(--ink);font:700 13px Verdana,Tahoma,sans-serif}
+.potion-entry input{font-variant-numeric:tabular-nums}
+.potion-entry select:focus-visible,.potion-entry input:focus-visible{outline:2px solid #6caeeb;outline-offset:1px}
+.potion-inputs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.potion-inputs label{min-width:0;display:grid;gap:5px;font-size:11px;font-weight:700;color:var(--muted)}
+.potion-entry small{font-size:11px;line-height:1.45;color:var(--muted);overflow-wrap:anywhere}
+.potion-actions{margin-top:12px;display:flex;flex-wrap:wrap;gap:9px}
+.potion-actions button{min-height:40px}
+#potionNote{margin-bottom:0}
+.meso-ocr-preview{margin-top:16px;padding:14px;border:1px solid var(--frame-soft);background:var(--paper);border-radius:13px}
+.meso-ocr-preview>strong{font-size:13px;color:var(--heading)}
+.meso-preview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.meso-preview-grid>div{display:grid;gap:6px;min-width:0}
+.meso-preview-grid span{font-size:11px;color:var(--muted);font-weight:800}
+.meso-preview-grid canvas{width:100%;height:auto;min-height:50px;max-height:160px;object-fit:contain;object-position:left center;border:1px solid var(--frame-soft);border-radius:8px;background:#fff;image-rendering:pixelated}
+#mesoOCRDetails{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px;padding:11px;margin:12px 0 0;background:var(--panel-2);color:var(--ink);border-radius:8px}
+@media(max-width:650px){.potion-grid,.meso-preview-grid{grid-template-columns:1fr}.potion-inputs{grid-template-columns:repeat(2,minmax(0,1fr))}}
