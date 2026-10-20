@@ -38,7 +38,7 @@
           <div class="card-head">${mesoMark}<span>MESOS TRACKER · WIP</span></div>
           <div class="mesos-content">
             <div class="meso-amount" id="hudMesos">—</div>
-            <div class="primary-caption" id="hudMesoCaption">Mesos balance</div>
+            <div class="primary-caption" id="hudMesoCaption">Net mesos gain · after potion usage</div>
             <div class="mesos-footer"><span id="hudMesoBadge" class="pill">Awaiting inventory</span><span id="hudStatus">Waiting for tracker</span></div>
           </div>
         </section>
@@ -214,7 +214,7 @@
     const kind = cl.includes('profit-positive') ? 'positive' : cl.includes('profit-negative') ? 'negative' : '';
     if (val) val.className = 'meso-amount ' + kind;
     const caption = at('hudMesoCaption');
-    if (caption) caption.textContent = sourceValue('mesoBalanceLabel');
+    if (caption) caption.textContent = 'Net mesos gain · after potion usage';
     if (badge) { badge.className = 'pill ' + kind; badge.textContent = sourceValue('profitBadge'); }
     const status = at('hudStatus');
     if (status) status.textContent = sourceValue('readingBadge') + ' · ' + (sourceValue('sharePill') || '');
