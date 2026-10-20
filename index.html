@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#8bb7df">
   <meta name="description" content="A lightweight, browser-based MapleStory EXP tracker that reads your on-screen EXP every five seconds.">
-  <title>Van's Maple EXP Tracker — Alpha 0.2.25</title>
+  <title>Van's Maple EXP Tracker — Alpha 0.2.26</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -20,12 +20,13 @@
       </div>
       <div class="header-right">
         <div class="header-topline">
-          <span class="header-note">Alpha 0.2.25 · Screen-only recognition</span>
+          <span class="header-note">Alpha 0.2.26 · Screen-only recognition</span>
           <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false" title="Toggle light and dark mode">
             <span class="theme-toggle-label">Sleepywood mode</span>
             <span class="theme-toggle-track"><span class="theme-toggle-thumb"></span></span>
           </button>
         </div>
+        <div class="toolbar-timer panel"><span>SESSION TIME</span><strong id="elapsed">00:00</strong></div>
         <span class="state-pill" id="sharePill"><span class="share-indicator" aria-hidden="true"></span><span id="shareLabel">Not sharing</span></span>
       </div>
     </header>
@@ -57,7 +58,6 @@
         <p class="connection-hint">EXP updates every 5 seconds; mesos checks every 2 seconds when your inventory is visible. Open the mini overlay to keep your key stats visible over MapleStory or any other window.</p>
       </section>
 
-      <div class="toolbar-timer panel"><span>SESSION TIME</span><strong id="elapsed">00:00</strong></div>
     </div>
       <section class="dashboard panel" aria-label="Live training dashboard">
         <div class="window-chrome" aria-hidden="true"><span class="window-label">EXP TRACKER</span></div>
@@ -86,6 +86,7 @@
         </div>
         <div class="track-scale"><span id="expFraction">— / — EXP</span><span id="expRemaining">— remaining</span></div>
 
+        <div class="exp-stat-strip">
         <div class="metrics metrics-single">
           <div class="metric metric-major">
             <span class="metric-label">EXP per hour</span>
@@ -104,7 +105,7 @@
           <div class="mini-stat"><span>EXP gained</span><strong id="gained">0</strong></div>
           <span id="currentPct" hidden aria-hidden="true">—</span>
           <span id="currentExp" hidden aria-hidden="true">—</span>
-          
+        </div>
         </div>
       </section>
 
@@ -112,7 +113,15 @@
         <div class="window-chrome" aria-hidden="true"><span class="window-label">MESOS TRACKER</span></div>
         <div class="profit-title-row hero-top">
           <div class="panel-hero panel-hero-mesos">
-            <svg class="hero-icon hero-coin-art minimal-icon" viewBox="0 0 64 64" role="img" aria-label="Mesos"><rect x="6" y="6" width="52" height="52" rx="15" fill="currentColor" opacity=".10"/><circle cx="32" cy="32" r="18" fill="none" stroke="currentColor" stroke-width="3.5"/><path d="M38 24h-8a6 6 0 0 0 0 12h4a6 6 0 0 1 0 12h-9M32 18v30" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="3.5"/></svg>
+            <svg class="hero-icon hero-coin-art meso-coin-art" viewBox="0 0 64 64" role="img" aria-label="Gold meso coin with a maple leaf">
+              <defs><linearGradient id="mesoGold" x1="0" y1="0" x2=".85" y2="1"><stop offset="0" stop-color="#fff1a4"/><stop offset=".34" stop-color="#fbd457"/><stop offset=".78" stop-color="#e9a727"/><stop offset="1" stop-color="#be731d"/></linearGradient></defs>
+              <ellipse cx="33" cy="36" rx="24" ry="23" fill="#4b2d16" opacity=".24"/>
+              <circle cx="31" cy="30" r="24" fill="#744217" stroke="#58300f" stroke-width="2"/>
+              <circle cx="31" cy="28" r="21" fill="url(#mesoGold)" stroke="#ffc955" stroke-width="2.5"/>
+              <circle cx="31" cy="28" r="17" fill="none" stroke="#b87020" stroke-width="2" opacity=".8"/>
+              <path d="M31 13L35 22 41 19 39 25 47 29 40 33 43 39 34 36 33 47 29 47 28 36 19 39 22 33 15 29 23 25 21 19 27 22Z" fill="#ab661e" stroke="#8a501a" stroke-width="1" stroke-linejoin="round"/>
+              <path d="M20 17A19 19 0 0 1 39 11" stroke="#fff5b7" stroke-width="2.5" stroke-linecap="round" fill="none" opacity=".88"/>
+            </svg>
             <div>
               <div class="eyebrow">YOUR MESOS</div>
               <h2>Net mesos change</h2>
