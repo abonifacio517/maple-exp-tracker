@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#8bb7df">
   <meta name="description" content="A lightweight, browser-based MapleStory EXP tracker that reads your on-screen EXP every five seconds.">
-  <title>Van's Maple EXP Tracker — Alpha 0.2.36</title>
-  <link rel="stylesheet" href="styles.css?v=0.2.36">
+  <title>Van's Maple EXP Tracker — Alpha 0.2.37</title>
+  <link rel="stylesheet" href="styles.css?v=0.2.37">
   <style>
     /* Essential EXP stat contrast: kept inline so an older cached theme stylesheet cannot turn numbers white. */
     body.theme-light #perHour,
@@ -30,7 +30,7 @@
       </div>
       <div class="header-right">
         <div class="header-topline">
-          <span class="header-note">Alpha 0.2.36 · Screen-only recognition</span>
+          <span class="header-note">Alpha 0.2.37 · Screen-only recognition</span>
           <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false" title="Toggle light and dark mode">
             <span class="theme-toggle-label">Sleepywood mode</span>
             <span class="theme-toggle-track"><span class="theme-toggle-thumb"></span></span>
@@ -64,7 +64,7 @@
             <button class="button ghost" id="resetBtn">Reset session</button>
           </div>
         </div>
-        <p class="connection-hint">EXP updates every 5 seconds; mesos checks every 2 seconds when your inventory is visible. Open the mini overlay to keep your key stats visible over MapleStory or any other window.</p>
+        <p class="connection-hint">EXP updates every 5 seconds; mesos checks the inventory textbox about every 1.3 seconds when visible. Open the mini overlay to keep your key stats visible over MapleStory or any other window.</p>
       </section>
       <div class="toolbar-timer panel"><span>SESSION TIME</span><strong id="elapsed">00:00</strong></div>
     </div>
@@ -121,7 +121,7 @@
         <span id="currentExp" hidden aria-hidden="true">—</span>
       </section>
 
-      <section class="profit-panel panel" aria-label="Net mesos change">
+      <section class="profit-panel panel" aria-label="Mesos balance and potion expenses">
         <div class="window-chrome" aria-hidden="true"><span class="window-label">MESOS TRACKER</span></div>
         <div class="profit-title-row hero-top">
           <div class="panel-hero panel-hero-mesos">
@@ -136,19 +136,44 @@
             </svg>
             <div>
               <div class="eyebrow">YOUR MESOS</div>
-              <h2>Net mesos change</h2>
+              <h2>Mesos balance</h2>
             </div>
           </div>
           <div class="profit-badges"><span class="wip-label" title="Balance tracking is still experimental">WORK IN PROGRESS</span><span id="profitBadge" class="profit-badge">Waiting for a balance</span></div>
         </div>
         <p class="mesos-disclaimer">Experimental: mesos readings may be inaccurate or unavailable. Verify balances in-game.</p>
-        <div class="profit-total"><strong id="netProfit" class="profit-unknown">—</strong><span class="profit-unit">mesos</span></div>
+        <div class="profit-total"><strong id="netProfit" class="profit-unknown">—</strong><span class="profit-unit">mesos · last confirmed balance</span></div>
         <div class="profit-breakdown meso-only-breakdown">
-          <div><span>Last confirmed balance</span><strong id="mesoBalance">—</strong></div>
-          <div><span>Mesos / hour (balance change)</span><strong id="mesoPerHour">—</strong></div>
-          <div><span>Net session change</span><strong id="mesoDelta">—</strong></div>
+          <div><span>Mesos gained from snapshots</span><strong id="mesoGained">—</strong></div>
+          <div><span>Mesos gained / hour</span><strong id="mesoPerHour">—</strong></div>
+          <div><span>Estimated potion spending</span><strong id="potionSpend">0</strong></div>
         </div>
-        <p class="profit-help" id="profitExplanation">Open your inventory to take the first mesos snapshot. Changes to your balance include purchases and other spending; potion usage is not estimated.</p>
+        <span id="mesoBalance" hidden>—</span>
+        <span id="mesoDelta" hidden>—</span>
+        <p class="profit-help" id="profitExplanation">Open the inventory to read its white mesos number field. Mesos/hour uses confirmed balance increases across snapshots and active session time. Potion expenses are estimated separately, not deducted a second time.</p>
+        <div class="potion-tracker" aria-label="Manual potion usage tracker">
+          <div class="potion-heading"><strong>HP / MP potion tracking</strong><span class="wip-label">MANUAL</span></div>
+          <p class="detail-help">Choose your potions, enter how many you own and their cost per potion. The first update establishes a baseline; later updates count decreases as usage. Prices are editable and never assumed.</p>
+          <div class="potion-grid">
+            <div class="potion-entry">
+              <label for="hpPotionType">HP potion</label>
+              <select id="hpPotionType"><option value="">Select potion</option><option>Red Potion</option><option>Orange Potion</option><option>White Potion</option><option>Unagi</option><option>Elixir</option><option>Power Elixir</option><option>Other HP potion</option></select>
+              <div class="potion-inputs"><label>Count<input id="hpPotionCount" type="number" min="0" max="9999999" step="1" placeholder="e.g. 120"></label><label>Mesos each<input id="hpPotionPrice" type="number" min="0" max="999999999" step="1" placeholder="Price"></label></div>
+              <small id="hpPotionStatus">No baseline recorded</small>
+            </div>
+            <div class="potion-entry">
+              <label for="mpPotionType">MP potion</label>
+              <select id="mpPotionType"><option value="">Select potion</option><option>Blue Potion</option><option>Mana Elixir</option><option>Sorcerer Elixir</option><option>Elixir</option><option>Power Elixir</option><option>Other MP potion</option></select>
+              <div class="potion-inputs"><label>Count<input id="mpPotionCount" type="number" min="0" max="9999999" step="1" placeholder="e.g. 80"></label><label>Mesos each<input id="mpPotionPrice" type="number" min="0" max="999999999" step="1" placeholder="Price"></label></div>
+              <small id="mpPotionStatus">No baseline recorded</small>
+            </div>
+          </div>
+          <div class="meso-actions potion-actions">
+            <button class="button primary" id="updatePotionBtn" type="button">Update potion counts</button>
+            <button class="button ghost" id="resetPotionBtn" type="button">Reset potion baselines</button>
+          </div>
+          <p class="detail-help" id="potionNote" role="status" aria-live="polite">No potion usage recorded. Restocking increases your baseline without adding spending.</p>
+        </div>
         <p class="extra-hint" id="mesoScanStatus">Waiting for inventory</p>
         <details class="advanced-entry"><summary>Correct meso balance manually</summary>
           <div class="manual-snapshot"><label>Balance<input id="manualMesoBalance" type="text" inputmode="numeric" placeholder="e.g. 466,629"></label><button id="setMesoSnapshot" class="button ghost">Save snapshot</button></div>
@@ -205,13 +230,22 @@
             <div class="control-field"><label for="threshold">Contrast threshold <output id="thresholdOutput">0</output></label><input id="threshold" type="range" min="-50" max="50" step="5" value="0"></div>
             <div class="template-trainer"><label for="templateExpInput">Teach the tracker an exact EXP number (optional)</label><div class="template-trainer-row"><input id="templateExpInput" type="text" inputmode="numeric" placeholder="e.g. 10,629"><button class="button" id="teachDigitsBtn">Calibrate digits</button></div><p id="templateStatus" class="detail-help">Type the number you can actually see in-game. This saves only local pixel patterns in your browser and never trains from an unconfirmed OCR guess.</p></div>
             <div class="crop-grid"><div><span>EXP OCR view <small id="expPreviewLabel">—</small></span><div class="crop"><canvas id="expCrop"></canvas></div></div></div>
+            <div class="meso-ocr-preview">
+              <strong>Mesos recognition (experimental)</strong>
+              <p class="detail-help">Shows the detected textbox and its enhanced black-on-white digit crop, along with the last OCR output.</p>
+              <div class="meso-preview-grid">
+                <div><span>Mesos textbox</span><canvas id="mesoRawCrop" aria-label="Last detected mesos text field"></canvas></div>
+                <div><span>Enhanced digits</span><canvas id="mesoEnhancedCrop" aria-label="Preprocessed black on white mesos digits"></canvas></div>
+              </div>
+              <pre id="mesoOCRDetails">Waiting for inventory.</pre>
+            </div>
           </details>
 
     </main>
 
     <footer>
       <span>Runs in your browser · No game injection, memory reading, or automatic gameplay.</span>
-      <span>Screen-sharing permission is requested each session; EXP uses pixel templates with conservative OCR fallback, and mesos use a separate OCR worker. OCR uses <a href="https://github.com/naptha/tesseract.js" target="_blank" rel="noopener noreferrer">Tesseract.js</a>. Uncertain OCR values are withheld; check the diagnostics for rejected readings. EXP requirements are bundled locally and do not use a live third-party service. Potion tracking is disabled pending redesign.</span>
+      <span>Screen-sharing permission is requested each session; EXP uses pixel templates with conservative OCR fallback, and mesos use a separate OCR worker. OCR uses <a href="https://github.com/naptha/tesseract.js" target="_blank" rel="noopener noreferrer">Tesseract.js</a>. Uncertain OCR values are withheld; check the diagnostics for rejected readings. EXP requirements are bundled locally and do not use a live third-party service. Potion counts and item costs are entered manually; estimated usage is never double-counted against the displayed mesos balance.</span>
     </footer>
   </div>
   <script>
@@ -248,10 +282,10 @@
   <script src="pixel-matcher.js"></script>
   <script src="level-atlas.js"></script>
   <script src="level-templates.js"></script>
-  <script src="app.js"></script>
-  <script src="inventory-footer.js"></script>
+  <script src="app.js?v=0.2.37"></script>
+  <script src="inventory-footer.js?v=0.2.37"></script>
   <script src="mesos-font.js"></script>
-  <script src="extras.js"></script>
+  <script src="extras.js?v=0.2.37"></script>
   <script src="overlay.js?v=0.2.33"></script>
 </body>
 </html>
