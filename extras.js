@@ -5,7 +5,8 @@ const extras={inventory:null,lastFind:0,inventoryOpen:false,
   mesosStart:null,mesosCurrent:null,mesoPending:null,mesoVotes:[],mesoWhen:null,mesoStartWhen:null,mesoBusy:false,mesoStatus:'',
   lastMesoAttempt:0,lastInvFind:0,mesoSnapshots:[],mesoGained:0,mesoRawNote:'',
   mesoGuess:null,mesoGuessAt:0,mesoGuessConfidence:0,
-  mesoGuessSource:'raw',mesoLastCrop:null,mesoLastCropAt:0};
+  mesoGuessSource:'raw',mesoLastCrop:null,mesoLastCropAt:0,
+  potionSpendBaseline:null};
 function anchorMatcher(spec,s,kind){
   const pts=spec.points.filter((p,i)=>i%(kind==='hotbar'?5:2)===0).map(([x,y,v])=>[Math.round(x*s),Math.round(y*s),v]);
   const n=pts.length,mean=pts.reduce((sum,p)=>sum+p[2],0)/n;
@@ -139,38 +140,61 @@ async function recognizeSnapshot(rect,worker,kind='mesos'){
   return {value:best?.value??null,
     note:details.join(' | ')+(best?(agreement?' | preprocessing agrees':' | checking again on next frame'):' | no reliable OCR candidate')};
 }
+// Net session gain is based on POSITIVE confirmed balance deltas, not the
+// end-to-start balance change. This avoids counting inventory purchases as an
+// additional loss while session potion usage is priced separately.
+function sessionPotionCost(){
+  return Math.max(0,potionSpent()-(extras.potionSpendBaseline??potionSpent()));
+}
+function sessionNetMesos(){
+  return extras.mesosStart===null?null:extras.mesoGained-sessionPotionCost();
+}
 function showExtraStats(){
-  const confirmed=extras.mesosCurrent;
-  const guess=extras.mesoGuess;
+  const confirmed=extras.mesosCurrent,guess=extras.mesoGuess;
   const unverified=Number.isSafeInteger(guess)&&guess!==confirmed;
   const balance=unverified?guess:confirmed;
   const known=balance!==null;
+  const net=sessionNetMesos();
+  const expense=sessionPotionCost();
+  const netType=net===null?'unknown':net>0?'positive':net<0?'negative':'neutral';
+  const signed=n=>n>0?'+'+fmt(n):n<0?'−'+fmt(Math.abs(n)):'0';
   const sessionMs=typeof sessionElapsedMs==='function'?sessionElapsedMs():0;
   const firstSnapshot=extras.mesoSnapshots[0];
   const observedHours=firstSnapshot?Math.max(0,sessionMs-firstSnapshot.elapsed)/3600000:0;
+
+  // Prominent signed profit/loss, independent of provisional OCR guesses.
+  $('netProfit').textContent=net===null?'—':signed(net);
+  $('netProfit').className=netType==='unknown'?'profit-unknown':
+    netType==='positive'?'profit-positive':netType==='negative'?'profit-negative':'profit-zero';
+  $('netMesoPanel').dataset.status=netType;
+  const badge=$('profitBadge');
+  badge.textContent=net===null?'Waiting for mesos':
+    net>0?'Mesos Positive':net<0?'Mesos Negative':'Mesos Neutral';
+  badge.className='profit-badge '+(netType==='unknown'?'neutral':netType);
+  $('netMesoFormula').textContent=net===null?
+    'Confirm an initial mesos snapshot to start net tracking. Potion usage will be included.':
+    `${fmt(extras.mesoGained)} confirmed gross gains − ${fmt(expense)} estimated potion usage = ${signed(net)} net mesos`;
+
+  // Keep visible balance as a distinct, SECONDARY value. Never count an
+  // unverified OCR or local AI guess toward session earnings.
   $('mesoBalance').textContent=known?fmt(balance):'—';
-  $('netProfit').textContent=known?fmt(balance):'—';
-  $('netProfit').className=known?(unverified?'profit-estimate':'profit-zero'):'profit-unknown';
+  $('mesoBalance').className=unverified?'profit-estimate':'';
   $('mesoBalanceLabel').textContent=unverified?
-    (extras.mesoGuessSource==='ai'?'mesos · local AI estimate (unverified)':'mesos · raw OCR estimate (unverified)'):
-    'mesos · last confirmed balance';
-  $('mesoDelta').textContent='—';
+    'Current mesos · '+(extras.mesoGuessSource==='ai'?'local AI':'raw OCR')+' estimate':
+    'Current mesos · last confirmed balance';
+  $('mesoReadingStatus').textContent=unverified?
+    `Unverified ${extras.mesoGuessSource==='ai'?'AI':'OCR'} reading · confirm in-game`:
+    confirmed!==null?'Confirmed snapshot':'Waiting for inventory';
+
+  $('mesoDelta').textContent=net===null?'—':signed(net);
   $('mesoGained').textContent=extras.mesoSnapshots.length?fmt(extras.mesoGained):'—';
   $('mesoPerHour').textContent=extras.mesoSnapshots.length>1&&observedHours>1/3600?
     fmt(Math.round(extras.mesoGained/observedHours)):'—';
-  $('potionSpend').textContent=fmt(potionSpent());
-  const badge=$('profitBadge');
-  badge.textContent=unverified?
-    (extras.mesoGuessSource==='ai'?'Local AI · unverified':'OCR estimate · unverified'):
-    confirmed!==null?'Balance confirmed':'Waiting for balance';
-  badge.className='profit-badge '+(unverified?'neutral':confirmed!==null?'positive':'neutral');
-  $('profitExplanation').textContent=unverified?
-    'This is a best-effort '+(extras.mesoGuessSource==='ai'?'local AI digit':'raw OCR')+' estimate. Confirm it in-game. Mesos/hour and gained totals use only reliably confirmed readings or manual snapshots.':
-    confirmed!==null?
-    'Mesos gained/hour uses confirmed inventory snapshots and active session time; estimated potion spending is separate.':
-    'Open your inventory to read its original white mesos textbox. OCR guesses are displayed immediately with an unverified label.';
+  $('potionSpend').textContent=fmt(expense);
+  $('profitExplanation').textContent=
+    'Net mesos gain uses confirmed positive changes in your inventory balance, minus estimated NPC replacement cost of HP/MP potions consumed during this mesos session. Purchases and other outflows are not separately counted as losses. Raw OCR and AI estimates never affect this calculation.';
   $('mesoScanStatus').textContent=extras.mesoStatus||(
-    extras.inventoryOpen?'Inventory visible · awaiting raw OCR':'Waiting for inventory');
+    extras.inventoryOpen?'Inventory visible · awaiting recognition':'Waiting for inventory');
 }
 function saveMesosSnapshot(value){
   if(!Number.isSafeInteger(value)||value<0||value>1000000000000)return false;
@@ -221,7 +245,8 @@ function resetExtras(){
     mesoBusy:false,mesoStatus:'',lastMesoAttempt:0,lastInvFind:0,
     mesoSnapshots:[],mesoGained:0,mesoRawNote:'',
     mesoGuess:null,mesoGuessAt:0,mesoGuessConfidence:0,
-    mesoGuessSource:'raw',mesoLastCrop:null,mesoLastCropAt:0});
+    mesoGuessSource:'raw',mesoLastCrop:null,mesoLastCropAt:0,
+    potionSpendBaseline:potionSpent()});
   // Resetting the mesos session does not erase manual potion spending.
   if(state.running&&state.stream)beginMesosWatch();
   showExtraStats();
@@ -541,6 +566,9 @@ try{
   }
 }catch(_e){/* No storage is required to track locally in this tab. */}
 function potionSpent(){return potions.hp.spent+potions.mp.spent;}
+// Only potion usage recorded from NOW onward affects this mesos session.
+// Restored lifetime localStorage expenses are not retroactively deducted.
+if(extras.potionSpendBaseline===null)extras.potionSpendBaseline=potionSpent();
 function savePotions(){try{localStorage.setItem(POTION_STORAGE_KEY,JSON.stringify(potions))}catch(_e){}}
 function renderPotions(){
   for(const kind of ['hp','mp']){
@@ -604,7 +632,7 @@ $('updatePotionBtn').addEventListener('click',()=>{
   }
   if(any){
     savePotions();renderPotions();showExtraStats();
-    $('potionNote').textContent=notes.join(' · ')+'. Potion spending is an estimate, not double-counted in mesos balance.';
+    $('potionNote').textContent=notes.join(' · ')+'. Estimated potion use is deducted from NET mesos gain, not from current balance.';
   }
 });
 $('resetPotionBtn').addEventListener('click',()=>{
