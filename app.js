@@ -6,7 +6,7 @@ const state = {
   stream: null, regions: {exp:null,level:null},
   autoAnchor:null, autoScore:null, autoBusy:false, detectorNote:'', frameDims:null,
   running: false, busy: false, cycle: 0,
-  interval: null, worker: null, workerPromise: null,
+  interval: null, clockTimer:null, activeSince:null, worker: null, workerPromise: null,
   levelTimer: null, levelBusy: false, levelWorker: null, levelWorkerPromise: null,
   sessionStart:null, lastExp:null, currentExp:null, currentPct:null,
   expGained:0, pctGained:0, levelUps:0, gains:[], expMinuteHistory:[], elapsedCache:0,
@@ -37,12 +37,22 @@ function refreshButtons(){
   $('sharePill').classList.toggle('is-sharing',sharing);
   $('shareLabel').textContent=sharing?'Sharing window':'Not sharing';
 }
-function pause(){state.running=false;state.cycle++;clearInterval(state.interval);state.interval=null;
+function sessionElapsedMs(){
+  return Math.max(0,state.elapsedCache+(state.running&&state.activeSince!==null?Date.now()-state.activeSince:0));
+}
+function updateSessionClock(){
+  if(state.sessionStart!==null)$('elapsed').textContent=duration(sessionElapsedMs()/1000);
+}
+function pause(){
+  if(state.running&&state.activeSince!==null)state.elapsedCache+=Math.max(0,Date.now()-state.activeSince);
+  state.activeSince=null;state.running=false;state.cycle++;clearInterval(state.interval);state.interval=null;
+  clearInterval(state.clockTimer);state.clockTimer=null;
   clearInterval(state.levelTimer);state.levelTimer=null;
   if(typeof stopMesosWatch==='function')stopMesosWatch();
+  updateSessionClock();renderStats();
   refreshButtons();}
 function reset(){
-  state.sessionStart=null;state.lastExp=null;state.currentExp=null;state.currentPct=null;
+  state.sessionStart=null;state.elapsedCache=0;state.activeSince=null;clearInterval(state.clockTimer);state.clockTimer=null;state.lastExp=null;state.currentExp=null;state.currentPct=null;
   state.currentLevel=null;state.identityChecked=0;state.identityLockLevel=false;state.accountedLevel=null;state.pendingLevel=null;
   state.levelCandidate=null;state.levelReads=0;state.lastOCRNote='';
   state.expGained=0;state.pctGained=0;state.levelUps=0;state.gains=[];state.expMinuteHistory=[];
@@ -569,7 +579,7 @@ function renderStats(){
   const inferredPct=needed!==null&&state.currentExp!==null?100*state.currentExp/needed:null;
   if(inferredPct!==null){$('progressBar').style.width=clamp(inferredPct,0,100)+'%';$('progressLabel').textContent=fmtPct(inferredPct);$('progressBar').parentElement.setAttribute('aria-valuenow',String(clamp(inferredPct,0,100)));}else{$('progressBar').style.width='0%';$('progressLabel').textContent='Unverified';$('progressBar').parentElement.setAttribute('aria-valuenow','0');}
   if(state.sessionStart!==null){
-    const seconds=Math.max(1,(Date.now()-state.sessionStart)/1000);
+    const seconds=Math.max(1,sessionElapsedMs()/1000);
     const hours=seconds/3600;
     $('perHour').textContent=fmt(Math.round(state.expGained/hours));
     $('pctHour').textContent=fmtPct(state.pctGained/hours);
@@ -644,7 +654,7 @@ function record(expReading){
   state.lastExp=exp;state.currentExp=exp;
   state.currentPct=computed;
   if(state.currentLevel!==null)state.accountedLevel=state.currentLevel;
-  if(state.sessionStart===null)state.sessionStart=now;
+  if(state.sessionStart===null){state.sessionStart=now;state.activeSince=state.running?now:null;}
 
   badge(needed===null?'EXP read · set level':'EXP accepted');
   setStatus(needed===null?'EXP read. Set or confirm level to calculate percentage.':'EXP updated. Progress is calculated from the level EXP requirement.','good');
@@ -687,7 +697,14 @@ async function scanLevelIndependently(){
 }
 function startTracking(){
   if(!state.stream||!state.regions.exp)return;
-  state.running=true;state.cycle++;refreshButtons();badge('Starting…');
+  const now=Date.now();
+  if(state.sessionStart===null)state.sessionStart=now;
+  state.activeSince=now;
+  state.running=true;state.cycle++;
+  clearInterval(state.clockTimer);
+  state.clockTimer=setInterval(updateSessionClock,1000);
+  updateSessionClock();
+  refreshButtons();badge('Starting…');
   setStatus((state.detectorNote?state.detectorNote+' ':'')+'Reading EXP. The level uses separate pixel matching and OCR; % is calculated from EXP.');
   void scan();state.interval=setInterval(()=>{void scan();},5000);
   void scanLevelIndependently();state.levelTimer=setInterval(()=>{void scanLevelIndependently();},4000);
