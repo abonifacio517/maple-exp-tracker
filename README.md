@@ -1,6 +1,15 @@
-# Van's Maple EXP Tracker — Alpha 0.2.39
+# Van's Maple EXP Tracker — Alpha 0.2.40
 
 This release focuses on **faster, movable-inventory mesos reading**, manual potion costs, and an accurate pause-aware timer. EXP and level recognition remain screen-only.
+
+## Alpha 0.2.40 — Responsiveness and lower mesos CPU load
+
+- Reworked the optional mesos textbox detector to **yield back to the browser every ~9 ms** during full-screen searches. A missing or relocated inventory no longer runs a five-scale search in one uninterrupted main-thread block.
+- Reuse a small screenshot region around the last detected mesos field; fall back to cancellable full-screen discovery when the inventory moves outside that area. In a simulated 1280×720 test this reduced captured pixels by about **95%** on stable inventory positions.
+- Reduce mesos polling to once every **2 seconds**, limit re-searches when the inventory is absent to approximately **5 seconds**, and rate-limit expensive fallback OCR to once every **5 seconds**. Fully trusted digit-template readings still confirm without waiting for OCR.
+- Render enlarged raw/enhanced OCR preview canvases **only while OCR Settings is expanded**, and no more often than every 5 seconds. The OCR worker keeps its configuration, avoiding repeated parameter setup.
+- A no-inventory synthetic frame was searched with browser yields, and both full/nearby textbox location and cancel-on-pause behaviors passed regression tests. Browser and real-game performance may still vary.
+- No changes to EXP calculation, KPQ counts, potion accounting, theme appearance or Maple HUD behavior.
 
 ## Alpha 0.2.39 — Fix clipped mesos digits
 
