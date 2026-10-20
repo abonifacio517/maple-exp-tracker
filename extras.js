@@ -194,7 +194,9 @@ function acceptMesos(read){
   const ranked=[...groups].sort((a,b)=>b[1].count-a[1].count||b[1].quality-a[1].quality);
   const leader=ranked[0],runner=ranked[1];
   const strong=leader[1].strong>=2;
-  let needed=strong?2:3; // distinct captured frames, never repeated filters
+  // Provisional template + enhanced OCR readings still need at least three
+  // different captured frames, never just two filters on the same image.
+  let needed=strong?2:3;
   if(extras.mesosCurrent!==null&&Math.abs(leader[0]-extras.mesosCurrent)>Math.max(1000000,extras.mesosCurrent*.35))needed++;
   extras.mesoPending={value:leader[0],count:leader[1].count,needed};
   if(leader[1].count<needed||(runner&&runner[1].count>=leader[1].count))return false;
@@ -297,33 +299,62 @@ function inkOnlyMesosImage(rect,sourceFrame=null){
 async function readMesosFast(worker,rect,sourceFrame){
   if(!rect)return {value:null,source:'none',note:'Mesos textbox not visible.'};
   const font=typeof readMesosDigits==='function'?
-    readMesosDigits(sourceFrame,rect):{value:null,score:0,note:'Digit templates unavailable'};
+    readMesosDigits(sourceFrame,rect):{value:null,candidate:null,score:0,note:'Digit templates unavailable'};
   const details=[`templates: ${font.note||'—'}`];
-  // Template reading runs before OCR. Two confident frames can confirm fast.
+  // Trusted digit atlas reading: still confirm on another captured frame.
   if(font.value!==null&&font.score>=.83)
-    return {value:font.value,source:'font',quality:font.score,note:details.join(' | ')+' · template candidate'};
-  if(!worker)return {value:null,source:'templates-uncertain',note:details.join(' | ')+' · OCR needed'};
-  await worker.setParameters({tessedit_char_whitelist:'0123456789,',
-    tessedit_pageseg_mode:Tesseract.PSM.SINGLE_LINE});
-  const found=[];
+    return {value:font.value,source:'font',quality:font.score,note:details.join(' | ')+' · verified template candidate'};
+  if(!worker)return {value:null,source:'templates-uncertain',
+    note:details.join(' | ')+' · OCR comparison required'};
+  await worker.setParameters({
+    tessedit_char_whitelist:'0123456789,',
+    tessedit_pageseg_mode:Tesseract.PSM.SINGLE_LINE
+  });
+  const rawReads=[];
+  // Keep the raw and enhanced candidates even if Tesseract gives the
+  // enhanced black-on-white crop 0% confidence: a zero is not proof that the
+  // legible digits are wrong. It cannot be the sole acceptance evidence.
   for(const mode of ['raw','enhanced']){
     const image=mode==='enhanced'?inkOnlyMesosImage(rect,sourceFrame):snapshotImage(rect,'raw',sourceFrame);
     if(!image)continue;
     const result=await worker.recognize(image);
-    const raw=String(result.data.text||'').trim();
-    const conf=Math.round(Number(result.data.confidence)||0),value=parseMesosText(raw);
-    details.push(`${mode} OCR: ${JSON.stringify(raw)} [${conf}%] => ${value===null?'?':fmt(value)}`);
-    if(value!==null&&conf>=35)found.push({value,conf});
-    if(mode==='raw'&&value!==null&&conf>=79)break; // skip second expensive pass
+    const text=String(result.data.text||'').trim();
+    const confidence=Math.round(Number(result.data.confidence)||0);
+    const value=parseMesosText(text);
+    details.push(`${mode} OCR: ${JSON.stringify(text)} [${confidence}%] => ${value===null?'?':fmt(value)}`);
+    rawReads.push({mode,value,confidence});
+    if(mode==='raw'&&value!==null&&confidence>=89 && font.candidate==null)break;
   }
-  const [a,b]=found;
-  if(a&&b&&a.value===b.value)
-    return {value:a.value,source:'ocr-agreement',quality:(a.conf+b.conf)/200,note:details.join(' | ')};
-  if(a&&b&&a.value!==b.value)return {value:null,source:'conflict',note:details.join(' | ')+' · conflicting OCR'};
-  const best=a||b;
-  if(best&&best.conf>=69&&!(font.value!==null&&font.score>=.7&&font.value!==best.value))
-    return {value:best.value,source:'ocr-single',quality:best.conf/100,note:details.join(' | ')};
-  return {value:null,source:'uncertain',note:details.join(' | ')+' · awaiting clearer digits'};
+  const raw=rawReads.find(v=>v.mode==='raw');
+  const enhanced=rawReads.find(v=>v.mode==='enhanced');
+  const tentative=Number.isSafeInteger(font.candidate)?font.candidate:null;
+  // Agreement between two pixel thresholds AND independently processed OCR,
+  // confirmed again over at least three separate screen frames.
+  if(tentative!==null && enhanced?.value===tentative){
+    const rawMismatch=raw?.value!==null&&raw?.value!==tentative;
+    if(rawMismatch&&raw.confidence>=86)
+      return {value:null,source:'conflict',note:details.join(' | ')+
+        ' · high-confidence raw OCR conflicts with template/enhanced reading; no auto-confirmation'};
+    return {value:tentative,source:'visual-consensus',quality:rawMismatch?.55:.67,
+      note:details.join(' | ')+(rawMismatch?
+        ' · raw OCR disagreement; provisional template/enhanced consensus (requires 3+ frames)':
+        ' · template thresholds and enhanced OCR agree (requires 3+ frames)')};
+  }
+  if(raw?.value!==null&&enhanced?.value!==null &&
+      raw.value===enhanced.value&&raw.confidence>=42&&enhanced.confidence>=25 &&
+      (tentative===null||tentative===raw.value))
+    return {value:raw.value,source:'ocr-agreement',quality:Math.min(1,(raw.confidence+enhanced.confidence)/200),
+      note:details.join(' | ')+' · two processed OCR reads agree; confirm across frames'};
+  // If the partial atlas disagrees with a decent raw OCR result, withhold rather
+  // than rewriting a 3/8/5 as another numeral.
+  if(tentative!==null && raw?.value!==null && raw.value!==tentative)
+    return {value:null,source:'conflict',note:details.join(' | ')+
+      ' · conflicting digits; no verified enhancement agreement; keeping previous balance'};
+  if(raw?.value!==null&&raw.confidence>=82&&tentative===null)
+    return {value:raw.value,source:'ocr-single',quality:raw.confidence/100,
+      note:details.join(' | ')+' · strong raw OCR candidate; requires repeated scans'};
+  return {value:null,source:'uncertain',note:details.join(' | ')+
+    ' · no trustworthy cross-check; previous balance retained'};
 }
 async function scanMesos(generation){
   if(!state.running||!state.stream||!video.videoWidth||extras.mesoBusy||generation!==mesosGeneration)return;
