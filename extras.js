@@ -139,20 +139,22 @@ async function recognizeSnapshot(rect,worker,kind='mesos'){
 }
 function showExtraStats(){
   const balance=extras.mesosCurrent,known=balance!==null;
-  const activeHours=(typeof sessionElapsedMs==='function'?sessionElapsedMs():0)/3600000;
+  const sessionMs=typeof sessionElapsedMs==='function'?sessionElapsedMs():0;
+  const firstSnapshot=extras.mesoSnapshots[0];
+  const observedHours=firstSnapshot?Math.max(0,sessionMs-firstSnapshot.elapsed)/3600000:0;
   $('mesoBalance').textContent=known?fmt(balance):'—';
   $('netProfit').textContent=known?fmt(balance):'—';
   $('netProfit').className=known?'profit-zero':'profit-unknown';
   $('mesoDelta').textContent='—'; // legacy hidden value, not displayed or double-counted
   $('mesoGained').textContent=extras.mesoSnapshots.length?fmt(extras.mesoGained):'—';
-  $('mesoPerHour').textContent=extras.mesoSnapshots.length&&activeHours>1/3600?
-    fmt(Math.round(extras.mesoGained/activeHours)):'—';
+  $('mesoPerHour').textContent=extras.mesoSnapshots.length>1&&observedHours>1/3600?
+    fmt(Math.round(extras.mesoGained/observedHours)):'—';
   $('potionSpend').textContent=fmt(potionSpent());
   const badge=$('profitBadge');
   badge.textContent=known?'Balance confirmed':'Waiting for balance';
   badge.className='profit-badge '+(known?'positive':'neutral');
   $('profitExplanation').textContent=known?
-    'Mesos gained/hour sums positive differences between confirmed inventory snapshots and divides by active session hours. Spending and potion estimates appear separately; potion costs are not deducted twice.':
+    'Mesos gained/hour sums positive differences between confirmed inventory snapshots and divides by active time since the first mesos snapshot. Spending and potion estimates appear separately; potion costs are not deducted twice.':
     'Open your inventory to establish a mesos snapshot. The reader tracks its white numeric textbox anywhere in the shared game frame.';
   $('mesoScanStatus').textContent=extras.mesoStatus || (extras.inventoryOpen?
     (extras.mesoWhen?'Inventory visible · last confirmed '+extras.mesoWhen.toLocaleTimeString():
