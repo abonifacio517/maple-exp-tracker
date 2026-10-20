@@ -1,6 +1,15 @@
-# Van's Maple EXP Tracker — Alpha 0.2.26
+# Van's Maple EXP Tracker — Alpha 0.2.27
 
 This release improves screen-only **mesos recognition** without changing the EXP and level recognition code.
+
+## Alpha 0.2.27 — Henesys and Sleepywood refinement
+
+- Light mode is now **Henesys mode**: a sky-blue/white variant of Sleepywood's compact panels, smaller margins, simpler headers, and grouped EXP metrics.
+- The mode-switch label offers **Henesys mode** while in Sleepywood, and **Sleepywood mode** while in Henesys. Existing theme preference is preserved.
+- Session time returns to a dedicated slot on the right side of the share/track/HUD button row (stacked responsively on narrower screens).
+- The cumulative **+ EXP gained** appears next to the current/required EXP fraction underneath the progress bar; the redundant EXP-gained metric card has been removed.
+- Both themes use a MapleStory-inspired **green EXP bar** and an **orange badge** around the current-level number.
+- The Maple HUD overlay is intentionally unchanged, as are the EXP/mesos OCR engines and all KPQ calculations.
 
 ## Alpha 0.2.26 — Dark-mode refresh
 
