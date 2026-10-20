@@ -1149,3 +1149,24 @@ body.theme-dark .brand-sprite--sleepywood{
 @media(max-width:450px){
   .potion-inputs{grid-template-columns:minmax(0,1fr)}
 }
+
+/* Alpha 0.2.41 — unverified mesos: show a readable number without implying accuracy. */
+.meso-preview-grid{grid-template-columns:minmax(0,1fr)}
+body.theme-light .profit-total .profit-estimate{
+  color:#2b678d;
+  font-weight:900;
+}
+body.theme-dark .profit-total .profit-estimate{
+  color:#b9d8ed;
+  font-weight:900;
+}
+body.theme-light .profit-badge.neutral{
+  background:#e3f0fd;
+  color:#345d7b;
+  border:1px solid #a5c7e4;
+}
+body.theme-dark .profit-badge.neutral{
+  background:#1e3446;
+  color:#b5d8f0;
+  border:1px solid #49627a;
+}
