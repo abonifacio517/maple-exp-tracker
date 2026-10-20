@@ -988,35 +988,38 @@ body.theme-light .panel-hero-exp .eyebrow,body.theme-light .panel-hero-mesos .ey
 body.theme-dark .panel-hero-exp .hero-exp-art{color:#84ca6c}
 body.theme-light .panel-hero-exp .hero-exp-art{color:#52a43d}
 
-/* Scene backgrounds (Alpha 0.2.28 preparation).
-   Map art is deliberately a soft, fixed atmospheric backdrop, not a content panel.
-   Use the supplied map screenshots for these two image assets when available. */
+/* Alpha 0.2.28: actual user-supplied Sleepywood and Henesys scenery.
+   The maps sit behind the UI, with the skyline and buildings prioritized.
+   Enhanced visibility is deliberate; text and main panels remain opaque. */
 body.theme-dark,body.theme-light{position:relative}
 body.theme-dark .app-shell,body.theme-light .app-shell{position:relative;z-index:1}
 body.theme-dark::before,body.theme-light::before{
   content:"";
   position:fixed;
-  inset:-10px;
+  inset:-8px;
   z-index:0;
   pointer-events:none;
   background-repeat:no-repeat;
   background-size:cover;
-  background-position:center 15%;
-  filter:blur(2.8px) saturate(.84);
+  background-position:center 10%;
+  filter:blur(2.1px) saturate(.92);
   transform:scale(1.025);
 }
 body.theme-dark::before{
-  background-image:url("assets/sleepywood-scene.webp");
-  opacity:.25;
+  background-image:url("assets/sleepywood-scene.svg");
+  opacity:.58;
 }
 body.theme-light::before{
-  background-image:url("assets/henesys-scene.webp");
-  opacity:.19;
+  background-image:url("assets/henesys-scene.svg");
+  opacity:.53;
 }
 @media(max-width:700px){
-  body.theme-dark::before,body.theme-light::before{background-position:48% 11%;filter:blur(2px) saturate(.88)}
-  body.theme-dark::before{opacity:.19}
-  body.theme-light::before{opacity:.16}
+  body.theme-dark::before,body.theme-light::before{
+    background-position:center top;
+    filter:blur(1.8px) saturate(.92);
+  }
+  body.theme-dark::before{opacity:.50}
+  body.theme-light::before{opacity:.46}
 }
 @media(prefers-reduced-motion:reduce){
   body.theme-dark::before,body.theme-light::before{transform:none}
