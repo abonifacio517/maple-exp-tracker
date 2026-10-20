@@ -306,49 +306,6 @@ function parseMesosText(raw){
   const n=Number(text.replace(/,/g,''));
   return Number.isSafeInteger(n)&&n>=0&&n<=1000000000000?n:null;
 }
-// Ink-only preparation on the original pixels before nearest-neighbour
-// enlargement. This suppresses colored textbox rails and background noise.
-function inkOnlyMesosImage(rect,sourceFrame=null){
-  const W=sourceFrame?.width??video.videoWidth,H=sourceFrame?.height??video.videoHeight;
-  if(!rect||rect.x<0||rect.y<0||rect.x+rect.w>W||rect.y+rect.h>H)return null;
-  const raw=document.createElement('canvas');
-  raw.width=rect.w;raw.height=rect.h;
-  const ctx=raw.getContext('2d',{willReadFrequently:true});
-  if(sourceFrame){
-    const bytes=new Uint8ClampedArray(rect.w*rect.h*4);
-    for(let y=0;y<rect.h;y++){
-      const begin=((rect.y+y)*W+rect.x)*4;
-      bytes.set(sourceFrame.data.subarray(begin,begin+rect.w*4),y*rect.w*4);
-    }
-    ctx.putImageData(new ImageData(bytes,rect.w,rect.h),0,0);
-  }else ctx.drawImage(video,rect.x,rect.y,rect.w,rect.h,0,0,rect.w,rect.h);
-  const data=ctx.getImageData(0,0,raw.width,raw.height);
-  const whiteEdge=(x,y)=>{
-    const i=(y*raw.width+x)*4,d=data.data;
-    const r=d[i],g=d[i+1],b=d[i+2];
-    return Math.min(r,g,b)>=220&&Math.max(r,g,b)-Math.min(r,g,b)<27;
-  };
-  // The crop deliberately includes a little surrounding border. Select only
-  // rows whose LEFT and RIGHT margins are white textbox pixels, preserving
-  // ALL of the glyph, including bottom strokes and comma descenders.
-  const validRows=new Uint8Array(raw.height);
-  for(let y=0;y<raw.height;y++)
-    if(whiteEdge(0,y)&&whiteEdge(raw.width-1,y))validRows[y]=1;
-  for(let y=0;y<raw.height;y++)for(let x=0;x<raw.width;x++){
-    const i=(y*raw.width+x)*4,r=data.data[i],g=data.data[i+1],b=data.data[i+2];
-    const ink=Math.max(r,g,b)<205&&Math.max(r,g,b)-Math.min(r,g,b)<47;
-    const safe=x>=1&&x<raw.width-1&&validRows[y];
-    const v=ink&&safe?0:255;
-    data.data[i]=data.data[i+1]=data.data[i+2]=v;
-  }
-  ctx.putImageData(data,0,0);
-  const zoom=8,pad=22;
-  const image=document.createElement('canvas');
-  image.width=raw.width*zoom+2*pad;image.height=raw.height*zoom+2*pad;
-  const c=image.getContext('2d');c.fillStyle='white';c.fillRect(0,0,image.width,image.height);
-  c.imageSmoothingEnabled=false;c.drawImage(raw,pad,pad,raw.width*zoom,raw.height*zoom);
-  return image;
-}
 // One single raw-color OCR pass: no glyph templates, binarization, contrast
 // adjustment, enhancement or agreement between different image filters.
 async function readMesosFast(worker,rect,sourceFrame){
