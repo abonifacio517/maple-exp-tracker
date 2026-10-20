@@ -1012,9 +1012,9 @@ body.theme-dark::before{
 body.theme-light::before{
   background-image:url("assets/henesys-scene.svg?v=20261020b");
   opacity:.53;
-  /* Shift framing toward the village ground without changing zoom or opacity. */
-  background-size:auto 132%;
-  background-position:center 28%;
+  /* Show more of the underground while keeping Henesys village in frame. */
+  background-size:auto 124%;
+  background-position:center 42%;
 }
 @media(max-width:700px){
   body.theme-dark::before,body.theme-light::before{
@@ -1023,11 +1023,26 @@ body.theme-light::before{
   }
   body.theme-dark::before{opacity:.50}
   body.theme-light::before{
-    background-size:auto 118%;
-    background-position:center 24%;
+    background-size:auto 112%;
+    background-position:center 34%;
     opacity:.46;
   }
 }
 @media(prefers-reduced-motion:reduce){
   body.theme-dark::before,body.theme-light::before{transform:none}
+}
+
+/* Alpha 0.2.30: highlight the first step without changing the sharing control's label.
+   The active Stop sharing state keeps its existing red styling. */
+body.theme-light .top-utility-row .action-buttons #shareBtn.primary:not(.is-stop){
+  background:#329652;
+  border-color:#267742;
+  color:#ffffff;
+  text-shadow:none;
+}
+body.theme-dark .top-utility-row .action-buttons #shareBtn.primary:not(.is-stop){
+  background:#27774a;
+  border-color:#4ca36d;
+  color:#f5fff8;
+  text-shadow:none;
 }
