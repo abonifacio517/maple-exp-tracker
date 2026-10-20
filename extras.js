@@ -279,12 +279,21 @@ function inkOnlyMesosImage(rect,sourceFrame=null){
     ctx.putImageData(new ImageData(bytes,rect.w,rect.h),0,0);
   }else ctx.drawImage(video,rect.x,rect.y,rect.w,rect.h,0,0,rect.w,rect.h);
   const data=ctx.getImageData(0,0,raw.width,raw.height);
+  const whiteEdge=(x,y)=>{
+    const i=(y*raw.width+x)*4,d=data.data;
+    const r=d[i],g=d[i+1],b=d[i+2];
+    return Math.min(r,g,b)>=220&&Math.max(r,g,b)-Math.min(r,g,b)<27;
+  };
+  // The crop deliberately includes a little surrounding border. Select only
+  // rows whose LEFT and RIGHT margins are white textbox pixels, preserving
+  // ALL of the glyph, including bottom strokes and comma descenders.
+  const validRows=new Uint8Array(raw.height);
+  for(let y=0;y<raw.height;y++)
+    if(whiteEdge(0,y)&&whiteEdge(raw.width-1,y))validRows[y]=1;
   for(let y=0;y<raw.height;y++)for(let x=0;x<raw.width;x++){
     const i=(y*raw.width+x)*4,r=data.data[i],g=data.data[i+1],b=data.data[i+2];
-    const ink=Math.max(r,g,b)<183&&Math.max(r,g,b)-Math.min(r,g,b)<45;
-    // Rightmost pixels often include a vertical textbox border rather than a
-    // number. Remove that edge as well as the top/bottom rail if captured.
-    const safe=x>=2&&x<raw.width-2&&y>=1&&y<raw.height-2;
+    const ink=Math.max(r,g,b)<205&&Math.max(r,g,b)-Math.min(r,g,b)<47;
+    const safe=x>=1&&x<raw.width-1&&validRows[y];
     const v=ink&&safe?0:255;
     data.data[i]=data.data[i+1]=data.data[i+2]=v;
   }
