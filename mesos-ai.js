@@ -71,11 +71,16 @@ window.MapleMesosAI=(()=>{
     const splitBudget=wanted===null?12:Math.max(0,wanted-glyphs.length);
     let splitCount=0;
     while(splitCount<splitBudget){
+      // Thin glyphs, comma fragments and antialiased noise must NOT lower the
+      // reference digit width; otherwise a normal scaled 8 or 3 can be split
+      // into multiple false digits (sometimes appearing to lose the first).
       const normal=median(glyphs.filter(g=>g.height>=normalHeight*.73&&
-        g.width>=3&&g.width<=normalHeight*.95).map(g=>g.width))||
-        Math.max(5,Math.round(normalHeight*.63));
+        g.width>=Math.max(5,normalHeight*.42)&&
+        g.width<=normalHeight*.95).map(g=>g.width))||
+        Math.max(6,Math.round(normalHeight*.67));
       const idx=glyphs.findIndex(g=>g.height>=normalHeight*.73&&
-        g.width>=10&&g.width>normal*1.62&&g.width>normalHeight*.95);
+        g.width>=Math.max(14,normalHeight*1.26)&&
+        g.width>normal*1.60);
       if(idx<0)break;
       const g=glyphs[idx],middle=Math.round((g.left+g.right)/2);
       let cut=middle,lowest=Infinity;
