@@ -1170,3 +1170,16 @@ body.theme-dark .profit-badge.neutral{
   color:#b5d8f0;
   border:1px solid #49627a;
 }
+
+/* Alpha 0.2.43 — local AI trainer: low-profile controls in mesos correction drawer. */
+.meso-ai-training{display:grid;gap:9px;margin-top:11px;padding:12px;border-radius:10px;
+  border:1px solid var(--frame-soft);background:var(--panel-1)}
+.meso-ai-toggle{display:flex;align-items:center;gap:9px;font-size:12px;font-weight:800;
+  line-height:1.4;color:var(--heading);cursor:pointer}
+.meso-ai-toggle input{width:17px;height:17px;flex:none;accent-color:#4f9c31;cursor:pointer}
+.meso-ai-training .detail-help{font-size:11px;line-height:1.55;color:var(--muted);margin:0}
+.meso-ai-training .button{width:max-content;max-width:100%;font-size:11px;padding:8px 13px}
+#mesoAIDetails{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px;padding:11px;margin:8px 0 0;
+  background:var(--panel-2);color:var(--ink);border:1px solid var(--frame-soft);border-radius:8px}
+#teachMesoAIBtn{white-space:normal;text-align:center}
+@media(max-width:600px){.meso-ai-training .button{width:100%}}
