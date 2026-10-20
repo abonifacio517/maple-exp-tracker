@@ -1,6 +1,13 @@
-# Van's Maple EXP Tracker — Alpha 0.2.32
+# Van's Maple EXP Tracker — Alpha 0.2.33
 
 This release improves screen-only **mesos recognition** without changing the EXP and level recognition code.
+
+## Alpha 0.2.33 — Mini HUD visual parity
+
+- Rebuilt the Document Picture-in-Picture HUD styles for both Henesys and Sleepywood themes, replacing legacy glossy progress bar and beveled controls.
+- Match the main app's bright **green EXP progress bar**, **orange current-level badge**, colored blue panel headers, clean borders and readable EXP/hour, ETA and KPQ statistic cards.
+- Preserve the existing live stats, mesos WIP indicator, theme synchronization and experimental expandable EXP/min graph.
+- Version the HUD script URL to help bypass cached code. Recognition and calculations are unchanged.
 
 ## Alpha 0.2.32 — Reliable Henesys metric contrast
 
