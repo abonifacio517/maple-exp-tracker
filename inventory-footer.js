@@ -54,8 +54,15 @@ function findInventoryFooter(frame,previous=null){
     if(!Number.isFinite(min))return null;
     const left=Math.max(x+Math.round(2*s),min-Math.round(4*s));
     const right=Math.round(x+220*s);
-    const rect={x:left,y:top,w:right-left,h:Math.round(18*s)};
-    if(rect.w<8||rect.x+rect.w>W||rect.y+rect.h>H)return null;
+    // Keep the COMPLETE 21px white field, including descenders and comma
+    // tails. The old y+2, height=18 crop was then trimmed *again* by the
+    // font reader and OCR, discarding the lower 2-4 rows of real glyphs.
+    // Include one source pixel above and below to avoid boundary clipping
+    // at fractional display scales. Blue rails are masked by the readers.
+    const cropTop=Math.max(0,Math.round(y-Math.max(1,s)));
+    const cropBottom=Math.min(H,Math.round(y+22*s));
+    const rect={x:left,y:cropTop,w:right-left,h:cropBottom-cropTop};
+    if(rect.w<8||rect.h<12||rect.x+rect.w>W||rect.y+rect.h>H)return null;
     return {x,y,s,score:.98,footer:true,rect};
   }
   // Revalidate last position first, but immediately search the whole frame if moved.
