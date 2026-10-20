@@ -1055,3 +1055,11 @@ body.theme-dark .exp-stat-strip .metric strong,
 body.theme-dark .exp-stat-strip .plan-card strong{
   color:var(--heading);
 }
+
+/* Alpha 0.2.34 — Header character changes by theme, without touching the HUD.
+   Preserve both images as provided; only their visibility switches. */
+.brand-sprite--sleepywood{display:none}
+body.theme-dark .brand-sprite--henesys{display:none}
+body.theme-dark .brand-sprite--sleepywood{display:block}
+body.theme-light .brand-sprite--sleepywood{display:none}
+body.theme-light .brand-sprite--henesys{display:block}
