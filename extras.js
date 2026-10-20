@@ -3,7 +3,7 @@
 // video frames; never accesses MapleStory processes, memory, files, or controls.
 const extras={inventory:null,lastFind:0,inventoryOpen:false,
   mesosStart:null,mesosCurrent:null,mesoPending:null,mesoVotes:[],mesoWhen:null,mesoStartWhen:null,mesoBusy:false,mesoStatus:'',
-  lastMesoAttempt:0,lastInvFind:0};
+  lastMesoAttempt:0,lastInvFind:0,mesoSnapshots:[],mesoGained:0,mesoRawNote:''};
 function anchorMatcher(spec,s,kind){
   const pts=spec.points.filter((p,i)=>i%(kind==='hotbar'?5:2)===0).map(([x,y,v])=>[Math.round(x*s),Math.round(y*s),v]);
   const n=pts.length,mean=pts.reduce((sum,p)=>sum+p[2],0)/n;
@@ -138,77 +138,80 @@ async function recognizeSnapshot(rect,worker,kind='mesos'){
     note:details.join(' | ')+(best?(agreement?' | preprocessing agrees':' | checking again on next frame'):' | no reliable OCR candidate')};
 }
 function showExtraStats(){
-  const known=extras.mesosStart!==null&&extras.mesosCurrent!==null;
-  const delta=known?extras.mesosCurrent-extras.mesosStart:null;
-  const hours=extras.mesoWhen&&extras.mesoStartWhen?(extras.mesoWhen-extras.mesoStartWhen)/3600000:0;
-  $('mesoBalance').textContent=extras.mesosCurrent===null?'—':fmt(extras.mesosCurrent);
-  $('mesoDelta').textContent=delta===null?'—':`${delta>0?'+':''}${fmt(delta)}`;
-  $('mesoPerHour').textContent=delta!==null&&hours>1/3600?fmt(Math.round(delta/hours)):'—';
-  const profit=$('netProfit');
-  profit.textContent=delta===null?'—':`${delta>0?'+':''}${fmt(delta)}`;
-  profit.className=delta===null?'profit-unknown':delta>0?'profit-positive':delta<0?'profit-negative':'profit-zero';
+  const balance=extras.mesosCurrent,known=balance!==null;
+  const activeHours=(typeof sessionElapsedMs==='function'?sessionElapsedMs():0)/3600000;
+  $('mesoBalance').textContent=known?fmt(balance):'—';
+  $('netProfit').textContent=known?fmt(balance):'—';
+  $('netProfit').className=known?'profit-zero':'profit-unknown';
+  $('mesoDelta').textContent='—'; // legacy hidden value, not displayed or double-counted
+  $('mesoGained').textContent=extras.mesoSnapshots.length?fmt(extras.mesoGained):'—';
+  $('mesoPerHour').textContent=extras.mesoSnapshots.length&&activeHours>1/3600?
+    fmt(Math.round(extras.mesoGained/activeHours)):'—';
+  $('potionSpend').textContent=fmt(potionSpent());
   const badge=$('profitBadge');
-  badge.textContent=delta===null?'Waiting for balance':delta>0?'Mesos positive':delta<0?'Mesos negative':'Break-even';
-  badge.className='profit-badge '+(delta>0?'positive':delta<0?'negative':'neutral');
-  $('profitExplanation').textContent=delta===null?'Open your inventory to establish a starting balance; reopen it later to calculate net mesos change.':
-    'Net balance change since the first snapshot. Includes purchases, sales, and other spending; potion consumption is not separately calculated.';
+  badge.textContent=known?'Balance confirmed':'Waiting for balance';
+  badge.className='profit-badge '+(known?'positive':'neutral');
+  $('profitExplanation').textContent=known?
+    'Mesos gained/hour sums positive differences between confirmed inventory snapshots and divides by active session hours. Spending and potion estimates appear separately; potion costs are not deducted twice.':
+    'Open your inventory to establish a mesos snapshot. The reader tracks its white numeric textbox anywhere in the shared game frame.';
   $('mesoScanStatus').textContent=extras.mesoStatus || (extras.inventoryOpen?
-    (extras.mesoWhen?'Inventory open · last confirmed '+extras.mesoWhen.toLocaleTimeString():extras.mesoPending?'Confirming '+fmt(extras.mesoPending.value)+'…':'Inventory open · reading balance…'):
+    (extras.mesoWhen?'Inventory visible · last confirmed '+extras.mesoWhen.toLocaleTimeString():
+      extras.mesoPending?'Checking '+fmt(extras.mesoPending.value)+'…':'Inventory visible · reading…'):
     (extras.mesoWhen?'Inventory closed · last confirmed '+extras.mesoWhen.toLocaleTimeString():'Waiting for inventory'));
+}
+function saveMesosSnapshot(value){
+  if(!Number.isSafeInteger(value)||value<0||value>1000000000000)return false;
+  const old=extras.mesosCurrent,elapsed=typeof sessionElapsedMs==='function'?sessionElapsedMs():0;
+  if(old!==value){
+    if(old!==null)extras.mesoGained+=Math.max(0,value-old);
+    extras.mesoSnapshots.push({value,elapsed});
+    if(extras.mesoSnapshots.length>1000)extras.mesoSnapshots.shift();
+  }
+  if(extras.mesosStart===null){extras.mesosStart=value;extras.mesoStartWhen=new Date();}
+  extras.mesosCurrent=value;extras.mesoWhen=new Date();
+  extras.mesoPending=null;extras.mesoVotes=[];
+  return true;
 }
 // Confirmation is based on SEPARATE captured frames, not on several OCR
 // filters of the same image. Keep a rolling record across occasional failures.
 function acceptMesos(read){
   const value=read?.value;
   if(!Number.isSafeInteger(value)||value<0||value>1000000000000)return false;
-  if(value===extras.mesosCurrent){
-    extras.mesoWhen=new Date();extras.mesoVotes=[];extras.mesoPending=null;
-    return true;
-  }
+  if(value===extras.mesosCurrent){extras.mesoWhen=new Date();extras.mesoPending=null;extras.mesoVotes=[];return true;}
   const now=Date.now();
-  extras.mesoVotes=(extras.mesoVotes||[]).filter(v=>now-v.time<30000).slice(-9);
+  extras.mesoVotes=(extras.mesoVotes||[]).filter(x=>now-x.time<14000);
   extras.mesoVotes.push({value,time:now,source:read.source||'unknown',quality:read.quality||0});
-  // The 10-capture rolling history tolerates intermittent unreadable results,
-  // but never counts a single OCR pass as multiple independent observations.
-  const recent=extras.mesoVotes.slice(-10);
+  extras.mesoVotes=extras.mesoVotes.slice(-7);
   const groups=new Map();
-  for(const vote of recent){
-    const g=groups.get(vote.value)||{count:0,strong:0,quality:0};
-    g.count++;g.quality+=vote.quality;
-    if(vote.source==='font'||vote.source==='ocr-agreement')g.strong++;
-    groups.set(vote.value,g);
+  for(const v of extras.mesoVotes){
+    const item=groups.get(v.value)||{count:0,strong:0,quality:0};
+    item.count++;item.quality+=v.quality;
+    if(v.source==='font'||v.source==='ocr-agreement')item.strong++;
+    groups.set(v.value,item);
   }
-  const rank=[...groups].sort((a,b)=>b[1].count-a[1].count || b[1].quality-a[1].quality);
-  const leader=rank[0],runner=rank[1];
-  // Strong independent recognition needs three captures; OCR-only reads
-  // need four. Large/suspicious jumps need an additional capture.
-  const trusted=leader[1].strong>=2;
-  let needed=trusted?3:4;
-  const current=extras.mesosCurrent;
-  if(current!==null){
-    const huge=Math.abs(leader[0]-current)>Math.max(1000000,Math.ceil(current*.35));
-    const digits=Math.abs(String(leader[0]).length-String(current).length)>1;
-    if(huge||digits)needed++;
-  }
+  const ranked=[...groups].sort((a,b)=>b[1].count-a[1].count||b[1].quality-a[1].quality);
+  const leader=ranked[0],runner=ranked[1];
+  const strong=leader[1].strong>=2;
+  let needed=strong?2:3; // distinct captured frames, never repeated filters
+  if(extras.mesosCurrent!==null&&Math.abs(leader[0]-extras.mesosCurrent)>Math.max(1000000,extras.mesosCurrent*.35))needed++;
   extras.mesoPending={value:leader[0],count:leader[1].count,needed};
-  if(leader[1].count<needed || (runner && runner[1].count>=leader[1].count))return false;
-  if(extras.mesosStart===null){extras.mesosStart=leader[0];extras.mesoStartWhen=new Date();}
-  extras.mesosCurrent=leader[0];extras.mesoWhen=new Date();
-  extras.mesoPending=null;extras.mesoVotes=[];
-  return true;
+  if(leader[1].count<needed||(runner&&runner[1].count>=leader[1].count))return false;
+  return saveMesosSnapshot(leader[0]);
 }
 function resetExtras(){
   if(typeof stopMesosWatch==='function')stopMesosWatch();
   Object.assign(extras,{inventory:null,lastFind:0,inventoryOpen:false,
-    mesosStart:null,mesosCurrent:null,mesoPending:null,mesoVotes:[],mesoWhen:null,mesoStartWhen:null,mesoBusy:false,mesoStatus:'',
-    lastMesoAttempt:0,lastInvFind:0});
-  if(state.running && state.stream)beginMesosWatch();
+    mesosStart:null,mesosCurrent:null,mesoPending:null,mesoVotes:[],mesoWhen:null,mesoStartWhen:null,
+    mesoBusy:false,mesoStatus:'',lastMesoAttempt:0,lastInvFind:0,
+    mesoSnapshots:[],mesoGained:0,mesoRawNote:''});
+  // Resetting the mesos session does not erase manual potion spending.
+  if(state.running&&state.stream)beginMesosWatch();
   showExtraStats();
 }
 // Dedicated mesos capture loop. An independent OCR worker prevents long EXP
 // and level-recognition passes from delaying inventory snapshots. Video capture
 // is still performed solely through the browser's user-approved screen share.
-const MESO_SCAN_MS=2000;
+const MESO_SCAN_MS=1300;
 let mesosTimer=null,mesosGeneration=0,mesosWorker=null,mesosWorkerPromise=null;
 async function getMesosWorker(){
   if(mesosWorker)return mesosWorker;
@@ -227,83 +230,26 @@ async function disposeMesosWorker(){
   const worker=mesosWorker;mesosWorker=null;
   if(worker)await worker.terminate();
 }
-function activeInventoryAnchor(frame,hit){
-  if(!hit)return false;
-  if(hit.footer){
-    // A partially clipped inventory is fine if the meso textbox/footer is
-    // still fully visible. Do not require the whole 338x469 inventory sprite.
-    const pixel=(dx,dy)=>{
-      const x=Math.round(hit.x+dx*hit.s),y=Math.round(hit.y+dy*hit.s);
-      if(x<0||y<0||x>=frame.width||y>=frame.height)return null;
-      const i=(y*frame.width+x)*4,d=frame.data;return [d[i],d[i+1],d[i+2]];
-    };
-    const white=(x,y)=>{const v=pixel(x,y);return !!v&&v.every(a=>a>235);};
-    const rails=[450,451,452].map(y=>pixel(80,y)),label=pixel(280,446);
-    return white(75,440)&&white(170,440)&&rails.some(rail=>rail&&rail[0]<100&&rail[2]>rail[1]+20)&&
-      ((label&&label[2]>label[0]+12)||(!label&&hit.x+285*hit.s>=frame.width));
-  }
-  return !!(hit.x>=0&&hit.y>=0&&hit.x+hit.m.w<=frame.width&&hit.y+hit.m.h<=frame.height&&
-    anchorScore(frame,hit.m,hit.x,hit.y)>.77);
+// Footer detector now returns the verified white textbox directly.
+// The inventory heading, border and item-grid coordinates are irrelevant.
+function locateMesosField(frame,hit){
+  if(!hit?.footer||!hit.rect)return {rect:null,note:'White mesos textbox not located.'};
+  return {rect:hit.rect,note:`White textbox detected at (${hit.rect.x},${hit.rect.y}), ${hit.rect.w}×${hit.rect.h} · scale ${hit.s}`};
 }
-// The inventory moves freely. Locate the white counter box *inside* the
-// recognized inventory on each scan instead of assuming one fixed digit crop.
-// Its broad white field has a stable position relative to the inventory sprite;
-// the text is right-aligned, so use the inner right edge to get the whole number.
-function locateMesosField(frame,inv){
-  if(!frame||!inv)return {rect:null,note:'No inventory frame'};
-  const W=frame.width,H=frame.height,data=frame.data;
-  const s=inv.s;
-  const at=(ix,iy)=>{
-    const x=Math.round(inv.x+ix*s),y=Math.round(inv.y+iy*s);
-    if(x<0||x>=W||y<0||y>=H)return null;
-    const j=(y*W+x)*4;
-    return [data[j],data[j+1],data[j+2]];
-  };
-  const white=rgb=>rgb&&rgb[0]>=235&&rgb[1]>=235&&rgb[2]>=235&&
-    Math.max(...rgb)-Math.min(...rgb)<22;
-  // Search for the bright horizontal white row between the gray footer rails.
-  // Multiple x probes avoid matching occasional bright pixels in the item grid.
-  let best=null,run=null;
-  for(let y=417;y<=465;y++){
-    let count=0;
-    for(const x of [66,88,119,146,171])if(white(at(x,y)))count++;
-    if(count>=4){
-      if(!run)run={start:y,end:y};
-      else run.end=y;
-    }else if(run){
-      if(!best||run.end-run.start>best.end-best.start)best=run;
-      run=null;
-    }
+function drawMesosPreview(rect,frame){
+  if(!rect||!frame)return;
+  const views=[
+    ['mesoRawCrop',snapshotImage(rect,'raw',frame)],
+    ['mesoEnhancedCrop',inkOnlyMesosImage(rect,frame)]
+  ];
+  for(const [id,image] of views){
+    if(!image)continue;
+    const canvas=$(id);if(!canvas)continue;
+    const width=Math.min(520,image.width),height=Math.max(24,Math.round(image.height*width/image.width));
+    canvas.width=width;canvas.height=height;
+    const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;ctx.clearRect(0,0,width,height);
+    ctx.drawImage(image,0,0,width,height);
   }
-  if(run&&(!best||run.end-run.start>best.end-best.start))best=run;
-  if(!best||best.end-best.start<11)return {rect:null,note:'The white mesos-number field is not visible (inventory may be clipped/covered).'};
-  const edgeY=best.start+2;
-  // The right inside edge of the white textbox is near x=267, but determine
-  // it from the actual frame so slight differences in the window don't shift
-  // the crop onto MESOS lettering.
-  let right=268;
-  for(let x=260;x<=281;x++){
-    if(!white(at(x,edgeY))){right=x-1;break;}
-  }
-  if(right<250||right>280)return {rect:null,note:'Could not find the right edge of the mesos textbox.'};
-  // Max 14 digits and commas occupy <100 original pixels. Keep all leading
-  // figures; the rest of the white field is empty and safe for OCR.
-  let leftInk=Infinity;
-  for(let y=best.start+4;y<=best.end-2;y++){
-    for(let x=54;x<=right-4;x++){
-      const rgb=at(x,y);
-      if(!rgb)continue;
-      const max=Math.max(...rgb),min=Math.min(...rgb);
-      if(max<175 && max-min<26)leftInk=Math.min(leftInk,x);
-    }
-  }
-  if(!Number.isFinite(leftInk))return {rect:null,note:'White mesos field found but no readable dark digits inside it.'};
-  const x0=Math.max(44,leftInk-6),x1=Math.min(279,right+1);
-  const y0=best.start+1,y1=best.end-1;
-  const rect=relativeRect(inv,x0,y0,Math.max(10,x1-x0),Math.max(10,y1-y0));
-  if(rect.x<0||rect.y<0||rect.x+rect.w>W||rect.y+rect.h>H)
-    return {rect:null,note:'Inventory footer extends outside the shared window.'};
-  return {rect,note:`Mesos textbox x=${x0}..${x1}, y=${best.start}..${best.end}, capture ${rect.w}×${rect.h}`};
 }
 function parseMesosText(raw){
   const text=String(raw||'').trim().replace(/\s+/g,'').replace(/(?<=\d)\.(?=\d{3}(?:$|[,]))/g,',');
@@ -347,123 +293,84 @@ function inkOnlyMesosImage(rect,sourceFrame=null){
   return image;
 }
 async function readMesosFast(worker,rect,sourceFrame){
-  if(!rect)return {value:null,note:'Mesos field not visible.'};
-  // First, attempt to recognize individual glyphs from the authentic
-  // screenshot-trained mesos font atlas. Missing digits are never guessed.
-  const font=typeof readMesosDigits==='function'?readMesosDigits(sourceFrame,rect):{value:null,note:'Font reader unavailable'};
-  if(!worker){
-    if(font.value!==null&&font.score>=.78)
-      return {value:font.value,source:'font',quality:font.score,note:'font: '+font.note+' · OCR unavailable'};
-    return {value:null,note:'font: '+font.note+' · OCR unavailable'};
+  if(!rect)return {value:null,source:'none',note:'Mesos textbox not visible.'};
+  const font=typeof readMesosDigits==='function'?
+    readMesosDigits(sourceFrame,rect):{value:null,score:0,note:'Digit templates unavailable'};
+  const details=[`templates: ${font.note||'—'}`];
+  // Template reading runs before OCR. Two confident frames can confirm fast.
+  if(font.value!==null&&font.score>=.83)
+    return {value:font.value,source:'font',quality:font.score,note:details.join(' | ')+' · template candidate'};
+  if(!worker)return {value:null,source:'templates-uncertain',note:details.join(' | ')+' · OCR needed'};
+  await worker.setParameters({tessedit_char_whitelist:'0123456789,',
+    tessedit_pageseg_mode:Tesseract.PSM.SINGLE_LINE});
+  const found=[];
+  for(const mode of ['raw','enhanced']){
+    const image=mode==='enhanced'?inkOnlyMesosImage(rect,sourceFrame):snapshotImage(rect,'raw',sourceFrame);
+    if(!image)continue;
+    const result=await worker.recognize(image);
+    const raw=String(result.data.text||'').trim();
+    const conf=Math.round(Number(result.data.confidence)||0),value=parseMesosText(raw);
+    details.push(`${mode} OCR: ${JSON.stringify(raw)} [${conf}%] => ${value===null?'?':fmt(value)}`);
+    if(value!==null&&conf>=35)found.push({value,conf});
+    if(mode==='raw'&&value!==null&&conf>=79)break; // skip second expensive pass
   }
-  await worker.setParameters({
-    tessedit_char_whitelist:'0123456789,',
-    tessedit_pageseg_mode:Tesseract.PSM.SINGLE_LINE
-  });
-  const details=[`font: ${font.note}`],ocr=[];
-  // OCR remains the fallback for glyphs absent from the verified template
-  // library (notably 0, 1, 5 and 8) and a cross-check for known digits.
-  for(const mode of ['raw','ink']){
-    const canvas=mode==='ink'?inkOnlyMesosImage(rect,sourceFrame):snapshotImage(rect,mode,sourceFrame);
-    if(!canvas)break;
-    const out=await worker.recognize(canvas);
-    const raw=String(out.data.text||'').trim(),conf=Math.round(Number(out.data.confidence)||0);
-    const value=parseMesosText(raw);
-    details.push(`${mode}: ${JSON.stringify(raw)} (${conf}%)`);
-    // Weak OCR can contribute supporting evidence if both independently
-    // processed images agree. It can never immediately change mesos totals.
-    if(value!==null&&conf>=22)ocr.push({value,conf,mode});
-    if(mode==='raw'&&font.value!==null&&font.value===value&&conf>=75)break;
-  }
-  const ocrCounts=new Map();
-  for(const v of ocr){const g=ocrCounts.get(v.value)||{n:0,total:0,max:0};g.n++;g.total+=v.conf;g.max=Math.max(g.max,v.conf);ocrCounts.set(v.value,g);}
-  const ranked=[...ocrCounts.entries()].sort((a,b)=>b[1].n-a[1].n||b[1].total-a[1].total);
-  const top=ranked[0];
-  if(font.value!==null&&font.score>=.72){
-    // High-confidence disagreement with an independent engine is an
-    // explicit ambiguity rather than permission to overwrite the balance.
-    if(top&&top[0]!==font.value&&top[1].max>=72)
-      return {value:null,source:'conflict',note:details.join(' | ')+' · font/OCR conflict'};
-    return {value:font.value,source:'font',quality:font.score,
-      note:details.join(' | ')+(top?.[0]===font.value?' · font and OCR agree':' · font candidate; confirm over time')};
-  }
-  if(ranked.length>1&&ranked[0][1].n===ranked[1][1].n)
-    return {value:null,source:'conflict',note:details.join(' | ')+' · conflicting OCR values'};
-  if(top&&top[1].n>=2)
-    return {value:top[0],source:'ocr-agreement',quality:Math.min(1,top[1].total/180),
-      note:details.join(' | ')+' · OCR preprocessing agrees; verifying across frames'};
-  if(top&&top[1].max>=78)
-    return {value:top[0],source:'ocr-single',quality:top[1].max/150,
-      note:details.join(' | ')+' · high-confidence OCR candidate; needs extra captures'};
-  return {value:null,source:'uncertain',note:details.join(' | ')+' · insufficient evidence'};
+  const [a,b]=found;
+  if(a&&b&&a.value===b.value)
+    return {value:a.value,source:'ocr-agreement',quality:(a.conf+b.conf)/200,note:details.join(' | ')};
+  if(a&&b&&a.value!==b.value)return {value:null,source:'conflict',note:details.join(' | ')+' · conflicting OCR'};
+  const best=a||b;
+  if(best&&best.conf>=69&&!(font.value!==null&&font.score>=.7&&font.value!==best.value))
+    return {value:best.value,source:'ocr-single',quality:best.conf/100,note:details.join(' | ')};
+  return {value:null,source:'uncertain',note:details.join(' | ')+' · awaiting clearer digits'};
 }
 async function scanMesos(generation){
   if(!state.running||!state.stream||!video.videoWidth||extras.mesoBusy||generation!==mesosGeneration)return;
   extras.mesoBusy=true;
   try{
-    const now=Date.now();
     const frame=framePixels();
-    const previous=extras.inventory;
-    if(!activeInventoryAnchor(frame,previous)){extras.inventory=null;extras.lastInvFind=0;}
-    if(!extras.inventory && now-extras.lastInvFind>=1800){
-      extras.lastInvFind=now;
-      extras.inventory=findInventoryFooter(frame)||findVisualAnchor(frame,'inventory');
-    }
-    const inv=extras.inventory;
-    extras.inventoryOpen=!!inv;
-    if(!inv){
-      extras.mesoPending=null;extras.mesoVotes=[];
-      extras.mesoStatus=extras.mesoWhen?'Inventory footer not visible · last confirmed '+extras.mesoWhen.toLocaleTimeString():
-        'Waiting for visible inventory footer · checking again shortly';
+    const hit=findInventoryFooter(frame,extras.inventory);
+    extras.inventory=hit;
+    extras.inventoryOpen=!!hit;
+    if(!hit){
+      extras.mesoStatus=extras.mesoWhen?'Textbox not visible · last confirmed '+extras.mesoWhen.toLocaleTimeString():
+        'Looking for the white mesos textbox anywhere on screen';
+      $('mesoOCRDetails').textContent='Mesos textbox not found in current frame. Move or open your inventory.';
       return;
     }
-    extras.mesoStatus='Inventory found · reading…';
-    showExtraStats();
-    let worker=null;
-    try{worker=await getMesosWorker();}
-    catch(error){worker=null;}
-    if(generation!==mesosGeneration||!state.running)return;
-    // Reacquire from the new frozen frame below. Inventory may have moved
-    // while the OCR worker loaded, so don't reject a stale screen coordinate.
-    // Locate AND OCR on the SAME captured frame. The player may move the
-    // inventory between two live video reads; never use a stale rectangle.
-    const frozen=framePixels();
-    // Window can move while OCR initializes. Reacquire the footer from this
-    // precise frozen frame instead of using the previous window coordinates.
-    let freshInv=inv;
-    if(!activeInventoryAnchor(frozen,freshInv))freshInv=findInventoryFooter(frozen);
-    if(!freshInv){
-      extras.inventory=null;extras.inventoryOpen=false;extras.mesoPending=null;extras.mesoVotes=[];
-      extras.lastInvFind=0;
-      extras.mesoStatus='Inventory moved or footer obscured · searching again';
-      return;
+    const field=locateMesosField(frame,hit);
+    if(!field.rect)return;
+    drawMesosPreview(field.rect,frame);
+    // Try pixel templates first; delay creating an OCR worker unless needed.
+    let read=await readMesosFast(null,field.rect,frame);
+    if(read.value===null){
+      let worker=null;
+      try{worker=await getMesosWorker();}catch(_error){/* report template uncertainty below */}
+      if(generation!==mesosGeneration||!state.running)return;
+      if(worker)read=await readMesosFast(worker,field.rect,frame);
     }
-    extras.inventory=freshInv;
-    const field=locateMesosField(frozen,freshInv);
-    const read=field.rect?await readMesosFast(worker,field.rect,frozen):{value:null,note:field.note};
     if(generation!==mesosGeneration||!state.running)return;
     extras.lastMesoAttempt=Date.now();
+    extras.mesoRawNote=read.note;
+    $('mesoOCRDetails').textContent=`${field.note}\n${read.note}\nCandidate: ${read.value===null?'unreadable':fmt(read.value)} (${read.source||'unknown'})`;
     if(read.value!==null){
       const accepted=acceptMesos(read);
-      extras.mesoStatus=accepted?`Confirmed ${fmt(read.value)} · ${new Date().toLocaleTimeString()}`:
-        `Verifying ${fmt(extras.mesoPending?.value??read.value)} · ${extras.mesoPending?.count??1}/${extras.mesoPending?.needed??3} matching scans`;
+      extras.mesoStatus=accepted?`Confirmed ${fmt(read.value)} at ${new Date().toLocaleTimeString()}`:
+        `Verifying ${fmt(extras.mesoPending?.value??read.value)} · ${extras.mesoPending?.count??1}/${extras.mesoPending?.needed??2} frames`;
     }else{
-      // Do not wipe valid previous observations because a single capture was blurry.
-      extras.mesoVotes=(extras.mesoVotes||[]).filter(v=>Date.now()-v.time<30000);
-      extras.mesoStatus=field.rect?(extras.mesoWhen?'OCR uncertain · showing last confirmed balance':'Mesos digits unclear · checking again'):'Inventory found · number field obstructed or unreadable';
+      extras.mesoVotes=(extras.mesoVotes||[]).filter(v=>Date.now()-v.time<14000);
+      extras.mesoStatus='Textbox found · digit recognition uncertain';
     }
-    $('mesoDebug').textContent=`Inventory match ${Math.round(freshInv.score*100)}% · Mesos field: ${field.note}\nOCR: ${read.note}\n`+
-      (extras.mesoPending?`Matching frames: ${extras.mesoPending.count}/${extras.mesoPending.needed}`:'No confirmed candidate')+
-      '\nNext mesos scan: ~2 seconds (EXP scanning independently).';
+    $('mesoDebug').textContent=extras.mesoStatus+'\n'+$('mesoOCRDetails').textContent;
   }catch(error){
-    extras.mesoStatus='Mesos scan issue · keeping last confirmed balance';
+    extras.mesoStatus='Mesos read issue · last confirmed balance retained';
     $('mesoDebug').textContent='Mesos scan: '+String(error?.message||error);
+    $('mesoOCRDetails').textContent=$('mesoDebug').textContent;
   }finally{extras.mesoBusy=false;showExtraStats();}
 }
 function beginMesosWatch(){
   if(mesosTimer!==null)return;
   const generation=++mesosGeneration;
-  extras.lastInvFind=0;extras.mesoStatus='Looking for inventory · 2-second scan interval';
+  extras.lastInvFind=0;extras.mesoStatus='Searching for the white mesos textbox';
   void scanMesos(generation);
   mesosTimer=setInterval(()=>void scanMesos(generation),MESO_SCAN_MS);
 }
@@ -489,7 +396,6 @@ function safeAmount(raw,max){
 $('setMesoSnapshot').addEventListener('click',()=>{
   const value=safeAmount($('manualMesoBalance').value,1000000000000);
   if(value===null){$('mesoDebug').textContent='Enter an exact non-negative meso balance.';return;}
-  if(extras.mesosStart===null){extras.mesosStart=value;extras.mesoStartWhen=new Date();}
-  extras.mesosCurrent=value;extras.mesoWhen=new Date();extras.mesoPending=null;extras.mesoVotes=[];
-  $('manualMesoBalance').value='';$('mesoDebug').textContent='Manual mesos snapshot saved. Net change uses confirmed balances.';showExtraStats();
+  saveMesosSnapshot(value);
+  $('manualMesoBalance').value='';$('mesoDebug').textContent='Manual mesos snapshot saved for the active-session history.';showExtraStats();
 });
