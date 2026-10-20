@@ -1,6 +1,14 @@
-# Van's Maple EXP Tracker — Alpha 0.2.43
+# Van's Maple EXP Tracker — Alpha 0.2.44
 
 This release focuses on **faster, movable-inventory mesos reading**, manual potion costs, and an accurate pause-aware timer. EXP and level recognition remain screen-only.
+
+## Alpha 0.2.44 — Preserve leading mesos digit
+
+- The inventory locator no longer uses the first detected dark pixel to set the LEFT edge of the mesos crop. Thin/faint leading digits could be overlooked, causing the crop to begin at the next digit. Instead, the crop retains a fixed 165-game-pixel-wide, right-aligned slice of the verified white mesos textbox (scaled to the game window). All source pixels remain unmodified.
+- Tightened the browser-only digit classifier's touching-glyph splitter, preventing a scaled normal digit from splitting into multiple fake digits and shifting the detected number.
+- A candidate identical to the previously known balance minus its first digit is flagged as a likely dropped-leading-digit error rather than replacing the balance or being automatically accepted as mesos gained/lost. Players can still manually confirm genuine large decreases.
+- Synthetic regression cases showed the full first digit retained and six groups recognized for 483,583 with both normal and deliberately faint leading digits at 0.8×, 1× and 1.25× UI scales. This is not a live-game benchmark.
+- Player-trained local AI examples remain stored under the existing key without migration or deletion. EXP, timers, potions, themes and HUD are unchanged.
 
 ## Alpha 0.2.43 — Browser-only local AI digit learning (experimental)
 
