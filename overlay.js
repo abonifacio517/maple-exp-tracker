@@ -148,7 +148,7 @@
 
   function resizeHud(){
     if(!miniWindow||miniWindow.closed)return;
-    try{if(typeof miniWindow.resizeTo==='function')miniWindow.resizeTo(graphOpen?430:390,graphOpen?620:400);}
+    try{if(typeof miniWindow.resizeTo==='function')miniWindow.resizeTo(graphOpen?430:390,graphOpen?620:440);}
     catch(_error){/* Browser may prohibit resizing; the window remains scrollable. */}
   }
 
@@ -203,7 +203,7 @@
       return;
     }
     try {
-      const pip = await window.documentPictureInPicture.requestWindow({ width: 390, height: 400 });
+      const pip = await window.documentPictureInPicture.requestWindow({ width: 390, height: 440 });
       miniWindow = pip;
       pip.document.title = "Van's Maple EXP Tracker · HUD";
       const style = pip.document.createElement('style');
