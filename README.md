@@ -1,6 +1,12 @@
-# Van's Maple EXP Tracker — Alpha 0.2.29
+# Van's Maple EXP Tracker — Alpha 0.2.30
 
 This release improves screen-only **mesos recognition** without changing the EXP and level recognition code.
+
+## Alpha 0.2.30 — Henesys underground and sharing button
+
+- Henesys background is slightly less zoomed (124% desktop, 112% mobile) and framed farther toward the ground (42% desktop, 34% mobile).
+- Share game window is green in both Henesys and Sleepywood modes, with no label change. Stop sharing remains red.
+- Sleepywood scene, Maple HUD and tracking logic are unchanged.
 
 ## Alpha 0.2.29 — Henesys map replacement
 
