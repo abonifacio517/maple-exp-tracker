@@ -241,9 +241,35 @@ async function disposeMesosWorker(){
 }
 // Footer detector now returns the verified white textbox directly.
 // The inventory heading, border and item-grid coordinates are irrelevant.
-function locateMesosField(frame,hit){
+function locateMesosField(frame,hit,offsetX=0,offsetY=0){
   if(!hit?.footer||!hit.rect)return {rect:null,note:'White mesos textbox not located.'};
-  return {rect:hit.rect,note:`White textbox detected at (${hit.rect.x},${hit.rect.y}), ${hit.rect.w}×${hit.rect.h} · scale ${hit.s}`};
+  return {rect:hit.rect,note:`White textbox detected at (${hit.rect.x+offsetX},${hit.rect.y+offsetY}), ${hit.rect.w}×${hit.rect.h} · scale ${hit.s}`};
+}
+// A separate small canvas prevents unnecessary full-frame copies while the
+// inventory stays near its last confirmed position. The EXP buffer is untouched.
+const mesosRegionCanvas=document.createElement('canvas');
+const mesosRegionContext=mesosRegionCanvas.getContext('2d',{willReadFrequently:true});
+function captureNearbyMesos(anchor){
+  if(!anchor?.footer||!Number.isFinite(anchor.x)||!Number.isFinite(anchor.y))return null;
+  const s=anchor.s||1,W=video.videoWidth,H=video.videoHeight;
+  const x0=Math.max(0,Math.floor(anchor.x-70*s)),y0=Math.max(0,Math.floor(anchor.y-48*s));
+  const x1=Math.min(W,Math.ceil(anchor.x+295*s)),y1=Math.min(H,Math.ceil(anchor.y+75*s));
+  const w=x1-x0,h=y1-y0;
+  if(w<=0||h<=0)return null;
+  if(mesosRegionCanvas.width!==w||mesosRegionCanvas.height!==h){
+    mesosRegionCanvas.width=w;mesosRegionCanvas.height=h;
+  }
+  mesosRegionContext.drawImage(video,x0,y0,w,h,0,0,w,h);
+  return {
+    frame:{width:w,height:h,data:mesosRegionContext.getImageData(0,0,w,h).data},
+    x0,y0,
+    previous:{...anchor,x:anchor.x-x0,y:anchor.y-y0}
+  };
+}
+function offsetMesosHit(hit,x,y){
+  if(!hit)return null;
+  return {...hit,x:hit.x+x,y:hit.y+y,
+    rect:{...hit.rect,x:hit.rect.x+x,y:hit.rect.y+y}};
 }
 function drawMesosPreview(rect,frame){
   if(!rect||!frame)return;
@@ -387,21 +413,33 @@ async function scanMesos(generation){
     const now=Date.now();
     if(!extras.inventory&&now-lastMesosSearch<MESO_REDISCOVERY_MS)return;
     if(!extras.inventory)lastMesosSearch=now;
-    const frame=framePixels();
-    const hit=await findInventoryFooter(frame,extras.inventory,
+    // Search locally first, without allocating an entire full-screen pixel
+    // buffer. A moved/closed inventory triggers a cancellable full search.
+    const region=captureNearbyMesos(extras.inventory);
+    let frame=region?.frame||framePixels();
+    let hit=await findInventoryFooter(frame,region?.previous||extras.inventory,
       ()=>state.running&&generation===mesosGeneration);
-    // The async detector yields regularly: don't let an obsolete scan update
-    // the UI after Pause/Reset/Stop Share or a new capture starts.
     if(!state.running||generation!==mesosGeneration)return;
-    extras.inventory=hit;
+    let offsetX=region?.x0||0,offsetY=region?.y0||0;
+    if(!hit&&region){
+      lastMesosSearch=Date.now();
+      frame=framePixels();offsetX=0;offsetY=0;
+      hit=await findInventoryFooter(frame,extras.inventory,
+        ()=>state.running&&generation===mesosGeneration);
+    }
+    if(!state.running||generation!==mesosGeneration)return;
+    // Store world-frame coordinates, but recognize the textbox in the small
+    // local frame to avoid the cost of scaling or recapturing it again.
+    extras.inventory=hit?offsetMesosHit(hit,offsetX,offsetY):null;
     extras.inventoryOpen=!!hit;
     if(!hit){
+      lastMesosSearch=Date.now();
       extras.mesoStatus=extras.mesoWhen?'Textbox not visible · last confirmed '+extras.mesoWhen.toLocaleTimeString():
         'Looking for the white mesos textbox anywhere on screen';
       $('mesoOCRDetails').textContent='Mesos textbox not found in current frame. Move or open your inventory.';
       return;
     }
-    const field=locateMesosField(frame,hit);
+    const field=locateMesosField(frame,hit,offsetX,offsetY);
     if(!field.rect)return;
     drawMesosPreview(field.rect,frame);
     // Fast local templates run on every visible scan. Slow Tesseract is only
