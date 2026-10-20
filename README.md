@@ -1,6 +1,14 @@
-# Van's Maple EXP Tracker — Alpha 0.2.27
+# Van's Maple EXP Tracker — Alpha 0.2.28
 
 This release improves screen-only **mesos recognition** without changing the EXP and level recognition code.
+
+## Alpha 0.2.28 — Map backgrounds
+
+- Add user-provided **Sleepywood** and **Henesys** map screenshots as optimized, self-contained SVG image assets, each embedding a web-friendly WebP version of the supplied artwork.
+- Sleepywood decorates dark mode; Henesys decorates light mode. Images are fixed behind the panels, emphasizing upper sky and buildings rather than lower map ground.
+- A slight blur and saturation adjustment preserve the artwork without competing with EXP readings.
+- Background opacity stays visible (58% Sleepywood / 53% Henesys on desktop, slightly reduced on narrow screens).
+- Overlay/HUD, OCR recognition, EXP math and mesos tracking are unchanged.
 
 ## Alpha 0.2.27 — Henesys and Sleepywood refinement
 
