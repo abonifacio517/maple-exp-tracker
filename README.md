@@ -1,6 +1,16 @@
-# Van's Maple EXP Tracker — Alpha 0.2.36
+# Van's Maple EXP Tracker — Alpha 0.2.37
 
-This release improves screen-only **mesos recognition** without changing the EXP and level recognition code.
+This release focuses on **faster, movable-inventory mesos reading**, manual potion costs, and an accurate pause-aware timer. EXP and level recognition remain screen-only.
+
+## Alpha 0.2.37 — Fast mesos box reader, potions and paused session clock
+
+- Mesos detection searches the actual white number field and its gold coin / blue border anywhere in the captured MapleStory window, with support for repositioned inventory and multiple UI scales. It no longer relies on finding an inventory title.
+- Confirming mesos now requires two independent high-confidence template reads (three for weaker OCR, and an additional confirmation for very large jumps) rather than always waiting for three or four scans. The independent scan loop runs about every 1.3 seconds.
+- The OCR settings dropdown now shows the raw and processed mesos number crop, template/OCR output and candidate confidence details.
+- The mesos total displays the last confirmed balance. Mesos gained/hour uses positive differences between confirmed snapshots divided by active time since the first mesos snapshot. Purchases and transfers may affect the visible balance; they are not mistaken for separate potion costs.
+- Manual HP and MP potion tracking includes dropdowns for potion type, on-hand counts, user-specified price per potion, an Update button, and a dedicated reset-baselines button for restocking. Estimates are stored locally and are not subtracted twice from mesos balance. Potion prices must be entered by the user.
+- The session timer stops on Pause and resumes without adding paused time. Active duration is used for displayed rates.
+- The mini HUD mesos figure is correctly labeled “Last confirmed mesos balance.” The EXP/level OCR path remains unchanged.
 
 ## Alpha 0.2.36 — Unified version and theme switch position
 
