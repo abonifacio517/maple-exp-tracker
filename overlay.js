@@ -38,7 +38,7 @@
           <div class="card-head">${mesoMark}<span>MESOS TRACKER · WIP</span></div>
           <div class="mesos-content">
             <div class="meso-amount" id="hudMesos">—</div>
-            <div class="primary-caption">Net mesos change</div>
+            <div class="primary-caption">Last confirmed mesos balance</div>
             <div class="mesos-footer"><span id="hudMesoBadge" class="pill">Awaiting inventory</span><span id="hudStatus">Waiting for tracker</span></div>
           </div>
         </section>
