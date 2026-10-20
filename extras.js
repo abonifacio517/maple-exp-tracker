@@ -149,7 +149,7 @@ function showExtraStats(){
   const observedHours=firstSnapshot?Math.max(0,sessionMs-firstSnapshot.elapsed)/3600000:0;
   $('mesoBalance').textContent=known?fmt(balance):'—';
   $('netProfit').textContent=known?fmt(balance):'—';
-  $('netProfit').className=known?(unverified?'profit-unknown':'profit-zero'):'profit-unknown';
+  $('netProfit').className=known?(unverified?'profit-estimate':'profit-zero'):'profit-unknown';
   $('mesoBalanceLabel').textContent=unverified?'mesos · raw OCR estimate (unverified)':
     'mesos · last confirmed balance';
   $('mesoDelta').textContent='—';
@@ -604,5 +604,6 @@ $('setMesoSnapshot').addEventListener('click',()=>{
   const value=safeAmount($('manualMesoBalance').value,1000000000000);
   if(value===null){$('mesoDebug').textContent='Enter an exact non-negative meso balance.';return;}
   saveMesosSnapshot(value);
+  extras.mesoStatus='Manual mesos balance confirmed: '+fmt(value);
   $('manualMesoBalance').value='';$('mesoDebug').textContent='Manual mesos snapshot saved for the active-session history.';showExtraStats();
 });
