@@ -487,3 +487,6 @@ body.theme-dark .expandable>summary{background:linear-gradient(180deg,#7a7892 0%
   .top-utility-row .action-buttons #resetBtn{width:100%;min-width:0;flex:none}
   .top-utility-row .action-buttons .button{white-space:normal;min-height:44px}
 }
+
+/* Keep Van's supplied sprite soft at display scale; do not pixel-sharpen or apply edge filters. */
+.brand-sprite{image-rendering:auto;filter:none}
