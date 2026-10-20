@@ -167,7 +167,7 @@ function saveMesosSnapshot(value){
   if(old!==value){
     if(old!==null)extras.mesoGained+=Math.max(0,value-old);
     extras.mesoSnapshots.push({value,elapsed});
-    if(extras.mesoSnapshots.length>1000)extras.mesoSnapshots.shift();
+    if(extras.mesoSnapshots.length>1000)extras.mesoSnapshots.splice(1,1); // retain the initial rate baseline
   }
   if(extras.mesosStart===null){extras.mesosStart=value;extras.mesoStartWhen=new Date();}
   extras.mesosCurrent=value;extras.mesoWhen=new Date();
@@ -409,7 +409,7 @@ function renderPotions(){
     const select=$(kind+'PotionType');
     if(p.type&&[...select.options].some(o=>o.value===p.type))select.value=p.type;
     if(p.count!==null&&$(kind+'PotionCount').value==='')$(kind+'PotionCount').value=String(p.count);
-    if(p.price&&$(kind+'PotionPrice').value==='')$(kind+'PotionPrice').value=String(p.price);
+    if(p.count!==null&&$(kind+'PotionPrice').value==='')$(kind+'PotionPrice').value=String(p.price);
   }
   $('potionSpend').textContent=fmt(potionSpent());
 }
