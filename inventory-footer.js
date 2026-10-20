@@ -56,7 +56,7 @@ async function findInventoryFooter(frame,previous=null,shouldContinue=()=>true){
     let goldFound=false;
     for(const dx of [-23,-19,-14])for(const dy of [6,10,14])if(gold(...px(dx,dy)))goldFound=true;
     if(!goldFound)return null;
-    // Locate actual dark digits inside the white field (excluding border).
+    // Require real dark digits, but NEVER use their detected position to trim the crop.
     let min=Infinity;
     const top=y+Math.round(2*s),bot=y+Math.round(19*s);
     for(let yy=top;yy<bot;yy++)for(let xx=x+Math.round(2*s);xx<x+Math.round(219*s);xx++){
@@ -65,8 +65,14 @@ async function findInventoryFooter(frame,previous=null,shouldContinue=()=>true){
       if(m<155&&m-n<55)min=Math.min(min,xx);
     }
     if(!Number.isFinite(min))return null;
-    const left=Math.max(x+Math.round(2*s),min-Math.round(4*s));
+    // Never derive the crop's LEFT EDGE from the first detected dark pixel.
+    // A faint/thin leading 1, 4 or another digit could be overlooked, so
+    // anchoring to min would crop it away even when the full text is visible.
+    // Instead keep a wide, fixed, right-aligned portion of the verified white
+    // field. It fits up to 12 digits and grouping commas, at every UI scale.
+    // No pixel enhancement is applied; the AI sees untouched source pixels.
     const right=Math.round(x+220*s);
+    const left=Math.max(Math.round(x+2*s),right-Math.round(165*s));
     // Keep the COMPLETE 21px white field, including descenders and comma
     // tails. The old y+2, height=18 crop was then trimmed *again* by the
     // font reader and OCR, discarding the lower 2-4 rows of real glyphs.
