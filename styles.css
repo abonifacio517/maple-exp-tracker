@@ -1012,6 +1012,9 @@ body.theme-dark::before{
 body.theme-light::before{
   background-image:url("assets/henesys-scene.svg");
   opacity:.53;
+  /* Zoom and crop the wide village panorama to fill the viewport like Sleepywood. */
+  background-size:auto 132%;
+  background-position:center 8%;
 }
 @media(max-width:700px){
   body.theme-dark::before,body.theme-light::before{
@@ -1019,7 +1022,11 @@ body.theme-light::before{
     filter:blur(1.8px) saturate(.92);
   }
   body.theme-dark::before{opacity:.50}
-  body.theme-light::before{opacity:.46}
+  body.theme-light::before{
+    background-size:auto 118%;
+    background-position:center 6%;
+    opacity:.46;
+  }
 }
 @media(prefers-reduced-motion:reduce){
   body.theme-dark::before,body.theme-light::before{transform:none}
