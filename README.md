@@ -1,6 +1,14 @@
-# Van's Maple EXP Tracker — Alpha 0.2.37
+# Van's Maple EXP Tracker — Alpha 0.2.38
 
 This release focuses on **faster, movable-inventory mesos reading**, manual potion costs, and an accurate pause-aware timer. EXP and level recognition remain screen-only.
+
+## Alpha 0.2.38 — Mesos OCR cross-check and priced consumable selection
+
+- Improve ambiguous black-on-white mesos recognition. When two pixel thresholds produce the same provisional number and a separately enhanced OCR pass agrees, that reading becomes a provisional candidate, **not an immediate confirmed balance**. Repeated matching captures are required; high-confidence conflicting OCR is withheld. Diagnostic output explains disagreements.
+- The live textbox detector and conservative, two-frame confirmation of fully trusted font templates remain intact. Missing glyphs or genuine disputes can still require a manual balance snapshot.
+- The HP and MP consumable dropdowns now show **fixed NPC shop prices** from [MeowDB's MapleStory Classic consumables efficiency table](https://meowdb.com/msclassic/npc-shops/item-efficiency/consumables). Consumable usage uses the selected NPC price automatically, so separate price inputs are removed.
+- Includes both potions and recovery foods listed in the HP/MP tables, excluding items marked unavailable in this release. Prices represent shop replacement value, not player-market or actual purchase price.
+- Existing local potion counts/usage totals remain saved; selecting a different consumable establishes a new count baseline.
 
 ## Alpha 0.2.37 — Fast mesos box reader, potions and paused session clock
 
