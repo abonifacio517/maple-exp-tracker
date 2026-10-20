@@ -1046,3 +1046,12 @@ body.theme-dark .top-utility-row .action-buttons #shareBtn.primary:not(.is-stop)
   color:#f5fff8;
   text-shadow:none;
 }
+
+/* Alpha 0.2.31 — Match EXP estimate value color to the mesos balance figures.
+   The earlier Henesys stat-strip rule forced white values on pale cards. */
+body.theme-light .exp-stat-strip .metric strong,
+body.theme-light .exp-stat-strip .plan-card strong,
+body.theme-dark .exp-stat-strip .metric strong,
+body.theme-dark .exp-stat-strip .plan-card strong{
+  color:var(--heading);
+}
