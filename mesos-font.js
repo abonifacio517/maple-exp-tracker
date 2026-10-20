@@ -113,7 +113,17 @@ function readMesosDigits(frame,rect){
     }
     // Full plain numerals and correctly grouped comma values only.
     const parsed=typeof parseMesosText==='function'?parseMesosText(text):null;
-    if(unknown||parsed===null)return {value:null,note:`${text||'?'} ambiguous (shape ${(worst*100).toFixed(1)}%, margin ${(minMargin*100).toFixed(1)}%) [${parts.join(",")}]`,score:0,parts};
+    if(unknown||parsed===null)return {
+      value:null,
+      // An incomplete/ambiguous font atlas may still supply useful evidence.
+      // This is NEVER a confirmed digit reading by itself: an independent
+      // processed OCR result must agree, followed by several video frames.
+      candidate:parsed!==null&&worst<=.29?parsed:null,
+      candidateText:parsed!==null&&worst<=.29?text:null,
+      worstError:worst,
+      note:`${text||'?'} ambiguous (shape ${(worst*100).toFixed(1)}%, margin ${(minMargin*100).toFixed(1)}%) [${parts.join(",")}]`,
+      score:0,parts
+    };
     const score=Math.min(1,Math.max(0,1-average/Math.max(1,text.replace(/,/g,'').length)/.20));
     return {value:parsed,text,score,margin:minMargin,note:`${text} (font ${Math.round(score*100)}%, margin ${Math.round(minMargin*100)}%)`};
   }
@@ -121,5 +131,9 @@ function readMesosDigits(frame,rect){
   if(a.value!==null&&b.value!==null&&a.value===b.value)return {...a,score:Math.min(a.score,b.score),note:`${a.note} · thresholds agree`};
   if(a.value!==null&&a.score>.88)return {...a,note:a.note+' · another threshold uncertain'};
   if(b.value!==null&&b.score>.88)return {...b,note:b.note+' · another threshold uncertain'};
-  return {value:null,note:`185: ${a.note}; 150: ${b.note}`};
+  const tentative=a.candidate!==null&&a.candidate!==undefined&&a.candidate===b.candidate?
+    a.candidate:null;
+  return {value:null,candidate:tentative,source:'ambiguous-font',
+    note:`185: ${a.note}; 150: ${b.note}`+
+      (tentative!==null?' · thresholds independently produce the same tentative number':' · thresholds disagree or shapes unclear')};
 }
