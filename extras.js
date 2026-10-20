@@ -4,7 +4,8 @@
 const extras={inventory:null,lastFind:0,inventoryOpen:false,
   mesosStart:null,mesosCurrent:null,mesoPending:null,mesoVotes:[],mesoWhen:null,mesoStartWhen:null,mesoBusy:false,mesoStatus:'',
   lastMesoAttempt:0,lastInvFind:0,mesoSnapshots:[],mesoGained:0,mesoRawNote:'',
-  mesoGuess:null,mesoGuessAt:0,mesoGuessConfidence:0};
+  mesoGuess:null,mesoGuessAt:0,mesoGuessConfidence:0,
+  mesoGuessSource:'raw',mesoLastCrop:null,mesoLastCropAt:0};
 function anchorMatcher(spec,s,kind){
   const pts=spec.points.filter((p,i)=>i%(kind==='hotbar'?5:2)===0).map(([x,y,v])=>[Math.round(x*s),Math.round(y*s),v]);
   const n=pts.length,mean=pts.reduce((sum,p)=>sum+p[2],0)/n;
@@ -150,7 +151,8 @@ function showExtraStats(){
   $('mesoBalance').textContent=known?fmt(balance):'—';
   $('netProfit').textContent=known?fmt(balance):'—';
   $('netProfit').className=known?(unverified?'profit-estimate':'profit-zero'):'profit-unknown';
-  $('mesoBalanceLabel').textContent=unverified?'mesos · raw OCR estimate (unverified)':
+  $('mesoBalanceLabel').textContent=unverified?
+    (extras.mesoGuessSource==='ai'?'mesos · local AI estimate (unverified)':'mesos · raw OCR estimate (unverified)'):
     'mesos · last confirmed balance';
   $('mesoDelta').textContent='—';
   $('mesoGained').textContent=extras.mesoSnapshots.length?fmt(extras.mesoGained):'—';
@@ -158,11 +160,12 @@ function showExtraStats(){
     fmt(Math.round(extras.mesoGained/observedHours)):'—';
   $('potionSpend').textContent=fmt(potionSpent());
   const badge=$('profitBadge');
-  badge.textContent=unverified?'OCR estimate · unverified':
+  badge.textContent=unverified?
+    (extras.mesoGuessSource==='ai'?'Local AI · unverified':'OCR estimate · unverified'):
     confirmed!==null?'Balance confirmed':'Waiting for balance';
   badge.className='profit-badge '+(unverified?'neutral':confirmed!==null?'positive':'neutral');
   $('profitExplanation').textContent=unverified?
-    'This is the raw OCR guess, shown immediately even at low confidence. Confirm it in-game. Mesos/hour and gained totals only use repeated, higher-confidence readings or manual snapshots.':
+    'This is a best-effort '+(extras.mesoGuessSource==='ai'?'local AI digit':'raw OCR')+' estimate. Confirm it in-game. Mesos/hour and gained totals use only reliably confirmed readings or manual snapshots.':
     confirmed!==null?
     'Mesos gained/hour uses confirmed inventory snapshots and active session time; estimated potion spending is separate.':
     'Open your inventory to read its original white mesos textbox. OCR guesses are displayed immediately with an unverified label.';
@@ -217,7 +220,8 @@ function resetExtras(){
     mesosStart:null,mesosCurrent:null,mesoPending:null,mesoVotes:[],mesoWhen:null,mesoStartWhen:null,
     mesoBusy:false,mesoStatus:'',lastMesoAttempt:0,lastInvFind:0,
     mesoSnapshots:[],mesoGained:0,mesoRawNote:'',
-    mesoGuess:null,mesoGuessAt:0,mesoGuessConfidence:0});
+    mesoGuess:null,mesoGuessAt:0,mesoGuessConfidence:0,
+    mesoGuessSource:'raw',mesoLastCrop:null,mesoLastCropAt:0});
   // Resetting the mesos session does not erase manual potion spending.
   if(state.running&&state.stream)beginMesosWatch();
   showExtraStats();
@@ -280,6 +284,29 @@ function offsetMesosHit(hit,x,y){
   if(!hit)return null;
   return {...hit,x:hit.x+x,y:hit.y+y,
     rect:{...hit.rect,x:hit.rect.x+x,y:hit.rect.y+y}};
+}
+// Hold only a tiny, temporary textbox crop in memory so an explicit player
+// correction can teach real digit shapes. Never persist captured screenshots.
+function rememberMesosCrop(frame,rect){
+  if(!frame?.data||!rect)return;
+  const w=Math.round(rect.w),h=Math.round(rect.h),x=Math.round(rect.x),y=Math.round(rect.y);
+  if(w<8||h<8||w>400||h>100||x<0||y<0||x+w>frame.width||y+h>frame.height)return;
+  const bits=new Uint8ClampedArray(w*h*4);
+  for(let yy=0;yy<h;yy++){
+    const start=((y+yy)*frame.width+x)*4;
+    bits.set(frame.data.subarray(start,start+w*4),yy*w*4);
+  }
+  extras.mesoLastCrop={frame:{width:w,height:h,data:bits},rect:{x:0,y:0,w,h}};
+  extras.mesoLastCropAt=Date.now();
+}
+function reportMesoAI(){
+  const learner=window.MapleMesosAI;
+  if(!learner)return;
+  const stat=learner.summary();
+  const status=$('mesoAIStatus');
+  if(status)status.textContent=
+    `Local AI: ${stat.examples} labeled examples · ${stat.digits}/10 digits learned · ${stat.enabled?'enabled':'disabled'}.`+
+    (stat.digits<10?' Missing digits will improve as you confirm more balances.':' All digits have at least one example.');
 }
 function drawMesosPreview(rect,frame){
   if(!rect||!frame)return;
@@ -374,7 +401,23 @@ async function scanMesos(generation){
     }
     const field=locateMesosField(frame,hit,offsetX,offsetY);
     if(!field.rect)return;
+    rememberMesosCrop(frame,field.rect);
     drawMesosPreview(field.rect,frame);
+    const learner=window.MapleMesosAI;
+    const ai=learner?.predict(frame,field.rect)??{value:null,reason:'Local AI not loaded'};
+    const training=learner?.summary();
+    if($('mesoAIDetails'))$('mesoAIDetails').textContent=
+      `Local digit classifier: ${training?.examples??0} examples / ${training?.digits??0} of 10 digits known\n`+
+      (ai.value!==null?`AI candidate: ${fmt(ai.value)} · visual match ${Math.round(ai.confidence*100)}% (not calibrated probability)\n`:
+        `No reliable local prediction: ${ai.reason||'Needs labeled examples'}\n`)+
+      'Local digit guesses are never automatically trusted as earned mesos.';
+    if(ai.value!==null){
+      extras.mesoGuess=ai.value;
+      extras.mesoGuessAt=Date.now();
+      extras.mesoGuessConfidence=Math.round(ai.confidence*100);
+      extras.mesoGuessSource='ai';
+      extras.mesoStatus=`Local AI estimates ${fmt(ai.value)} · unverified`;
+    }
     // No templates or enhanced passes. Retain the latest OCR guess while
     // the worker is on cooldown, keeping the expensive pass throttled.
     if(Date.now()-lastMesosOCR<MESO_OCR_RETRY_MS){
@@ -392,20 +435,26 @@ async function scanMesos(generation){
     extras.mesoRawNote=read.note;
     $('mesoOCRDetails').textContent=`${field.note}\n${read.note}\nCandidate: ${read.value===null?'unreadable':fmt(read.value)} (${read.source||'unknown'})`;
     if(read.value!==null){
-      // Show immediately regardless of OCR confidence. Low-confidence and
-      // salvage-mode guesses NEVER overwrite the confirmed mesos history.
-      extras.mesoGuess=read.value;
+      // Use the trained digit estimate when its match is strong; otherwise keep
+      // existing raw OCR fallback. Neither estimate alone confirms earnings.
+      const preferAI=ai.value!==null&&ai.confidence>=.65;
+      const displayValue=preferAI?ai.value:read.value;
+      extras.mesoGuess=displayValue;
       extras.mesoGuessAt=Date.now();
-      extras.mesoGuessConfidence=read.confidence;
-      const eligible=read.strict&&read.confidence>=55;
+      extras.mesoGuessConfidence=preferAI?Math.round(ai.confidence*100):read.confidence;
+      extras.mesoGuessSource=preferAI?'ai':'raw';
+      const eligible=read.strict&&read.confidence>=55&&
+        !(ai.value!==null&&ai.value!==read.value&&ai.confidence>=.65);
       const accepted=eligible?acceptMesos(read):false;
       extras.mesoStatus=accepted?
-        `Confirmed ${fmt(read.value)} from repeated raw OCR reads`:
-        `OCR estimate ${fmt(read.value)} (${read.confidence}% confidence) · unverified`+
+        `Confirmed ${fmt(read.value)} from repeated OCR reads`:
+        (preferAI?`Local AI estimate ${fmt(ai.value)} (unverified) · raw OCR ${fmt(read.value)}`:
+          `OCR estimate ${fmt(read.value)} (${read.confidence}% confidence) · unverified`)+
         (eligible?' · awaiting repeat':' · verify in game');
     }else{
-      extras.mesoStatus=extras.mesoGuess!==null?
-        'Raw OCR unreadable now · retaining previous unverified estimate':
+      extras.mesoStatus=ai.value!==null?
+        `Local AI estimates ${fmt(ai.value)} · raw OCR unreadable · unverified`:
+        extras.mesoGuess!==null?'Raw OCR unreadable now · retaining previous unverified estimate':
         'Textbox found · OCR could not extract a number';
     }
     $('mesoDebug').textContent=extras.mesoStatus+'\n'+$('mesoOCRDetails').textContent;
