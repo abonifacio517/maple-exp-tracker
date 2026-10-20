@@ -21,16 +21,28 @@ function readMesosDigits(frame,rect){
   // Account for game-window scaling, but reject columns occupied by the
   // textbox's dark right edge. This is not a generic screen-text recognizer.
   // The locator already trims the dark textbox border; keep the final digit column.
-  const maxX=w-1,minX=2,minY=1,maxY=h-2;
+  const maxX=w-1,minX=1,minY=0,maxY=h;
+  // Identify valid WHITE textbox rows using pixels outside the right-aligned
+  // number. Exclude surrounding inventory chrome without cropping the glyph
+  // descenders/comma tails. This also works when the game UI is repositioned.
+  const whiteAt=(x,y)=>{
+    const j=((y0+y)*W+x0+x)*4,r=d[j],g=d[j+1],b=d[j+2];
+    return Math.min(r,g,b)>=220&&Math.max(r,g,b)-Math.min(r,g,b)<27;
+  };
+  const validRow=new Uint8Array(h);
+  for(let y=0;y<h;y++)if(whiteAt(0,y)&&whiteAt(w-1,y))validRow[y]=1;
   const masks=[];
   for(const threshold of [185,150]){
     const active=new Uint8Array(w*h);
     const counts=new Int16Array(w);
-    for(let y=minY;y<maxY;y++)for(let x=minX;x<maxX;x++){
-      const j=((y0+y)*W+x0+x)*4;
-      const r=d[j],g=d[j+1],b=d[j+2];
-      // Exclude blue rails and coloured HUD borders, which are not dark ink.
-      if(Math.max(r,g,b)<threshold && Math.max(r,g,b)-Math.min(r,g,b)<42){active[y*w+x]=1;counts[x]++;}
+    for(let y=minY;y<maxY;y++){
+      if(!validRow[y])continue;
+      for(let x=minX;x<maxX;x++){
+        const j=((y0+y)*W+x0+x)*4;
+        const r=d[j],g=d[j+1],b=d[j+2];
+        // Preserve lower rows of dark ink, but discard blue inventory rails.
+        if(Math.max(r,g,b)<threshold && Math.max(r,g,b)-Math.min(r,g,b)<42){active[y*w+x]=1;counts[x]++;}
+      }
     }
     const groups=[];let start=-1;
     for(let x=minX;x<=maxX;x++){
