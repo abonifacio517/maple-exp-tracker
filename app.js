@@ -38,13 +38,13 @@ function refreshButtons(){
   $('shareLabel').textContent=sharing?'Sharing window':'Not sharing';
 }
 function sessionElapsedMs(){
-  return Math.max(0,state.elapsedCache+(state.running&&state.activeSince!==null?Date.now()-state.activeSince:0));
+  return Math.max(0,state.elapsedCache+(state.running&&state.activeSince!==null?performance.now()-state.activeSince:0));
 }
 function updateSessionClock(){
-  if(state.sessionStart!==null)$('elapsed').textContent=duration(sessionElapsedMs()/1000);
+  $('elapsed').textContent=duration(sessionElapsedMs()/1000);
 }
 function pause(){
-  if(state.running&&state.activeSince!==null)state.elapsedCache+=Math.max(0,Date.now()-state.activeSince);
+  if(state.running&&state.activeSince!==null)state.elapsedCache+=Math.max(0,performance.now()-state.activeSince);
   state.activeSince=null;state.running=false;state.cycle++;clearInterval(state.interval);state.interval=null;
   clearInterval(state.clockTimer);state.clockTimer=null;
   clearInterval(state.levelTimer);state.levelTimer=null;
@@ -579,13 +579,14 @@ function renderStats(){
   const inferredPct=needed!==null&&state.currentExp!==null?100*state.currentExp/needed:null;
   if(inferredPct!==null){$('progressBar').style.width=clamp(inferredPct,0,100)+'%';$('progressLabel').textContent=fmtPct(inferredPct);$('progressBar').parentElement.setAttribute('aria-valuenow',String(clamp(inferredPct,0,100)));}else{$('progressBar').style.width='0%';$('progressLabel').textContent='Unverified';$('progressBar').parentElement.setAttribute('aria-valuenow','0');}
   if(state.sessionStart!==null){
-    const seconds=Math.max(1,sessionElapsedMs()/1000);
+    const actualElapsedSeconds=sessionElapsedMs()/1000;
+    const seconds=Math.max(1,actualElapsedSeconds);
     const hours=seconds/3600;
     $('perHour').textContent=fmt(Math.round(state.expGained/hours));
     $('pctHour').textContent=fmtPct(state.pctGained/hours);
     const percentRate=state.pctGained/hours;
     $('eta').textContent=state.currentPct!==null&&percentRate>0.0001?duration((100-state.currentPct)/percentRate*3600):'—';
-    $('elapsed').textContent=duration(seconds);
+    updateSessionClock();
     const cut=Date.now()-300000;
     state.gains=state.gains.filter(x=>x.ts>=cut);
     $('rolling').textContent=fmt(state.gains.reduce((a,g)=>a+g.amount,0));
@@ -654,7 +655,7 @@ function record(expReading){
   state.lastExp=exp;state.currentExp=exp;
   state.currentPct=computed;
   if(state.currentLevel!==null)state.accountedLevel=state.currentLevel;
-  if(state.sessionStart===null){state.sessionStart=now;state.activeSince=state.running?now:null;}
+  if(state.sessionStart===null){state.sessionStart=now;state.activeSince=state.running?performance.now():null;}
 
   badge(needed===null?'EXP read · set level':'EXP accepted');
   setStatus(needed===null?'EXP read. Set or confirm level to calculate percentage.':'EXP updated. Progress is calculated from the level EXP requirement.','good');
@@ -696,12 +697,14 @@ async function scanLevelIndependently(){
   finally{state.levelBusy=false;}
 }
 function startTracking(){
-  if(!state.stream||!state.regions.exp)return;
-  const now=Date.now();
-  if(state.sessionStart===null)state.sessionStart=now;
-  state.activeSince=now;
+  if(state.running||!state.stream||!state.regions.exp)return;
+  if(state.sessionStart===null)state.sessionStart=Date.now();
+  state.activeSince=performance.now();
   state.running=true;state.cycle++;
-  clearInterval(state.clockTimer);
+  // Only ONE session display interval is permitted, even across repeated Resume.
+  clearInterval(state.clockTimer);state.clockTimer=null;
+  clearInterval(state.interval);state.interval=null;
+  clearInterval(state.levelTimer);state.levelTimer=null;
   state.clockTimer=setInterval(updateSessionClock,1000);
   updateSessionClock();
   refreshButtons();badge('Starting…');
@@ -775,9 +778,6 @@ $('applyManual').addEventListener('click',()=>{
   $('manualExp').value='';renderStats();badge('EXP corrected');
   setStatus('Current EXP corrected; no artificial gain added.','good');
 });
-setInterval(()=>{
-  if(state.sessionStart!==null)$('elapsed').textContent=duration((Date.now()-state.sessionStart)/1000);
-},1000);
 window.addEventListener('beforeunload',()=>{
   if(state.stream)state.stream.getTracks().forEach(t=>t.stop());
   if(state.worker)void state.worker.terminate();
