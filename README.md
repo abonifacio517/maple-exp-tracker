@@ -1,6 +1,17 @@
-# Van's Maple EXP Tracker — Alpha 0.2.42
+# Van's Maple EXP Tracker — Alpha 0.2.43
 
 This release focuses on **faster, movable-inventory mesos reading**, manual potion costs, and an accurate pause-aware timer. EXP and level recognition remain screen-only.
+
+## Alpha 0.2.43 — Browser-only local AI digit learning (experimental)
+
+- Add **mesos-ai.js**, a tiny, supervised **nearest-neighbor (k-NN)** digit classifier that runs entirely inside Chrome. This is a first-stage, trainable local model, **not an already-trained neural network or autonomous AI agent**. No API, remote inference, account or screenshot upload is needed.
+- Users can open **Correct meso balance manually**, type the number currently visible in their inventory, and click **Confirm & teach local AI**. The feature segments the actual cropped numerals (handling short comma strokes and some touching digits), labels digit patterns from the confirmed balance, and stores *only normalized digit examples* in browser localStorage.
+- The UI displays how many of the ten digits have training examples, plus a toggle to disable the local classifier and a separate Clear learned digits button. Training is opt-in and can be reset without changing EXP sessions or potion counters.
+- On each detected inventory scan, the local classifier may show a best-effort **unverified AI estimate** if the current glyphs closely resemble learned examples. **Raw OCR remains the fallback** and continues to run less frequently to avoid freezes. In OCR Settings, the AI match and raw OCR can be inspected separately.
+- **AI guesses alone never change confirmed mesos snapshots or mesos/hour.** Strongly conflicting AI/OCR readings are also excluded from automatic confirmation. Manual snapshot saving remains available.
+- No raw screenshot frames are stored persistently or uploaded. Only a small, temporary crop of the user-shared inventory textbox is held in memory for explicit teaching; saved training data is a capped collection of digit-feature bitmaps.
+- Initial accuracy depends on having enough representative corrections for the character's font and game scaling; missing digits and unusual UI sizes may still need OCR/manual snapshots. Tests include the supplied 483,583 bitmap reconstruction, comma removal and touching-digit separation. **Not yet validated in live MapleStory.**
+- The app remains entirely browser-based; screen-only recognition is unchanged.
 
 ## Alpha 0.2.42 — Raw mesos OCR with immediate, labeled best-effort balance
 
