@@ -215,8 +215,13 @@ function resetExtras(){
 // Dedicated mesos capture loop. An independent OCR worker prevents long EXP
 // and level-recognition passes from delaying inventory snapshots. Video capture
 // is still performed solely through the browser's user-approved screen share.
-const MESO_SCAN_MS=1300;
+// Throttle the optional mesos path so EXP tracking and the UI stay responsive.
+const MESO_SCAN_MS=2000;
+const MESO_REDISCOVERY_MS=5000;
+const MESO_OCR_RETRY_MS=5000;
+const MESO_PREVIEW_REFRESH_MS=5000;
 let mesosTimer=null,mesosGeneration=0,mesosWorker=null,mesosWorkerPromise=null;
+let lastMesosSearch=0,lastMesosOCR=0,lastMesosPreview=0;
 async function getMesosWorker(){
   if(mesosWorker)return mesosWorker;
   if(mesosWorkerPromise)return mesosWorkerPromise;
@@ -242,6 +247,13 @@ function locateMesosField(frame,hit){
 }
 function drawMesosPreview(rect,frame){
   if(!rect||!frame)return;
+  // Enlarging and repainting multiple canvases every scan is expensive.
+  // Only render previews while OCR settings are open.
+  const preview=$('mesoRawCrop');
+  if(!preview?.closest('details')?.open)return;
+  const now=Date.now();
+  if(now-lastMesosPreview<MESO_PREVIEW_REFRESH_MS)return;
+  lastMesosPreview=now;
   const views=[
     ['mesoRawCrop',snapshotImage(rect,'raw',frame)],
     ['mesoEnhancedCrop',inkOnlyMesosImage(rect,frame)]
@@ -369,8 +381,18 @@ async function scanMesos(generation){
   if(!state.running||!state.stream||!video.videoWidth||extras.mesoBusy||generation!==mesosGeneration)return;
   extras.mesoBusy=true;
   try{
+    // When the inventory is closed, don't re-capture the entire screen and
+    // repeat a five-scale search every two seconds. A bounded, time-sliced
+    // rediscovery still finds a moved inventory anywhere on the game screen.
+    const now=Date.now();
+    if(!extras.inventory&&now-lastMesosSearch<MESO_REDISCOVERY_MS)return;
+    if(!extras.inventory)lastMesosSearch=now;
     const frame=framePixels();
-    const hit=findInventoryFooter(frame,extras.inventory);
+    const hit=await findInventoryFooter(frame,extras.inventory,
+      ()=>state.running&&generation===mesosGeneration);
+    // The async detector yields regularly: don't let an obsolete scan update
+    // the UI after Pause/Reset/Stop Share or a new capture starts.
+    if(!state.running||generation!==mesosGeneration)return;
     extras.inventory=hit;
     extras.inventoryOpen=!!hit;
     if(!hit){
@@ -382,13 +404,20 @@ async function scanMesos(generation){
     const field=locateMesosField(frame,hit);
     if(!field.rect)return;
     drawMesosPreview(field.rect,frame);
-    // Try pixel templates first; delay creating an OCR worker unless needed.
+    // Fast local templates run on every visible scan. Slow Tesseract is only
+    // attempted periodically when the digit atlas cannot establish a reading.
     let read=await readMesosFast(null,field.rect,frame);
     if(read.value===null){
-      let worker=null;
-      try{worker=await getMesosWorker();}catch(_error){/* report template uncertainty below */}
-      if(generation!==mesosGeneration||!state.running)return;
-      if(worker)read=await readMesosFast(worker,field.rect,frame);
+      if(Date.now()-lastMesosOCR>=MESO_OCR_RETRY_MS){
+        lastMesosOCR=Date.now();
+        let worker=null;
+        try{worker=await getMesosWorker();}catch(_error){/* template-only fallback */}
+        if(generation!==mesosGeneration||!state.running)return;
+        if(worker)read=await readMesosFast(worker,field.rect,frame);
+      }else{
+        read={...read,source:'ocr-cooldown',
+          note:read.note+' · OCR deferred to keep the tracker responsive'};
+      }
     }
     if(generation!==mesosGeneration||!state.running)return;
     extras.lastMesoAttempt=Date.now();
@@ -413,8 +442,10 @@ function beginMesosWatch(){
   if(mesosTimer!==null)return;
   const generation=++mesosGeneration;
   extras.lastInvFind=0;extras.mesoStatus='Searching for the white mesos textbox';
-  void scanMesos(generation);
+  // Delay optional inventory work slightly so starting EXP recognition stays fast.
+  lastMesosSearch=0;lastMesosOCR=0;lastMesosPreview=0;
   mesosTimer=setInterval(()=>void scanMesos(generation),MESO_SCAN_MS);
+  setTimeout(()=>void scanMesos(generation),800);
 }
 function stopMesosWatch(){
   if(mesosTimer!==null){clearInterval(mesosTimer);mesosTimer=null;}
