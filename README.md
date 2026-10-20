@@ -1,6 +1,16 @@
-# Van's Maple EXP Tracker — Alpha 0.2.44
+# Van's Maple EXP Tracker — Alpha 0.2.45
 
 This release focuses on **faster, movable-inventory mesos reading**, manual potion costs, and an accurate pause-aware timer. EXP and level recognition remain screen-only.
+
+## Alpha 0.2.45 — One pausable session clock and potion-adjusted net mesos
+
+- Fix the longstanding double session-timer bug: a legacy unconditional `setInterval` was overwriting the pause-aware display with total wall-clock time. It has been removed. The ONLY elapsed-time display interval is created on Resume and cleared on Pause; EXP and level OCR intervals are independent scan schedules, not elapsed-time clocks.
+- Use `performance.now()` for active-session duration accumulation so pauses, resumes and elapsed EXP rates derive from one monotonic time source. `renderStats()` now calls the same time-display function rather than computing a second independently rounded time. The single session timer stops while paused and resumes from the frozen value.
+- Restore and prominently feature **signed NET MESOS GAIN** with clear **Mesos Positive** (green), **Mesos Neutral** (neutral), and **Mesos Negative** (red) indicators in both Henesys and Sleepywood themes. Current inventory mesos are displayed as a separate secondary amount; unverified local AI/OCR estimates do not affect earnings.
+- **Formula:** net mesos gain = sum of positive *confirmed* balance changes (gross mesos gained) − estimated NPC replacement cost of HP/MP potions used **since this mesos session began**. This is a usage-based training estimate, *not* the true change in wallet balance: other expenses/outflows are intentionally excluded. Counting only positive balance changes also avoids charging potion purchases twice as separate negative balance deltas.
+- Potion count updates immediately refresh net mesos and its status. Session potion costs are baselined against existing locally stored potion spending and reset only when the mesos/EXP session is reset; previously saved lifetime potion usage and costs remain intact. The dedicated potion-count reset still retains accumulated spending.
+- The Maple HUD shows net mesos gains with the same semantic Positive/Negative state.
+- Unit-style simulations covered pause/resume timing, repeated starts, potion usage, gross mesos gains, separate OCR guesses, and resets; live gameplay/Chrome behavior still needs validation.
 
 ## Alpha 0.2.44 — Preserve leading mesos digit
 
