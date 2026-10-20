@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#8bb7df">
   <meta name="description" content="A lightweight, browser-based MapleStory EXP tracker that reads your on-screen EXP every five seconds.">
-  <title>Van's Maple EXP Tracker — Alpha 0.2.37</title>
-  <link rel="stylesheet" href="styles.css?v=0.2.37">
+  <title>Van's Maple EXP Tracker — Alpha 0.2.38</title>
+  <link rel="stylesheet" href="styles.css?v=0.2.38">
   <style>
     /* Essential EXP stat contrast: kept inline so an older cached theme stylesheet cannot turn numbers white. */
     body.theme-light #perHour,
@@ -30,7 +30,7 @@
       </div>
       <div class="header-right">
         <div class="header-topline">
-          <span class="header-note">Alpha 0.2.37 · Screen-only recognition</span>
+          <span class="header-note">Alpha 0.2.38 · Screen-only recognition</span>
           <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false" title="Toggle light and dark mode">
             <span class="theme-toggle-label">Sleepywood mode</span>
             <span class="theme-toggle-track"><span class="theme-toggle-thumb"></span></span>
@@ -146,25 +146,25 @@
         <div class="profit-breakdown meso-only-breakdown">
           <div><span>Mesos gained from snapshots</span><strong id="mesoGained">—</strong></div>
           <div><span>Mesos gained / hour</span><strong id="mesoPerHour">—</strong></div>
-          <div><span>Estimated potion spending</span><strong id="potionSpend">0</strong></div>
+          <div><span>Estimated consumable spending</span><strong id="potionSpend">0</strong></div>
         </div>
         <span id="mesoBalance" hidden>—</span>
         <span id="mesoDelta" hidden>—</span>
-        <p class="profit-help" id="profitExplanation">Open the inventory to read its white mesos number field. Mesos/hour uses confirmed balance increases across snapshots and active session time. Potion expenses are estimated separately, not deducted a second time.</p>
+        <p class="profit-help" id="profitExplanation">Open the inventory to read its white mesos number field. Mesos/hour uses confirmed balance increases across snapshots and active session time. Consumable expenses are estimated separately at published NPC shop prices, not deducted a second time.</p>
         <div class="potion-tracker" aria-label="Manual potion usage tracker">
           <div class="potion-heading"><strong>HP / MP potion tracking</strong><span class="wip-label">MANUAL</span></div>
-          <p class="detail-help">Choose your potions, enter how many you own and their cost per potion. The first update establishes a baseline; later updates count decreases as usage. Prices are editable and never assumed.</p>
+          <p class="detail-help">Select a potion or recovery food and enter its current count. NPC shop prices are shown in each dropdown (from <a href="https://meowdb.com/msclassic/npc-shops/item-efficiency/consumables" target="_blank" rel="noopener noreferrer">MeowDB's Classic consumables table</a>). The first update sets a baseline; later decreases estimate usage. Purchased or obtained items may have a different effective cost.</p>
           <div class="potion-grid">
             <div class="potion-entry">
               <label for="hpPotionType">HP potion</label>
-              <select id="hpPotionType"><option value="">Select potion</option><option>Red Potion</option><option>Orange Potion</option><option>White Potion</option><option>Unagi</option><option>Elixir</option><option>Power Elixir</option><option>Other HP potion</option></select>
-              <div class="potion-inputs"><label>Count<input id="hpPotionCount" type="number" min="0" max="9999999" step="1" placeholder="e.g. 120"></label><label>Mesos each<input id="hpPotionPrice" type="number" min="0" max="999999999" step="1" placeholder="Price"></label></div>
+              <select id="hpPotionType"><option value="">Select HP consumable</option><option value="Red Potion">Red Potion — 50 mesos</option><option value="Orange Potion">Orange Potion — 150 mesos</option><option value="White Potion">White Potion — 350 mesos</option><option value="Meat">Meat — 80 mesos</option><option value="Fried Chicken">Fried Chicken — 60 mesos</option><option value="Egg">Egg — 30 mesos</option><option value="Apple">Apple — 20 mesos</option><option value="Hot Dog">Hot Dog — 180 mesos</option><option value="Dried Squid">Dried Squid — 180 mesos</option><option value="Hamburger">Hamburger — 350 mesos</option><option value="Pizza">Pizza — 252 mesos</option><option value="Hot Dog Supreme">Hot Dog Supreme — 480 mesos</option><option value="Ice Cream Pop">Ice Cream Pop — 1,500 mesos</option><option value="Unagi">Unagi — 1,000 mesos</option><option value="Fat Sausage">Fat Sausage — 800 mesos</option><option value="Cake">Cake — 150 mesos</option><option value="Mrs. Ming Ming&#39;s Stew">Mrs. Ming Ming&#39;s Stew — 480 mesos</option><option value="Andre&#39;s Seafood Soup">Andre&#39;s Seafood Soup — 480 mesos</option><option value="Watermelon">Watermelon — 1,920 mesos</option><option value="Ribbon Pig Daydream">Ribbon Pig Daydream — 500 mesos</option><option value="Orange Mushroom Daydream">Orange Mushroom Daydream — 500 mesos</option></select>
+              <div class="potion-inputs"><label>Count<input id="hpPotionCount" type="number" min="0" max="9999999" step="1" placeholder="e.g. 120"></label><span class="potion-shop-price" id="hpPotionPriceDisplay">Choose an item to view NPC price</span></div>
               <small id="hpPotionStatus">No baseline recorded</small>
             </div>
             <div class="potion-entry">
               <label for="mpPotionType">MP potion</label>
-              <select id="mpPotionType"><option value="">Select potion</option><option>Blue Potion</option><option>Mana Elixir</option><option>Sorcerer Elixir</option><option>Elixir</option><option>Power Elixir</option><option>Other MP potion</option></select>
-              <div class="potion-inputs"><label>Count<input id="mpPotionCount" type="number" min="0" max="9999999" step="1" placeholder="e.g. 80"></label><label>Mesos each<input id="mpPotionPrice" type="number" min="0" max="999999999" step="1" placeholder="Price"></label></div>
+              <select id="mpPotionType"><option value="">Select MP consumable</option><option value="Blue Potion">Blue Potion — 220 mesos</option><option value="Lemon">Lemon — 150 mesos</option><option value="Orange">Orange — 50 mesos</option><option value="Salad">Salad — 220 mesos</option><option value="Orange Juice">Orange Juice — 540 mesos</option><option value="Grape Juice">Grape Juice — 1,260 mesos</option><option value="Pure Water">Pure Water — 1,120 mesos</option><option value="Red Bean Sundae">Red Bean Sundae — 2,250 mesos</option><option value="Cake">Cake — 150 mesos</option><option value="Mrs. Ming Ming&#39;s Stew">Mrs. Ming Ming&#39;s Stew — 480 mesos</option><option value="Andre&#39;s Seafood Soup">Andre&#39;s Seafood Soup — 480 mesos</option><option value="Watermelon">Watermelon — 1,920 mesos</option></select>
+              <div class="potion-inputs"><label>Count<input id="mpPotionCount" type="number" min="0" max="9999999" step="1" placeholder="e.g. 80"></label><span class="potion-shop-price" id="mpPotionPriceDisplay">Choose an item to view NPC price</span></div>
               <small id="mpPotionStatus">No baseline recorded</small>
             </div>
           </div>
@@ -245,7 +245,7 @@
 
     <footer>
       <span>Runs in your browser · No game injection, memory reading, or automatic gameplay.</span>
-      <span>Screen-sharing permission is requested each session; EXP uses pixel templates with conservative OCR fallback, and mesos use a separate OCR worker. OCR uses <a href="https://github.com/naptha/tesseract.js" target="_blank" rel="noopener noreferrer">Tesseract.js</a>. Uncertain OCR values are withheld; check the diagnostics for rejected readings. EXP requirements are bundled locally and do not use a live third-party service. Potion counts and item costs are entered manually; estimated usage is never double-counted against the displayed mesos balance.</span>
+      <span>Screen-sharing permission is requested each session; EXP uses pixel templates with conservative OCR fallback, and mesos use a separate OCR worker. OCR uses <a href="https://github.com/naptha/tesseract.js" target="_blank" rel="noopener noreferrer">Tesseract.js</a>. Uncertain OCR values are withheld; check the diagnostics for rejected readings. EXP requirements are bundled locally and do not use a live third-party service. Consumable counts are entered manually; published NPC shop prices provide estimated costs without double-counting the displayed mesos balance.</span>
     </footer>
   </div>
   <script>
@@ -284,8 +284,8 @@
   <script src="level-templates.js"></script>
   <script src="app.js?v=0.2.37"></script>
   <script src="inventory-footer.js?v=0.2.37"></script>
-  <script src="mesos-font.js?v=0.2.37"></script>
-  <script src="extras.js?v=0.2.37"></script>
+  <script src="mesos-font.js?v=0.2.38"></script>
+  <script src="extras.js?v=0.2.38"></script>
   <script src="overlay.js?v=0.2.37"></script>
 </body>
 </html>
