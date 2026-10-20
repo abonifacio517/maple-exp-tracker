@@ -1,6 +1,11 @@
-# Van's Maple EXP Tracker — Alpha 0.2.30
+# Van's Maple EXP Tracker — Alpha 0.2.31
 
 This release improves screen-only **mesos recognition** without changing the EXP and level recognition code.
+
+## Alpha 0.2.31 — EXP metric contrast
+
+- EXP/hour, estimated time to next level and KPQ clears counts now share the same theme-aware text color as the mesos balance figures.
+- Fixes white-on-pale-stat-card readability in Henesys mode; Sleepywood and all tracker calculations are otherwise unchanged.
 
 ## Alpha 0.2.30 — Henesys underground and sharing button
 
