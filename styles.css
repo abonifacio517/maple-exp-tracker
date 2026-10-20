@@ -1063,3 +1063,16 @@ body.theme-dark .brand-sprite--henesys{display:none}
 body.theme-dark .brand-sprite--sleepywood{display:block}
 body.theme-light .brand-sprite--sleepywood{display:none}
 body.theme-light .brand-sprite--henesys{display:block}
+
+/* Alpha 0.2.35 — Sleepywood sprite scale: match Henesys character visual weight. */
+body.theme-dark .brand-sprite--sleepywood{
+  width:65px;
+  height:92px;
+  object-fit:contain;
+}
+@media(max-width:670px){
+  body.theme-dark .brand-sprite--sleepywood{
+    width:52px;
+    height:74px;
+  }
+}
