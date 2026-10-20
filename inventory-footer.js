@@ -1,62 +1,73 @@
 'use strict';
-// Seek the visible mesos footer itself, even if some other portion of the
-// floating inventory is outside the browser-captured game frame.
-// All coordinates below are relative to the inventory screenshot (338x469).
-function findInventoryFooter(frame){
-  if(!frame || !frame.data)return null;
+// Alpha 0.2.37: independent mesos-box locator, not an inventory-header finder.
+// Finds the black-on-white textbox by its blue border and coin, anywhere in
+// the consented video frame (including when the inventory window moves).
+function findInventoryFooter(frame,previous=null){
+  if(!frame?.data||!frame.width||!frame.height)return null;
   const W=frame.width,H=frame.height,p=frame.data;
-  const sample=(x,y)=>{
+  const rgb=(x,y)=>{
     x=Math.round(x);y=Math.round(y);
-    if(x<0||x>=W||y<0||y>=H)return null;
+    if(x<0||y<0||x>=W||y>=H)return null;
     const i=(y*W+x)*4;return [p[i],p[i+1],p[i+2]];
   };
   const white=(x,y)=>{
-    const a=sample(x,y);
-    return !!a&&a[0]>=238&&a[1]>=238&&a[2]>=238&&Math.max(...a)-Math.min(...a)<18;
+    const a=rgb(x,y);return !!a&&a[0]>232&&a[1]>232&&a[2]>232&&Math.max(...a)-Math.min(...a)<23;
+  };
+  const darkBlue=(x,y)=>{
+    const a=rgb(x,y);return !!a&&a[0]<115&&a[1]>a[0]+12&&a[2]>a[1]+16;
   };
   const gold=(x,y)=>{
-    const a=sample(x,y);
-    return !!a&&a[0]>165&&a[1]>110&&a[0]>a[2]*1.8&&a[1]>a[2]*1.6;
+    const a=rgb(x,y);return !!a&&a[0]>155&&a[1]>88&&a[0]>a[2]*1.65&&a[1]>a[2]*1.25;
   };
-  const blueRail=(x,y)=>{
-    const a=sample(x,y);
-    return !!a&&a[0]<100&&a[1]>a[0]+18&&a[2]>a[1]+20;
-  };
-  // Testing just the white counter, gold coin and blue lower rail is much
-  // cheaper and more position-tolerant than matching the entire inventory.
+  function verify(x,y,s){
+    // x/y are the TOP-LEFT WHITE PIXEL of the 222 x 21 mesos number field.
+    const px=(dx,dy)=>[x+dx*s,y+dy*s];
+    if(x-3*s<0||y-3*s<0||x+224*s>=W||y+25*s>=H)return null;
+    if(![7,28,50,80,114].every(dx=>white(...px(dx,2))))return null;
+    if(![15,50,100].every(dx=>white(...px(dx,17))))return null;
+    if(![4,10,17].some(dy=>darkBlue(...px(-2,dy))))return null;
+    if(![5,12,17].some(dy=>darkBlue(...px(223,dy))))return null;
+    if(!darkBlue(...px(50,22)))return null;
+    let goldFound=false;
+    for(const dx of [-23,-19,-14])for(const dy of [6,10,14])if(gold(...px(dx,dy)))goldFound=true;
+    if(!goldFound)return null;
+    // Locate actual dark digits inside the white field (excluding border).
+    let min=Infinity;
+    const top=y+Math.round(2*s),bot=y+Math.round(19*s);
+    for(let yy=top;yy<bot;yy++)for(let xx=x+Math.round(2*s);xx<x+Math.round(219*s);xx++){
+      const a=rgb(xx,yy);if(!a)continue;
+      const m=Math.max(...a),n=Math.min(...a);
+      if(m<155&&m-n<55)min=Math.min(min,xx);
+    }
+    if(!Number.isFinite(min))return null;
+    const left=Math.max(x+Math.round(2*s),min-Math.round(4*s));
+    const right=Math.round(x+220*s);
+    const rect={x:left,y:top,w:right-left,h:Math.round(18*s)};
+    if(rect.w<8||rect.x+rect.w>W||rect.y+rect.h>H)return null;
+    return {x,y,s,score:.98,footer:true,rect};
+  }
+  // Revalidate last position first, but immediately search the whole frame if moved.
+  if(previous?.footer){
+    const last=verify(previous.x,previous.y,previous.s);
+    if(last)return last;
+    const r=16;
+    for(let dy=-r;dy<=r;dy+=3)for(let dx=-r;dx<=r;dx+=3){
+      const found=verify(previous.x+dx,previous.y+dy,previous.s);
+      if(found)return found;
+    }
+  }
   for(const s of [1,.8,1.25,.65,1.5]){
-    const d=Math.max(1,Math.round(2*s));
-    const run1=Math.round(30*s),run2=Math.round(90*s);
-    for(let y=0;y<H-16*s;y+=4){
-      for(let x=3;x<W-run2-4;x+=3){
-        if(!white(x,y)||!white(x+Math.round(6*s),y)||!white(x+run1,y)||!white(x+run2,y))continue;
-        if(white(x-Math.max(3,Math.round(4*s)),y))continue;
-        // The inner field is white from inventory X=44 to X≈266. Locate
-        // its left/top edge from the actual pixels instead of guessing.
-        let left=x;
-        while(left>0 && white(left-1,y))left--;
-        let top=y;
-        while(top>0 && white(left+Math.round(20*s),top-1))top--;
-        if(y-top<1*s || y-top>17*s)continue;
-        const ox=Math.round(left-45*s),oy=Math.round(top-430*s);
-        if(!white(ox+70*s,oy+440*s)||!white(ox+170*s,oy+440*s))continue;
-        if(![450,451,452].some(row=>blueRail(ox+80*s,oy+row*s)))continue;
-        let hasGold=false;
-        for(const gx of [25,28,31])for(const gy of [436,440,444])
-          if(gold(ox+gx*s,oy+gy*s))hasGold=true;
-        // If the inventory is dragged partly beyond the left edge, the coin may
-        // be clipped even though the complete meso textbox remains visible.
-        if(!hasGold && ox+30*s>=0)continue;
-        // Confirm the pale blue neighboring MESOS label is distinct from
-        // the white numeric textbox, so other white game UI isn't mistaken.
-        const label=sample(ox+285*s,oy+446*s);
-        // Allow the right-hand MESOS label to be clipped, provided the white
-        // numeric field and other identifying footer landmarks are visible.
-        if(label && (label[2]<=label[0]+12||label[2]<145))continue;
-        if(!label && ox+285*s<W)continue;
-        const m=anchorMatcher(MAPLE_UI_ANCHORS.inventory,s,'inventory');
-        return {x:ox,y:oy,s,m,score:.98,footer:true};
-      }
+    const width=Math.round(225*s),height=Math.round(25*s);
+    for(let y=3;y<H-height;y+=3)for(let x=3;x<W-width;x+=3){
+      if(!white(x,y)||!white(x+Math.round(35*s),y)||!white(x+Math.round(80*s),y))continue;
+      // Candidate can start up to 6 px after left edge because of scan stride.
+      let left=x;
+      for(let k=0;k<=Math.ceil(7*s);k++)if(white(x-k,y))left=x-k;
+      // Candidate can be a few pixels below top edge.
+      let top=y;
+      for(let k=0;k<=Math.ceil(7*s);k++)if(white(left+Math.round(16*s),y-k))top=y-k;
+      const found=verify(left,top,s);
+      if(found)return found;
     }
   }
   return null;
