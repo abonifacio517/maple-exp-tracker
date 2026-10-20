@@ -61,31 +61,37 @@ window.MapleMesosAI=(()=>{
     const first=groups.map(measure).filter(g=>g.on>0);
     const normalHeight=median(first.map(x=>x.height).filter(x=>x>=7))||0;
     const glyphs=first.filter(g=>!(
-      g.height<=Math.max(5,normalHeight*.53)&&g.width<=Math.max(4,normalHeight*.42)
+      g.height<=Math.max(5,normalHeight*.70)&&g.width<=Math.max(4,normalHeight*.45)
       &&g.top>=(h-normalHeight)*.5+normalHeight*.45
     ));
     if(!glyphs.length)return {pieces:[],reason:'No digits isolated'};
-    // Split a run of touching digit columns ONLY when confirmed text tells us
-    // how many glyphs to expect; otherwise report unknown rather than guess.
-    if(wanted!==null&&glyphs.length<wanted){
-      let needed=wanted-glyphs.length;
-      const typical=median(glyphs.filter(g=>g.width>=3&&g.width<=16).map(g=>g.width))||
-        Math.max(5,Math.round(normalHeight*.62));
-      while(needed>0){
-        const idx=glyphs.findIndex(g=>g.width>typical*1.55&&g.width>=10);
-        if(idx<0)break;
-        const g=glyphs[idx];
-        const middle=Math.round((g.left+g.right)/2);
-        let cut=middle,lowest=Infinity;
-        for(let x=Math.max(g.left+3,middle-2);x<=Math.min(g.right-3,middle+2);x++)
-          if(cols[x]<lowest){cut=x;lowest=cols[x]}
-        const parts=[measure({left:g.left,right:cut}),measure({left:cut+1,right:g.right})];
-        if(parts.some(x=>x.height<7||x.on<5))break;
-        glyphs.splice(idx,1,...parts);needed--;
+    // Real Maple digits sometimes touch (e.g. "58"). Split a merged run
+    // near its least-inked middle column. Never call short comma tails digits.
+    // Only split when the run is much wider than neighboring digit glyphs.
+    const splitBudget=wanted===null?12:Math.max(0,wanted-glyphs.length);
+    let splitCount=0;
+    while(splitCount<splitBudget){
+      const normal=median(glyphs.filter(g=>g.height>=normalHeight*.73&&
+        g.width>=3&&g.width<=normalHeight*.95).map(g=>g.width))||
+        Math.max(5,Math.round(normalHeight*.63));
+      const idx=glyphs.findIndex(g=>g.height>=normalHeight*.73&&
+        g.width>=10&&g.width>normal*1.62&&g.width>normalHeight*.95);
+      if(idx<0)break;
+      const g=glyphs[idx],middle=Math.round((g.left+g.right)/2);
+      let cut=middle,lowest=Infinity;
+      for(let x=Math.max(g.left+3,middle-2);x<=Math.min(g.right-3,middle+2);x++){
+        const density=cols[x];
+        if(density<lowest){cut=x;lowest=density}
       }
+      const parts=[measure({left:g.left,right:cut}),measure({left:cut+1,right:g.right})];
+      if(parts.some(part=>part.height<normalHeight*.70||part.on<5))break;
+      glyphs.splice(idx,1,...parts);splitCount++;
     }
     if(wanted!==null&&glyphs.length!==wanted)
       return {pieces:[],reason:`Detected ${glyphs.length} digit groups; ${wanted} were confirmed. No samples saved.`};
+    if(wanted!==null&&glyphs.some(g=>g.height<normalHeight*.72||
+      g.width>Math.max(18,normalHeight*1.20)))
+      return {pieces:[],reason:'Glyph shapes do not align safely with the confirmed number.'};
     if(glyphs.length>12)return {pieces:[],reason:'Too many digit shapes'};
     function normalize(g){
       const bits=new Uint8Array(GW*GH);
