@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#8bb7df">
   <meta name="description" content="A lightweight, browser-based MapleStory EXP tracker that reads your on-screen EXP every five seconds.">
-  <title>Van's Maple EXP Tracker — Alpha 0.2.26</title>
+  <title>Van's Maple EXP Tracker — Alpha 0.2.27</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -20,13 +20,12 @@
       </div>
       <div class="header-right">
         <div class="header-topline">
-          <span class="header-note">Alpha 0.2.26 · Screen-only recognition</span>
+          <span class="header-note">Alpha 0.2.27 · Screen-only recognition</span>
           <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false" title="Toggle light and dark mode">
             <span class="theme-toggle-label">Sleepywood mode</span>
             <span class="theme-toggle-track"><span class="theme-toggle-thumb"></span></span>
           </button>
         </div>
-        <div class="toolbar-timer panel"><span>SESSION TIME</span><strong id="elapsed">00:00</strong></div>
         <span class="state-pill" id="sharePill"><span class="share-indicator" aria-hidden="true"></span><span id="shareLabel">Not sharing</span></span>
       </div>
     </header>
@@ -57,7 +56,7 @@
         </div>
         <p class="connection-hint">EXP updates every 5 seconds; mesos checks every 2 seconds when your inventory is visible. Open the mini overlay to keep your key stats visible over MapleStory or any other window.</p>
       </section>
-
+      <div class="toolbar-timer panel"><span>SESSION TIME</span><strong id="elapsed">00:00</strong></div>
     </div>
       <section class="dashboard panel" aria-label="Live training dashboard">
         <div class="window-chrome" aria-hidden="true"><span class="window-label">EXP TRACKER</span></div>
@@ -84,7 +83,13 @@
         <div class="exp-track" role="progressbar" aria-label="Progress toward next level" aria-valuemin="0" aria-valuemax="100">
           <div class="exp-fill" id="progressBar"></div>
         </div>
-        <div class="track-scale"><span id="expFraction">— / — EXP</span><span id="expRemaining">— remaining</span></div>
+        <div class="track-scale">
+          <div class="exp-progress-breakdown">
+            <span id="expFraction">— / — EXP</span>
+            <span class="exp-gained" aria-label="Session EXP gained" title="Total EXP gained this session">+<strong id="gained">0</strong> EXP</span>
+          </div>
+          <span id="expRemaining">— remaining</span>
+        </div>
 
         <div class="exp-stat-strip">
         <div class="metrics metrics-single">
@@ -101,12 +106,9 @@
           <div class="plan-card"><span class="metric-label">KPQ clears to next level</span><strong id="kpqClears">—</strong><small>2,550 EXP/clear · mob EXP excluded</small></div>
         </div>
 
-        <div class="mini-grid">
-          <div class="mini-stat"><span>EXP gained</span><strong id="gained">0</strong></div>
-          <span id="currentPct" hidden aria-hidden="true">—</span>
-          <span id="currentExp" hidden aria-hidden="true">—</span>
         </div>
-        </div>
+        <span id="currentPct" hidden aria-hidden="true">—</span>
+        <span id="currentExp" hidden aria-hidden="true">—</span>
       </section>
 
       <section class="profit-panel panel" aria-label="Net mesos change">
@@ -213,12 +215,12 @@
         body.classList.toggle('theme-dark', dark);
         body.classList.toggle('theme-light', !dark);
         localStorage.setItem(storageKey, dark ? 'dark' : 'light');
-        if(meta) meta.setAttribute('content', dark ? '#2a2a39' : '#8bb7df');
+        if(meta) meta.setAttribute('content', dark ? '#101925' : '#8bb7df');
         const btn = toggle();
         if(btn){
           btn.setAttribute('aria-pressed', dark ? 'true' : 'false');
           const label = btn.querySelector('.theme-toggle-label');
-          if(label) label.textContent = dark ? 'Light mode' : 'Sleepywood mode';
+          if(label) label.textContent = dark ? 'Henesys mode' : 'Sleepywood mode';
         }
       }
       applyTheme(localStorage.getItem(storageKey) === 'dark' ? 'dark' : 'light');
