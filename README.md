@@ -1,6 +1,15 @@
-# Van's Maple EXP Tracker — Alpha 0.2.38
+# Van's Maple EXP Tracker — Alpha 0.2.39
 
 This release focuses on **faster, movable-inventory mesos reading**, manual potion costs, and an accurate pause-aware timer. EXP and level recognition remain screen-only.
+
+## Alpha 0.2.39 — Fix clipped mesos digits
+
+- The movable mesos textbox finder captures the full white number field, plus a safe pixel margin, rather than cropping 18 pixels down from its top edge.
+- The black-on-white font reader now identifies white textbox rows and retains all glyph rows, including the bottom stroke and comma descender. The blue frame/border is excluded without deleting fixed bottom rows.
+- The enhanced OCR crop uses the same white-row mask and preserves anti-aliased bottom strokes instead of removing two bottom rows.
+- Script URLs are versioned so a Chrome refresh loads the corrected locator, font reader and preprocessing.
+- A synthetic 67×23 reconstruction of the player's confirmed 483,583 example, including blue surrounding UI rails, was recognized as 483,583 by the revised pixel-template path.
+- Unknown digits and conflicting OCR still require independent confirmations; this fixes clipping but cannot guarantee accurate recognition of every scaled UI or font.
 
 ## Alpha 0.2.38 — Mesos OCR cross-check and priced consumable selection
 
