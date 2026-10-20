@@ -1,6 +1,15 @@
-# Van's Maple EXP Tracker — Alpha 0.2.40
+# Van's Maple EXP Tracker — Alpha 0.2.42
 
 This release focuses on **faster, movable-inventory mesos reading**, manual potion costs, and an accurate pause-aware timer. EXP and level recognition remain screen-only.
+
+## Alpha 0.2.42 — Raw mesos OCR with immediate, labeled best-effort balance
+
+- **No enhanced mesos images or digit-template comparisons**. The original black-on-white textbox crop, with only pixel-preserving nearest-neighbor enlargement for readability, is passed to one Tesseract OCR recognition call.
+- A plausible OCR number displays immediately in the Mesos Tracker even when Tesseract returns a low (including 0%) confidence score. A fallback extracts digits from OCR output with formatting noise.
+- Such a reading is **clearly labeled “OCR estimate · unverified”**, including in the Maple HUD, so players can compare it with the game inventory. Confirmed mesos totals and mesos/hour **do not incorporate low-confidence or formatting-salvaged guesses**. Repeated strictly formatted readings with at least 55% confidence may still establish a normal confirmed snapshot.
+- OCR Settings now shows only the original-color textbox preview and raw OCR diagnostic output. The unused enhanced preprocessing path and the mesos-font script are no longer loaded.
+- Retains the responsiveness improvements from Alpha 0.2.40, including a local inventory search, cancellable screen scans and five-second OCR throttle. EXP, potion tracker, session timer and visual theme remain unchanged.
+- Automated regression checks covered 0% confidence guesses, formatting-noise fallback and separation of unverified estimates from confirmed mesos/hour. Live Chrome/MapleStory accuracy still needs player testing.
 
 ## Alpha 0.2.40 — Responsiveness and lower mesos CPU load
 
