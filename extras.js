@@ -434,8 +434,10 @@ async function scanMesos(generation){
     // No templates or enhanced passes. Retain the latest OCR guess while
     // the worker is on cooldown, keeping the expensive pass throttled.
     if(Date.now()-lastMesosOCR<MESO_OCR_RETRY_MS){
-      extras.mesoStatus=extras.mesoGuess!==null?
-        'Last raw OCR estimate '+fmt(extras.mesoGuess)+' · next read shortly (unverified)':
+      extras.mesoStatus=aiDroppedLead?
+        'Possible missing first digit in local AI reading · retaining prior balance':
+        extras.mesoGuess!==null?
+        'Last mesos estimate '+fmt(extras.mesoGuess)+' · next OCR read shortly (unverified)':
         'Raw OCR scan scheduled shortly';
       return;
     }
