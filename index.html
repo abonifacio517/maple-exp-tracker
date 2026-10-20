@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#8bb7df">
   <meta name="description" content="A lightweight, browser-based MapleStory EXP tracker that reads your on-screen EXP every five seconds.">
-  <title>Van's Maple EXP Tracker — Alpha 0.2.40</title>
-  <link rel="stylesheet" href="styles.css?v=0.2.38">
+  <title>Van's Maple EXP Tracker — Alpha 0.2.41</title>
+  <link rel="stylesheet" href="styles.css?v=0.2.41">
   <style>
     /* Essential EXP stat contrast: kept inline so an older cached theme stylesheet cannot turn numbers white. */
     body.theme-light #perHour,
@@ -30,7 +30,7 @@
       </div>
       <div class="header-right">
         <div class="header-topline">
-          <span class="header-note">Alpha 0.2.40 · Screen-only recognition</span>
+          <span class="header-note">Alpha 0.2.41 · Screen-only recognition</span>
           <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false" title="Toggle light and dark mode">
             <span class="theme-toggle-label">Sleepywood mode</span>
             <span class="theme-toggle-track"><span class="theme-toggle-thumb"></span></span>
@@ -142,7 +142,7 @@
           <div class="profit-badges"><span class="wip-label" title="Balance tracking is still experimental">WORK IN PROGRESS</span><span id="profitBadge" class="profit-badge">Waiting for a balance</span></div>
         </div>
         <p class="mesos-disclaimer">Experimental: mesos readings may be inaccurate or unavailable. Verify balances in-game.</p>
-        <div class="profit-total"><strong id="netProfit" class="profit-unknown">—</strong><span class="profit-unit">mesos · last confirmed balance</span></div>
+        <div class="profit-total"><strong id="netProfit" class="profit-unknown">—</strong><span class="profit-unit" id="mesoBalanceLabel">mesos · last confirmed balance</span></div>
         <div class="profit-breakdown meso-only-breakdown">
           <div><span>Mesos gained from snapshots</span><strong id="mesoGained">—</strong></div>
           <div><span>Mesos gained / hour</span><strong id="mesoPerHour">—</strong></div>
@@ -232,10 +232,9 @@
             <div class="crop-grid"><div><span>EXP OCR view <small id="expPreviewLabel">—</small></span><div class="crop"><canvas id="expCrop"></canvas></div></div></div>
             <div class="meso-ocr-preview">
               <strong>Mesos recognition (experimental)</strong>
-              <p class="detail-help">Shows the detected textbox and its enhanced black-on-white digit crop, along with the last OCR output.</p>
+              <p class="detail-help">The original-color mesos textbox and a single raw OCR result. Low-confidence guesses are displayed as unverified rather than hidden.</p>
               <div class="meso-preview-grid">
-                <div><span>Mesos textbox</span><canvas id="mesoRawCrop" aria-label="Last detected mesos text field"></canvas></div>
-                <div><span>Enhanced digits</span><canvas id="mesoEnhancedCrop" aria-label="Preprocessed black on white mesos digits"></canvas></div>
+                <div><span>Original mesos textbox (no enhancements)</span><canvas id="mesoRawCrop" aria-label="Original cropped mesos number"></canvas></div>
               </div>
               <pre id="mesoOCRDetails">Waiting for inventory.</pre>
             </div>
@@ -245,7 +244,7 @@
 
     <footer>
       <span>Runs in your browser · No game injection, memory reading, or automatic gameplay.</span>
-      <span>Screen-sharing permission is requested each session; EXP uses pixel templates with conservative OCR fallback, and mesos use a separate OCR worker. OCR uses <a href="https://github.com/naptha/tesseract.js" target="_blank" rel="noopener noreferrer">Tesseract.js</a>. Uncertain OCR values are withheld; check the diagnostics for rejected readings. EXP requirements are bundled locally and do not use a live third-party service. Consumable counts are entered manually; published NPC shop prices provide estimated costs without double-counting the displayed mesos balance.</span>
+      <span>Screen-sharing permission is requested each session; EXP uses pixel templates with conservative OCR fallback, and mesos use a separate OCR worker. OCR uses <a href="https://github.com/naptha/tesseract.js" target="_blank" rel="noopener noreferrer">Tesseract.js</a>. Uncertain mesos OCR values are displayed as unverified guesses; only repeated higher-confidence or manual readings affect mesos/hour. EXP requirements are bundled locally and do not use a live third-party service. Consumable counts are entered manually; published NPC shop prices provide estimated costs without double-counting the displayed mesos balance.</span>
     </footer>
   </div>
   <script>
@@ -285,7 +284,7 @@
   <script src="app.js?v=0.2.37"></script>
   <script src="inventory-footer.js?v=0.2.40"></script>
   <script src="mesos-font.js?v=0.2.39"></script>
-  <script src="extras.js?v=0.2.40"></script>
+  <script src="extras.js?v=0.2.41"></script>
   <script src="overlay.js?v=0.2.37"></script>
 </body>
 </html>
