@@ -13,8 +13,15 @@ function findInventoryFooter(frame,previous=null){
   const white=(x,y)=>{
     const a=rgb(x,y);return !!a&&a[0]>232&&a[1]>232&&a[2]>232&&Math.max(...a)-Math.min(...a)<23;
   };
-  const darkBlue=(x,y)=>{
-    const a=rgb(x,y);return !!a&&a[0]<115&&a[1]>a[0]+12&&a[2]>a[1]+16;
+  const blueRail=(x,y)=>{
+    const a=rgb(x,y);
+    // Lightly rescaled game windows may antialias the one-pixel border.
+    return !!a&&a[0]<215&&a[1]>a[0]+8&&a[2]>a[1]+8&&a[2]-a[0]>19;
+  };
+  const nearRail=(x,y,radius=2)=>{
+    for(let dy=-radius;dy<=radius;dy++)for(let dx=-radius;dx<=radius;dx++)
+      if(blueRail(x+dx,y+dy))return true;
+    return false;
   };
   const gold=(x,y)=>{
     const a=rgb(x,y);return !!a&&a[0]>155&&a[1]>88&&a[0]>a[2]*1.65&&a[1]>a[2]*1.25;
@@ -23,11 +30,16 @@ function findInventoryFooter(frame,previous=null){
     // x/y are the TOP-LEFT WHITE PIXEL of the 222 x 21 mesos number field.
     const px=(dx,dy)=>[x+dx*s,y+dy*s];
     if(x-3*s<0||y-3*s<0||x+224*s>=W||y+25*s>=H)return null;
-    if(![7,28,50,80,114].every(dx=>white(...px(dx,2))))return null;
+    if(![7,28,50,80,114,205].every(dx=>white(...px(dx,2))))return null;
     if(![15,50,100].every(dx=>white(...px(dx,17))))return null;
-    if(![4,10,17].some(dy=>darkBlue(...px(-2,dy))))return null;
-    if(![5,12,17].some(dy=>darkBlue(...px(223,dy))))return null;
-    if(!darkBlue(...px(50,22)))return null;
+    // The full white run must be 222 game pixels wide. This prevents
+    // falsely accepting a neighboring textbox at a different UI scale.
+    let run=0;
+    while(run<Math.round(227*s)&&white(x+run,y+2*s))run++;
+    if(run<Math.round(211*s)||run>Math.round(226*s))return null;
+    if(![4,10,17].some(dy=>nearRail(...px(-2,dy))))return null;
+    if(![5,12,17].some(dy=>nearRail(...px(223,dy))))return null;
+    if(!nearRail(...px(50,22),3))return null;
     let goldFound=false;
     for(const dx of [-23,-19,-14])for(const dy of [6,10,14])if(gold(...px(dx,dy)))goldFound=true;
     if(!goldFound)return null;
@@ -66,8 +78,11 @@ function findInventoryFooter(frame,previous=null){
       // Candidate can be a few pixels below top edge.
       let top=y;
       for(let k=0;k<=Math.ceil(7*s);k++)if(white(left+Math.round(16*s),y-k))top=y-k;
-      const found=verify(left,top,s);
-      if(found)return found;
+      // Pixel rounding at 65–150% scaling can shift the detected edge 1–2px.
+      for(const dx of [-2,-1,0,1,2])for(const dy of [-2,-1,0,1,2]){
+        const found=verify(left+dx,top+dy,s);
+        if(found)return found;
+      }
     }
   }
   return null;
