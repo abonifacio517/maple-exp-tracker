@@ -1010,7 +1010,7 @@ body.theme-dark::before{
   opacity:.58;
 }
 body.theme-light::before{
-  background-image:url("assets/henesys-scene.svg");
+  background-image:url("assets/henesys-scene.svg?v=20261020b");
   opacity:.53;
   /* Zoom and crop the wide village panorama to fill the viewport like Sleepywood. */
   background-size:auto 132%;
