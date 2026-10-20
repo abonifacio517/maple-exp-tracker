@@ -131,8 +131,9 @@ function readMesosDigits(frame,rect){
   if(a.value!==null&&b.value!==null&&a.value===b.value)return {...a,score:Math.min(a.score,b.score),note:`${a.note} · thresholds agree`};
   if(a.value!==null&&a.score>.88)return {...a,note:a.note+' · another threshold uncertain'};
   if(b.value!==null&&b.score>.88)return {...b,note:b.note+' · another threshold uncertain'};
-  const tentative=a.candidate!==null&&a.candidate!==undefined&&a.candidate===b.candidate?
-    a.candidate:null;
+  const aGuess=a.value??a.candidate??null;
+  const bGuess=b.value??b.candidate??null;
+  const tentative=aGuess!==null&&aGuess===bGuess?aGuess:null;
   return {value:null,candidate:tentative,source:'ambiguous-font',
     note:`185: ${a.note}; 150: ${b.note}`+
       (tentative!==null?' · thresholds independently produce the same tentative number':' · thresholds disagree or shapes unclear')};
