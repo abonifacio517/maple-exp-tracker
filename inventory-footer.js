@@ -2,7 +2,20 @@
 // Alpha 0.2.37: independent mesos-box locator, not an inventory-header finder.
 // Finds the black-on-white textbox by its blue border and coin, anywhere in
 // the consented video frame (including when the inventory window moves).
-function findInventoryFooter(frame,previous=null){
+async function findInventoryFooter(frame,previous=null,shouldContinue=()=>true){
+  // Full-screen discovery is split across browser frames so a large or missing
+  // inventory cannot monopolize the UI thread. Recheck the previous anchor
+  // synchronously first: stable inventories still complete immediately.
+  const yieldToBrowser=()=>new Promise(resolve=>setTimeout(resolve,0));
+  let sliceStart=performance.now();
+  async function yieldIfBusy(){
+    if(performance.now()-sliceStart>=9){
+      await yieldToBrowser();
+      sliceStart=performance.now();
+      return shouldContinue();
+    }
+    return true;
+  }
   if(!frame?.data||!frame.width||!frame.height)return null;
   const W=frame.width,H=frame.height,p=frame.data;
   const rgb=(x,y)=>{
@@ -77,7 +90,11 @@ function findInventoryFooter(frame,previous=null){
   }
   for(const s of [1,.8,1.25,.65,1.5]){
     const width=Math.round(225*s),height=Math.round(25*s);
-    for(let y=3;y<H-height;y+=3)for(let x=3;x<W-width;x+=3){
+    for(let y=3;y<H-height;y+=3){
+      // Time slicing at row boundaries limits even 4K searches to a few
+      // milliseconds at a time, without changing the detector's geometry.
+      if(!(await yieldIfBusy()))return null;
+      for(let x=3;x<W-width;x+=3){
       if(!white(x,y)||!white(x+Math.round(35*s),y)||!white(x+Math.round(80*s),y))continue;
       // Candidate can start up to 6 px after left edge because of scan stride.
       let left=x;
@@ -89,6 +106,7 @@ function findInventoryFooter(frame,previous=null){
       for(const dx of [-2,-1,0,1,2])for(const dy of [-2,-1,0,1,2]){
         const found=verify(left+dx,top+dy,s);
         if(found)return found;
+      }
       }
     }
   }
