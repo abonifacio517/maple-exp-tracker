@@ -1,6 +1,18 @@
-# Van's Maple EXP Tracker — Alpha 0.2.24
+# Van's Maple EXP Tracker — Alpha 0.2.25
 
 This release improves screen-only **mesos recognition** without changing the EXP and level recognition code.
+
+## Alpha 0.2.25 — Minimal HUD and experimental EXP/min chart
+
+- Van's updated original sprite replaces the earlier version; the beige background is made transparent without sharpening or adding filters.
+- Header subtitle is shortened to “Classic World training tracker.”
+- The sharing status dot is red when disconnected and green while sharing.
+- Top action buttons keep stable dimensions as labels change.
+- EXP and mesos icons are clean, lightweight geometric SVG graphics on the main page and in the HUD.
+- All section headers now extend to the panel's top and side edges. Settings, session details and diagnostics remain collapsible.
+- HUD columns clearly separate EXP/hour, time to level and KPQ clears remaining. The redundant HUD Compact and Close buttons are removed (close using the browser's native Picture-in-Picture control or the main page).
+- The HUD's “Show EXP/min graph” control expands an experimental 20-minute line graph using confirmed EXP-gain events only. The browser may restrict resizing the Picture-in-Picture window; scrolling still works.
+- EXP, level and mesos OCR detection pipelines are otherwise unchanged.
 
 ## Alpha 0.2.24 — Layout and controls
 
