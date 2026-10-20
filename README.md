@@ -1,6 +1,12 @@
-# Van's Maple EXP Tracker — Alpha 0.2.28
+# Van's Maple EXP Tracker — Alpha 0.2.29
 
 This release improves screen-only **mesos recognition** without changing the EXP and level recognition code.
+
+## Alpha 0.2.29 — Henesys map replacement
+
+- Replaces the earlier wide Henesys background with the newer user-supplied 16:9 village screenshot, optimized as a WebP embedded in the site's SVG asset.
+- Retains the Henesys crop/zoom, blur, and opacity, and refreshes the CSS URL to ensure browsers load the new artwork.
+- Sleepywood, OCR and Maple HUD remain unchanged.
 
 ## Alpha 0.2.28 — Map backgrounds
 
