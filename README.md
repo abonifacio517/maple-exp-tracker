@@ -1,6 +1,12 @@
-# Van's Maple EXP Tracker — Alpha 0.2.35
+# Van's Maple EXP Tracker — Alpha 0.2.36
 
 This release improves screen-only **mesos recognition** without changing the EXP and level recognition code.
+
+## Alpha 0.2.36 — Unified version and theme switch position
+
+- Align the version label to the top right above the Henesys/Sleepywood theme switch.
+- Apply the same vertical placement to both modes and narrower viewports.
+- Keep character sprites, Maple HUD, and tracking behavior unchanged.
 
 ## Alpha 0.2.35 — Sleepywood header sprite sizing
 
