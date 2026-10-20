@@ -385,6 +385,26 @@ function stopMesosWatch(){
 /* Manual potion inventory: local-only counters; no OCR for HP/MP consumables.
    Inventory purchase and sales already affect your real meso balance, so
    estimated potion usage is reported separately instead of being subtracted. */
+// Fixed NPC shop prices, from the linked MeowDB Classic consumables efficiency table.
+  // These are NPC purchase prices, not player-market prices or actual purchase history.
+const POTION_NPC_PRICES={
+  hp:{
+    'Red Potion':50,'Orange Potion':150,'White Potion':350,
+    'Meat':80,'Fried Chicken':60,'Egg':30,'Apple':20,
+    'Hot Dog':180,'Dried Squid':180,'Hamburger':350,'Pizza':252,
+    'Hot Dog Supreme':480,'Ice Cream Pop':1500,'Unagi':1000,
+    'Fat Sausage':800,'Cake':150,"Mrs. Ming Ming's Stew":480,
+    "Andre's Seafood Soup":480,'Watermelon':1920,
+    'Ribbon Pig Daydream':500,'Orange Mushroom Daydream':500
+  },
+  mp:{
+    'Blue Potion':220,'Lemon':150,'Orange':50,'Salad':220,
+    'Orange Juice':540,'Grape Juice':1260,'Pure Water':1120,
+    'Red Bean Sundae':2250,'Cake':150,
+    "Mrs. Ming Ming's Stew":480,"Andre's Seafood Soup":480,
+    'Watermelon':1920
+  }
+};
 const POTION_STORAGE_KEY='vansMaplePotionSessionV1';
 const emptyPotion=()=>({type:'',count:null,price:0,spent:0,used:0});
 const potions={hp:emptyPotion(),mp:emptyPotion()};
@@ -407,24 +427,40 @@ function renderPotions(){
     label.textContent=p.count===null?'No baseline recorded':
       `${fmt(p.count)} in latest update · ${fmt(p.used)} used · ${fmt(p.spent)} mesos estimated`;
     const select=$(kind+'PotionType');
-    if(p.type&&[...select.options].some(o=>o.value===p.type))select.value=p.type;
+    if(p.type&&Object.hasOwn(POTION_NPC_PRICES[kind],p.type)&&
+      [...select.options].some(o=>o.value===p.type))select.value=p.type;
     if(p.count!==null&&$(kind+'PotionCount').value==='')$(kind+'PotionCount').value=String(p.count);
-    if(p.count!==null&&$(kind+'PotionPrice').value==='')$(kind+'PotionPrice').value=String(p.price);
+    const selection=select.value;
+    const price=Object.hasOwn(POTION_NPC_PRICES[kind],selection)?
+      POTION_NPC_PRICES[kind][selection]:null;
+    $(kind+'PotionPriceDisplay').textContent=price===null?
+      'Choose an item to view NPC price':
+      'NPC price: '+fmt(price)+' mesos each';
   }
   $('potionSpend').textContent=fmt(potionSpent());
+}
+for(const kind of ['hp','mp']){
+  $(kind+'PotionType').addEventListener('change',()=>{
+    const type=$(kind+'PotionType').value;
+    const price=Object.hasOwn(POTION_NPC_PRICES[kind],type)?POTION_NPC_PRICES[kind][type]:null;
+    $(kind+'PotionPriceDisplay').textContent=price===null?
+      'Choose an item to view NPC price':'NPC price: '+fmt(price)+' mesos each';
+  });
 }
 $('updatePotionBtn').addEventListener('click',()=>{
   const changes=[];let any=false;
   for(const kind of ['hp','mp']){
     const type=$(kind+'PotionType').value;
     const countRaw=$(kind+'PotionCount').value;
-    const priceRaw=$(kind+'PotionPrice').value;
-    if(!type&&countRaw===''&&priceRaw==='')continue;
-    if(!type){$('potionNote').textContent='Select the '+kind.toUpperCase()+' potion type before updating.';return;}
-    const count=safeAmount(countRaw,9999999),price=safeAmount(priceRaw,999999999);
-    if(count===null||price===null){
-      $('potionNote').textContent='Enter an exact count and mesos-per-potion price for '+kind.toUpperCase()+'. Use 0 if free.';return;
+    if(!type&&countRaw==='')continue;
+    if(!type||!Object.hasOwn(POTION_NPC_PRICES[kind],type)){
+      $('potionNote').textContent='Choose a priced '+kind.toUpperCase()+' consumable from the dropdown.';return;
     }
+    const count=safeAmount(countRaw,9999999);
+    if(count===null){
+      $('potionNote').textContent='Enter a valid '+kind.toUpperCase()+' consumable count.';return;
+    }
+    const price=POTION_NPC_PRICES[kind][type];
     changes.push({kind,type,count,price});
   }
   if(!changes.length){$('potionNote').textContent='Choose at least one HP or MP potion to update.';return;}
