@@ -353,10 +353,8 @@ async function readMesosFast(worker,rect,sourceFrame){
     return {value:font.value,source:'font',quality:font.score,note:details.join(' | ')+' · verified template candidate'};
   if(!worker)return {value:null,source:'templates-uncertain',
     note:details.join(' | ')+' · OCR comparison required'};
-  await worker.setParameters({
-    tessedit_char_whitelist:'0123456789,',
-    tessedit_pageseg_mode:Tesseract.PSM.SINGLE_LINE
-  });
+  // This dedicated mesos worker is configured once at creation; updating
+  // parameters on every uncertain scan added unnecessary worker round-trips.
   const rawReads=[];
   // Keep the raw and enhanced candidates even if Tesseract gives the
   // enhanced black-on-white crop 0% confidence: a zero is not proof that the
