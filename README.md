@@ -1,6 +1,13 @@
-# Van's Maple EXP Tracker — Alpha 0.2.33
+# Van's Maple EXP Tracker — Alpha 0.2.34
 
 This release improves screen-only **mesos recognition** without changing the EXP and level recognition code.
+
+## Alpha 0.2.34 — Sleepywood character header
+
+- Adds the user's transparent white-hat character sprite to the **main application's top-left header in Sleepywood (dark) mode only**.
+- Keeps Van's existing character sprite in Henesys (light) mode.
+- Crops only transparent space around the supplied cleaned sprite. Character pixels are otherwise untouched.
+- Does not change the Picture-in-Picture Maple HUD, OCR or tracked statistics.
 
 ## Alpha 0.2.33 — Mini HUD visual parity
 
