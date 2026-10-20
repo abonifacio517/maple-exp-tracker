@@ -379,6 +379,84 @@ function stopMesosWatch(){
   ++mesosGeneration;
 }
 
+
+/* Manual potion inventory: local-only counters; no OCR for HP/MP consumables.
+   Inventory purchase and sales already affect your real meso balance, so
+   estimated potion usage is reported separately instead of being subtracted. */
+const POTION_STORAGE_KEY='vansMaplePotionSessionV1';
+const emptyPotion=()=>({type:'',count:null,price:0,spent:0,used:0});
+const potions={hp:emptyPotion(),mp:emptyPotion()};
+try{
+  const saved=JSON.parse(localStorage.getItem(POTION_STORAGE_KEY)||'null');
+  for(const kind of ['hp','mp']){
+    const v=saved?.[kind];
+    if(v&&typeof v.type==='string'&&(v.count===null||Number.isSafeInteger(v.count))&&
+      Number.isSafeInteger(v.price)&&Number.isSafeInteger(v.spent)&&Number.isSafeInteger(v.used)){
+      potions[kind]={type:v.type,count:v.count,price:v.price,spent:v.spent,used:v.used};
+    }
+  }
+}catch(_e){/* No storage is required to track locally in this tab. */}
+function potionSpent(){return potions.hp.spent+potions.mp.spent;}
+function savePotions(){try{localStorage.setItem(POTION_STORAGE_KEY,JSON.stringify(potions))}catch(_e){}}
+function renderPotions(){
+  for(const kind of ['hp','mp']){
+    const p=potions[kind];
+    const label=$(kind+'PotionStatus');
+    label.textContent=p.count===null?'No baseline recorded':
+      `${fmt(p.count)} in latest update · ${fmt(p.used)} used · ${fmt(p.spent)} mesos estimated`;
+    const select=$(kind+'PotionType');
+    if(p.type&&[...select.options].some(o=>o.value===p.type))select.value=p.type;
+    if(p.count!==null&&$(kind+'PotionCount').value==='')$(kind+'PotionCount').value=String(p.count);
+    if(p.price&&$(kind+'PotionPrice').value==='')$(kind+'PotionPrice').value=String(p.price);
+  }
+  $('potionSpend').textContent=fmt(potionSpent());
+}
+$('updatePotionBtn').addEventListener('click',()=>{
+  const changes=[];let any=false;
+  for(const kind of ['hp','mp']){
+    const type=$(kind+'PotionType').value;
+    const countRaw=$(kind+'PotionCount').value;
+    const priceRaw=$(kind+'PotionPrice').value;
+    if(!type&&countRaw===''&&priceRaw==='')continue;
+    if(!type){$('potionNote').textContent='Select the '+kind.toUpperCase()+' potion type before updating.';return;}
+    const count=safeAmount(countRaw,9999999),price=safeAmount(priceRaw,999999999);
+    if(count===null||price===null){
+      $('potionNote').textContent='Enter an exact count and mesos-per-potion price for '+kind.toUpperCase()+'. Use 0 if free.';return;
+    }
+    changes.push({kind,type,count,price});
+  }
+  if(!changes.length){$('potionNote').textContent='Choose at least one HP or MP potion to update.';return;}
+  const notes=[];
+  for(const {kind,type,count,price} of changes){
+    const p=potions[kind],isNew=p.type!==type||p.count===null;
+    if(isNew)notes.push(kind.toUpperCase()+' baseline set');
+    else if(count<p.count){
+      const used=p.count-count,expense=used*price;
+      if(!Number.isSafeInteger(expense)||!Number.isSafeInteger(p.spent+expense)){
+        $('potionNote').textContent='Total potion spending exceeds supported number range.';return;
+      }
+      p.used+=used;p.spent+=expense;
+      notes.push(kind.toUpperCase()+' −'+fmt(used)+' used (−'+fmt(expense)+' mesos)');
+    }else if(count>p.count)notes.push(kind.toUpperCase()+' restocked (no usage charged)');
+    else notes.push(kind.toUpperCase()+' count unchanged');
+    p.type=type;p.count=count;p.price=price;
+    any=true;
+  }
+  if(any){
+    savePotions();renderPotions();showExtraStats();
+    $('potionNote').textContent=notes.join(' · ')+'. Potion spending is an estimate, not double-counted in mesos balance.';
+  }
+});
+$('resetPotionBtn').addEventListener('click',()=>{
+  for(const kind of ['hp','mp']){
+    potions[kind].count=null;
+    $(kind+'PotionCount').value='';
+  }
+  savePotions();renderPotions();showExtraStats();
+  $('potionNote').textContent='Potion counts reset. Enter your restocked amount and update to establish a new baseline. Previous estimated spending is retained.';
+});
+renderPotions();
+
 $('resetExtraBtn').addEventListener('click',()=>{
   resetExtras();setStatus('Mesos session reset; EXP session unchanged.','good');
 });
