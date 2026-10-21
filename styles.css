@@ -1222,3 +1222,67 @@ body.theme-dark .net-mesos-highlight .profit-badge.negative{color:#ffb6bb;backgr
 .meso-current-balance strong.profit-estimate{color:var(--metric-blue)}
 body.theme-dark .meso-current-balance strong.profit-estimate{color:#b9d8ed}
 @media(max-width:600px){.net-mesos-highlight{padding:12px}.net-mesos-heading{align-items:flex-start}}
+
+/* Alpha 0.2.46 compact mesos & potion layout: user-facing information first */
+.profit-panel>.window-chrome{margin-bottom:12px}
+.profit-panel .meso-compact-heading{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin:0 0 9px}
+.profit-panel .meso-compact-heading h2{margin:0;color:var(--heading);font-size:17px;letter-spacing:-.025em;font-weight:900}
+.profit-panel .meso-compact-heading .wip-label{font-size:9px;letter-spacing:.035em}
+.profit-panel .net-mesos-highlight{margin:0 0 9px;padding:11px 14px 12px;border-radius:12px;box-shadow:none}
+.profit-panel .net-mesos-heading{gap:9px;font-size:11px;letter-spacing:.055em}
+.profit-panel .net-mesos-highlight .profit-badge{padding:4px 9px;min-height:26px;font-size:11px}
+.profit-panel .net-mesos-total{margin:6px 0 0;gap:7px;align-items:baseline}
+.profit-panel .net-mesos-total strong{font-size:clamp(32px,4.2vw,45px)}
+.profit-panel .net-mesos-total .profit-unit{font-size:11px;letter-spacing:0}
+.profit-panel .meso-current-balance{margin:0 0 9px;padding:8px 12px;gap:4px 12px;border-radius:10px}
+.profit-panel .meso-current-balance>div{display:flex;flex-direction:row;align-items:center;gap:12px;flex-wrap:wrap}
+.profit-panel .meso-current-balance strong{font-size:17px}
+.profit-panel .meso-current-balance span,.profit-panel .meso-current-balance small{font-size:10px}
+.profit-panel .profit-breakdown{gap:6px;margin:0 0 10px}
+.profit-panel .profit-breakdown>div{padding:8px 9px;border-radius:10px;border-width:1px}
+.profit-panel .profit-breakdown span{font-size:10px;line-height:1.25}
+.profit-panel .profit-breakdown strong{font-size:16px;margin-top:3px}
+.profit-panel .potion-tracker{margin:0 0 9px;padding:11px 12px 10px;border-radius:11px}
+.profit-panel .potion-heading{margin:0 0 2px}
+.profit-panel .potion-heading strong{font-size:13px}
+.profit-panel .potion-quick-help{font-size:11px;line-height:1.4;color:var(--muted);margin:2px 0 8px}
+.profit-panel .potion-grid{gap:8px}
+.profit-panel .potion-entry{padding:9px;gap:5px;border-radius:9px}
+.profit-panel .potion-entry>label{font-size:11px}
+.profit-panel .potion-entry select,.profit-panel .potion-entry input{padding:7px 8px;font-size:11px;border-radius:7px;min-height:33px}
+.profit-panel .potion-inputs{display:block}
+.profit-panel .potion-inputs label{display:flex;align-items:center;gap:8px;font-size:10px}
+.profit-panel .potion-inputs input{width:min(100%,125px);margin-left:auto}
+.profit-panel .potion-entry small{font-size:10px;line-height:1.3}
+.profit-panel .potion-actions{margin-top:8px;gap:7px}
+.profit-panel .potion-actions button{min-height:32px;padding:7px 10px;font-size:11px;flex:1 1 120px}
+.profit-panel #potionNote{font-size:10px;line-height:1.3;color:var(--muted);margin:6px 0 0}
+.profit-panel .meso-manual-correction{margin:6px 0;padding:8px 11px;border-radius:9px}
+.profit-panel .meso-manual-correction summary{font-size:11px;font-weight:750}
+.profit-panel .meso-manual-correction .manual-snapshot{margin-top:7px;padding:9px;flex-wrap:wrap;gap:8px}
+.profit-panel .meso-actions{margin-top:7px}
+.profit-panel #resetExtraBtn{padding:7px 11px;font-size:11px;min-height:32px}
+.meso-training-tools{margin:12px 0 0;border:1px solid var(--frame-soft);border-radius:10px;padding:10px}
+.meso-training-tools summary{cursor:pointer;font-size:12px;font-weight:800;color:var(--heading)}
+.meso-training-tools .meso-ai-training{padding:10px;margin-top:9px}
+.meso-training-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.meso-training-row>input[type="text"]{min-width:150px;flex:1 1 170px;max-width:260px;
+  padding:8px 10px;background:var(--input);color:var(--ink);border:1px solid var(--frame-soft);border-radius:8px}
+.meso-training-row button{font-size:11px;min-height:34px}
+.meso-import-label{display:flex;gap:6px;align-items:center;flex-wrap:wrap;
+  font-size:11px;font-weight:750;color:var(--heading)}
+.meso-import-label input[type="file"]{max-width:215px;font-size:10px;color:var(--muted)}
+@media(max-width:580px){
+ .profit-panel .profit-breakdown{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .profit-panel .profit-breakdown>div{padding:6px}
+ .profit-panel .profit-breakdown strong{font-size:13px}
+ .profit-panel .potion-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .profit-panel .potion-entry{padding:7px}
+ .profit-panel .potion-inputs label{display:grid;gap:3px}
+ .profit-panel .potion-inputs input{margin:0;width:100%}
+ .meso-training-row>*{flex:1 1 auto}
+}
+@media(max-width:360px){
+ .profit-panel .potion-grid{grid-template-columns:minmax(0,1fr)}
+ .profit-panel .profit-breakdown{grid-template-columns:minmax(0,1fr)}
+}
