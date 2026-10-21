@@ -450,67 +450,56 @@ async function scanMesos(generation){
         `No reliable digit prediction: ${ai.reason||'Needs labeled examples'}\n`)+
       'Local digit guesses are never automatically trusted as earned mesos.';
     const previousBalance=extras.mesosCurrent??extras.mesoGuess;
-    const aiDroppedLead=missingLeadingMesosDigit(ai.value,previousBalance);
-    if(ai.value!==null&&!aiDroppedLead){
-      extras.mesoGuess=ai.value;
-      extras.mesoGuessAt=Date.now();
-      extras.mesoGuessConfidence=Math.round(ai.confidence*100);
-      extras.mesoGuessSource='ai';
-      extras.mesoStatus=`Digit matcher estimates ${fmt(ai.value)} · unverified`;
-    }else if(aiDroppedLead){
-      extras.mesoStatus='Possible missing first digit in digit-matcher reading · retaining prior balance';
-      $('mesoAIDetails').textContent+='\nPossible lost leading digit; keeping previous balance and checking raw OCR.';
-    }
-    // No templates or enhanced passes. Retain the latest OCR guess while
-    // the worker is on cooldown, keeping the expensive pass throttled.
-    if(Date.now()-lastMesosOCR<MESO_OCR_RETRY_MS){
-      extras.mesoStatus=aiDroppedLead?
-        'Possible missing first digit in digit-matcher reading · retaining prior balance':
-        extras.mesoGuess!==null?
-        'Last mesos estimate '+fmt(extras.mesoGuess)+' · next OCR read shortly (unverified)':
-        'Raw OCR scan scheduled shortly';
-      return;
-    }
-    lastMesosOCR=Date.now();
-    const worker=await getMesosWorker();
-    if(generation!==mesosGeneration||!state.running)return;
-    const read=await readMesosFast(worker,field.rect,frame);
-    if(generation!==mesosGeneration||!state.running)return;
-    extras.lastMesoAttempt=Date.now();
-    extras.mesoRawNote=read.note;
-    $('mesoOCRDetails').textContent=`${field.note}\n${read.note}\nCandidate: ${read.value===null?'unreadable':fmt(read.value)} (${read.source||'unknown'})`;
-    if(read.value!==null){
-      // Use the trained digit estimate when its match is strong; otherwise keep
-      // existing raw OCR fallback. Neither estimate alone confirms earnings.
-      // Prefer a complete OCR candidate over a shorter AI segmentation, and
-      // never auto-confirm a candidate that exactly drops an existing first
-      // digit. Legitimate decreases can still be confirmed manually.
-      const preferAI=ai.value!==null&&ai.confidence>=.65&&!aiDroppedLead&&
-        (String(ai.value).length>=String(read.value).length||read.confidence<35);
-      const displayValue=preferAI?ai.value:read.value;
-      const dropDetected=missingLeadingMesosDigit(displayValue,previousBalance);
-      if(!dropDetected){
-        extras.mesoGuess=displayValue;
-        extras.mesoGuessAt=Date.now();
-        extras.mesoGuessConfidence=preferAI?Math.round(ai.confidence*100):read.confidence;
-        extras.mesoGuessSource=preferAI?'ai':'raw';
+    const aiValid=ai.value!==null&&ai.confidence>=.65&&
+      !missingLeadingMesosDigit(ai.value,previousBalance);
+    const aiCandidate=aiValid?{value:ai.value,source:'learned digits',
+      confidence:Math.round(ai.confidence*100)}:null;
+    const needOCR=Date.now()-lastMesosOCR>=MESO_OCR_RETRY_MS;
+    let read=null;
+    if(needOCR){
+      lastMesosOCR=Date.now();
+      try{
+        const worker=await getMesosWorker();
+        if(generation!==mesosGeneration||!state.running)return;
+        read=await readMesosFast(worker,field.rect,frame);
+      }catch(err){
+        $('mesoOCRDetails').textContent='Raw OCR unavailable: '+String(err?.message||err);
       }
-      const eligible=read.strict&&read.confidence>=55&&
-        !missingLeadingMesosDigit(read.value,extras.mesosCurrent)&&
-        !(ai.value!==null&&!aiDroppedLead&&ai.value!==read.value&&ai.confidence>=.65);
-      const accepted=eligible?acceptMesos(read):false;
-      extras.mesoStatus=dropDetected?
-        'Possible missing first digit · retaining previous balance, see OCR diagnostics':
-        accepted?`Confirmed ${fmt(read.value)} from repeated OCR reads`:
-        (preferAI?`Digit estimate ${fmt(ai.value)} (unverified) · raw OCR ${fmt(read.value)}`:
-          `OCR estimate ${fmt(read.value)} (${read.confidence}% confidence) · unverified`)+
-        (eligible?' · awaiting repeat':' · verify in game');
+    }
+    if(generation!==mesosGeneration||!state.running)return;
+    if(read){
+      extras.lastMesoAttempt=Date.now();
+      extras.mesoRawNote=read.note;
+      $('mesoOCRDetails').textContent=
+        `${field.note}\n${read.note}\nCandidate: ${read.value===null?'unreadable':fmt(read.value)}`;
+    }
+    const ocrValid=read&&Number.isSafeInteger(read.value)&&
+      !missingLeadingMesosDigit(read.value,previousBalance);
+    // The reader chooses one candidate per capture. Learned digits provide
+    // inexpensive observations on non-OCR scans; raw OCR can supersede a
+    // disagreement only when it is reasonably confident.
+    let chosen=aiCandidate;
+    if(ocrValid&&(!chosen||read.confidence>=75&&read.strict&&
+       read.value!==chosen.value))
+      chosen={value:read.value,source:'raw OCR',confidence:read.confidence};
+    if(!chosen&&ocrValid)chosen={value:read.value,source:'raw OCR',confidence:read.confidence};
+    if(chosen){
+      extras.mesoGuess=chosen.value;
+      extras.mesoGuessSource=chosen.source==='raw OCR'?'raw':'ai';
+      extras.mesoGuessAt=Date.now();
+      extras.mesoGuessConfidence=chosen.confidence;
+      const logged=trackMesosCandidate(chosen.value,chosen.source,chosen.confidence);
+      extras.mesoStatus=logged.saved?
+        `Mesos snapshot ${fmt(chosen.value)} recorded (${chosen.source})`:
+        `Mesos observed ${fmt(chosen.value)} · ${logged.reason}`;
     }else{
-      extras.mesoStatus=ai.value!==null&&!aiDroppedLead?
-        `Digit matcher estimates ${fmt(ai.value)} · raw OCR unreadable · unverified`:
-        aiDroppedLead?'Possible missing first digit in digit-matcher reading · retaining prior balance':
-        extras.mesoGuess!==null?'Raw OCR unreadable now · retaining previous unverified estimate':
-        'Textbox found · OCR could not extract a number';
+      extras.mesoStatus=ai.value!==null&&
+        missingLeadingMesosDigit(ai.value,previousBalance)?
+        'Possible missing first digit · previous balance retained':
+        read?.value!==null&&read&&missingLeadingMesosDigit(read.value,previousBalance)?
+        'Possible missing first digit in OCR · previous balance retained':
+        extras.mesosCurrent!==null?'No readable number · last snapshot retained':
+        'Waiting for first readable mesos amount';
     }
     $('mesoDebug').textContent=extras.mesoStatus+'\n'+$('mesoOCRDetails').textContent;
   }catch(error){
