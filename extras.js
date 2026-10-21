@@ -405,7 +405,7 @@ async function disposeMesosWorker(){
 // The inventory heading, border and item-grid coordinates are irrelevant.
 function locateMesosField(frame,hit,offsetX=0,offsetY=0){
   if(!hit?.footer||!hit.rect)return {rect:null,note:'White mesos textbox not located.'};
-  return {rect:hit.rect,note:`White textbox detected at (${hit.rect.x+offsetX},${hit.rect.y+offsetY}), ${hit.rect.w}×${hit.rect.h} · scale ${hit.s}`};
+  return {rect:hit.rect,note:`White textbox detected at (${hit.rect.x+offsetX},${hit.rect.y+offsetY}), ${hit.rect.w}×${hit.rect.h} · scale ${hit.s} · ${hit.method||'legacy border detector'}`};
 }
 // A separate small canvas prevents unnecessary full-frame copies while the
 // inventory stays near its last confirmed position. The EXP buffer is untouched.
