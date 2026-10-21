@@ -195,8 +195,12 @@
     // and screen limits may clamp this; content remains scrollable as fallback.
     const width=470,minimum=graphOpen?850:690;
     const doc=miniWindow.document;
-    const measured=Math.ceil(Math.max(doc.documentElement.scrollHeight||0,
-      doc.body.scrollHeight||0)+18);
+    // Measure where the last HUD element actually ends. The page itself has
+    // min-height:100%, so its scrollHeight would incorrectly preserve an
+    // expanded graph window's old height after the graph is collapsed.
+    const body=doc.querySelector('.hud-body');
+    const contentBottom=body?.getBoundingClientRect().bottom||0;
+    const measured=Math.ceil(contentBottom+26);
     const height=Math.max(minimum,measured);
     try{
       if(typeof miniWindow.resizeTo==='function')miniWindow.resizeTo(width,height);
