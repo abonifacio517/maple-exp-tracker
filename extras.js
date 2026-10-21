@@ -540,6 +540,7 @@ async function scanMesos(generation){
     extras.inventoryOpen=!!hit;
     if(!hit){
       lastMesosSearch=Date.now();
+      extras.mesoPendingChange=null; // closed/moved inventory never keeps a pending gain
       extras.mesoStatus=extras.mesoWhen?'Textbox not visible · last confirmed '+extras.mesoWhen.toLocaleTimeString():
         'Looking for the white mesos textbox anywhere on screen';
       $('mesoOCRDetails').textContent='Mesos textbox not found in current frame. Move or open your inventory.';
@@ -591,7 +592,14 @@ async function scanMesos(generation){
     const ocrValid=ocrNumber&&read.strict&&read.confidence>=55;
     const ocrCandidate=ocrValid?{value:read.value,source:'raw OCR',
       confidence:read.confidence}:null;
-    const disagree=!!(aiCandidate&&ocrCandidate&&aiCandidate.value!==ocrCandidate.value);
+    // Low-confidence OCR often invents a digit in MapleStory's tiny font.
+    // A discrepancy still appears in diagnostics, but only strong OCR vetoes
+    // a stable trained-digit candidate; weaker OCR cannot instantly bank it.
+    const weakDisagree=!!(aiCandidate&&ocrCandidate&&
+      aiCandidate.value!==ocrCandidate.value&&read.confidence<75);
+    const disagree=!!(aiCandidate&&ocrCandidate&&
+      aiCandidate.value!==ocrCandidate.value&&read.confidence>=75);
+    if(weakDisagree&&ocrEntry)ocrEntry.status='low-confidence OCR disagreement';
     if(disagree){
       if(aiEntry)aiEntry.status='reader disagreement';
       if(ocrEntry)ocrEntry.status='reader disagreement';
@@ -618,6 +626,9 @@ async function scanMesos(generation){
           `Mesos balance ${fmt(chosen.value)} verified (${logged.reason})`:
           `Balance ${fmt(chosen.value)} · ${logged.reason}`;
       }else{
+        if(extras.mesoPendingChange&&
+          Date.now()-extras.mesoPendingChange.lastAt>MESO_REVIEW_TTL_MS)
+          extras.mesoPendingChange=null;
         extras.mesoStatus=ocrEntry?'OCR uncertain · previous balance retained':
           ai.candidate!==undefined?'Digit matcher uncertain · previous balance retained':
           extras.mesosCurrent!==null?'No readable number · previous balance retained':
