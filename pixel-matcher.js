@@ -66,8 +66,8 @@ function templateDigitsFromCanvas(canvas,atlas=MAPLE_EXP_DIGIT_ATLAS){
   if(!Number.isSafeInteger(numeric))return {value:null,reason:'Out of range'};
   return {value:numeric,confidence:Math.round(Math.min(...scores)*100),reason:'Screenshot pixel glyph match',text:value};
 }
-function expTemplateRead(){
-  const r=state.regions.exp;
+function expTemplateRead(region=null){
+  const r=region||state.regions.exp;
   if(!r||video.readyState<2)return {value:null,reason:'EXP unavailable'};
   const c=document.createElement('canvas');c.width=r.w;c.height=r.h;
   c.getContext('2d',{willReadFrequently:true}).drawImage(video,r.x,r.y,r.w,r.h,0,0,r.w,r.h);
@@ -79,8 +79,9 @@ function expTemplateRead(){
 function teachEXPFromVisible(raw){
   const text=String(raw||'').trim().replace(/[,. ]/g,'');
   if(!/^\d{1,12}$/.test(text))return {ok:false,reason:'Enter the exact EXP digits shown in-game.'};
-  const r=state.regions.exp;
-  if(!r||video.readyState<2)return {ok:false,reason:'Share your game and wait for EXP detection first.'};
+  const safe=typeof liveEXPRegion==='function'?liveEXPRegion():{region:state.regions.exp};
+  const r=safe.region;
+  if(!r||video.readyState<2)return {ok:false,reason:safe.reason||'Share your game and wait for EXP detection first.'};
   const crop=document.createElement('canvas');crop.width=r.w;crop.height=r.h;
   crop.getContext('2d',{willReadFrequently:true}).drawImage(video,r.x,r.y,r.w,r.h,0,0,r.w,r.h);
   const found=extractEXPTemplates(crop);
