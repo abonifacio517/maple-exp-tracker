@@ -22,6 +22,39 @@ window.MapleMesosAI=(()=>{
   };
   const setEnabled=v=>{enabled=!!v;try{localStorage.setItem(KEY+'Enabled',String(enabled))}catch(_){}};
   const clear=()=>{samples=[];save()};
+  // Export ONLY the tiny confirmed digit feature bitmaps; no raw screenshots,
+  // OCR logs, character/account metadata or game screen content.
+  const exportData=()=>JSON.stringify({
+    format:'maple-mesos-digit-examples',version:VERSION,
+    samples:samples.map(({d,bits})=>({d,bits}))
+  },null,2);
+  const importData=payload=>{
+    let input;
+    try{input=typeof payload==='string'?JSON.parse(payload):payload}
+    catch(_){return {ok:false,reason:'Could not read that JSON file.'}}
+    if(!input||typeof input!=='object'||Array.isArray(input)||
+       ![undefined,'maple-mesos-digit-examples'].includes(input.format)||
+       input.version!==VERSION||!Array.isArray(input.samples)||
+       input.samples.length>MAX_TOTAL)
+      return {ok:false,reason:'Invalid or unsupported recognition file.'};
+    // Reject the WHOLE file if any entry is not a known tiny digit bitmap.
+    // Never execute or display imported content as HTML.
+    if(!input.samples.every(x=>x&&typeof x==='object'&&!Array.isArray(x)&&
+       /^[0-9]$/.test(x.d)&&typeof x.bits==='string'&&
+       /^[01]{192}$/.test(x.bits)))
+      return {ok:false,reason:'Invalid digit data. No examples imported.'};
+    let added=0;
+    for(const x of input.samples){
+      if(samples.some(old=>old.d===x.d&&old.bits===x.bits))continue;
+      const perDigit=samples.filter(old=>old.d===x.d).length;
+      if(perDigit>=MAX_PER_DIGIT)continue;
+      samples.push({d:x.d,bits:x.bits});added++;
+      if(samples.length>=MAX_TOTAL)break;
+    }
+    save();
+    return {ok:true,added,reason:added?
+      `Imported ${added} digit examples.`:'All examples are already saved.',summary:summary()};
+  };
   const median=arr=>{const a=arr.slice().sort((x,y)=>x-y);return a.length?a[Math.floor(a.length/2)]:0};
   function segment(frame,rect,wanted=null){
     if(!frame?.data||!rect)return {pieces:[],reason:'No inventory crop'};
@@ -178,5 +211,5 @@ window.MapleMesosAI=(()=>{
       digits:chars,reason:reliable?'Local learned digits matched':
         `Needs training (distance ${Math.round(avg*100)}%, margin ${Math.round(margin*100)}%)`};
   }
-  return {summary,setEnabled,clear,segment,learn,predict};
+  return {summary,setEnabled,clear,exportData,importData,segment,learn,predict};
 })();
