@@ -1,6 +1,14 @@
-# Van's Maple EXP Tracker — Alpha 0.2.47
+# Van's Maple EXP Tracker — Alpha 0.2.48
 
 This release focuses on **faster, movable-inventory mesos reading**, manual potion costs, and an accurate pause-aware timer. EXP and level recognition remain screen-only.
+
+## Alpha 0.2.48 — Bundle 30 player-confirmed samples for all visitors
+
+- Validated the contributed `maple-mesos-digit-examples.json` export: `format=maple-mesos-digit-examples`, `version=1`, 30 unique labeled 12×16 (192-bit) samples, **all ten digits 0–9**, including four examples of digit 0. No duplicate samples or conflicting identical patterns within the submitted data.
+- Bundled those 30 real player-confirmed digit patterns into `mesos-ai.js` alongside the existing 24 verified screenshot-derived samples. A new browser automatically loads **54 built-in examples covering 10/10 digits**. Nothing must be imported or distributed separately by the player's friends.
+- Browser-local corrections remain stored under the existing `vansMapleMesosLocalDigitsV1` key, are merged with and deduplicated against the shared templates in classifier inference, and are never overwritten by a site update. Clearing individual examples preserves the 54 shared examples.
+- Avoid rebuilding the sample collection for every single digit during inference; the merged list is prepared once per read. Updated the source script version for Chrome/GitHub Pages refresh.
+- Recognition still uses image-only screen capture in Chrome, without injecting anything into MapleStory. Bundled examples help but do not guarantee recognition of all future cropped frames or display scales. Wrong guesses can still affect the experimental mesos snapshot estimate; verify them against the game.
 
 ## Alpha 0.2.47 — Live mesos snapshots and shared numeral patterns
 
