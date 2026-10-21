@@ -436,9 +436,9 @@ async function scanMesos(generation){
     const ai=learner?.predict(frame,field.rect)??{value:null,reason:'Local AI not loaded'};
     const training=learner?.summary();
     if($('mesoAIDetails'))$('mesoAIDetails').textContent=
-      `Local digit classifier: ${training?.examples??0} examples / ${training?.digits??0} of 10 digits known\n`+
-      (ai.value!==null?`AI candidate: ${fmt(ai.value)} · visual match ${Math.round(ai.confidence*100)}% (not calibrated probability)\n`:
-        `No reliable local prediction: ${ai.reason||'Needs labeled examples'}\n`)+
+      `Learned digit matcher: ${training?.examples??0} examples / ${training?.digits??0} of 10 digits known\n`+
+      (ai.value!==null?`Digit prediction: ${fmt(ai.value)} · visual match ${Math.round(ai.confidence*100)}% (not calibrated probability)\n`:
+        `No reliable digit prediction: ${ai.reason||'Needs labeled examples'}\n`)+
       'Local digit guesses are never automatically trusted as earned mesos.';
     const previousBalance=extras.mesosCurrent??extras.mesoGuess;
     const aiDroppedLead=missingLeadingMesosDigit(ai.value,previousBalance);
@@ -447,16 +447,16 @@ async function scanMesos(generation){
       extras.mesoGuessAt=Date.now();
       extras.mesoGuessConfidence=Math.round(ai.confidence*100);
       extras.mesoGuessSource='ai';
-      extras.mesoStatus=`Local AI estimates ${fmt(ai.value)} · unverified`;
+      extras.mesoStatus=`Digit matcher estimates ${fmt(ai.value)} · unverified`;
     }else if(aiDroppedLead){
-      extras.mesoStatus='Possible missing first digit in local AI reading · retaining prior balance';
+      extras.mesoStatus='Possible missing first digit in digit-matcher reading · retaining prior balance';
       $('mesoAIDetails').textContent+='\nPossible lost leading digit; keeping previous balance and checking raw OCR.';
     }
     // No templates or enhanced passes. Retain the latest OCR guess while
     // the worker is on cooldown, keeping the expensive pass throttled.
     if(Date.now()-lastMesosOCR<MESO_OCR_RETRY_MS){
       extras.mesoStatus=aiDroppedLead?
-        'Possible missing first digit in local AI reading · retaining prior balance':
+        'Possible missing first digit in digit-matcher reading · retaining prior balance':
         extras.mesoGuess!==null?
         'Last mesos estimate '+fmt(extras.mesoGuess)+' · next OCR read shortly (unverified)':
         'Raw OCR scan scheduled shortly';
@@ -493,13 +493,13 @@ async function scanMesos(generation){
       extras.mesoStatus=dropDetected?
         'Possible missing first digit · retaining previous balance, see OCR diagnostics':
         accepted?`Confirmed ${fmt(read.value)} from repeated OCR reads`:
-        (preferAI?`Local AI estimate ${fmt(ai.value)} (unverified) · raw OCR ${fmt(read.value)}`:
+        (preferAI?`Digit estimate ${fmt(ai.value)} (unverified) · raw OCR ${fmt(read.value)}`:
           `OCR estimate ${fmt(read.value)} (${read.confidence}% confidence) · unverified`)+
         (eligible?' · awaiting repeat':' · verify in game');
     }else{
       extras.mesoStatus=ai.value!==null&&!aiDroppedLead?
-        `Local AI estimates ${fmt(ai.value)} · raw OCR unreadable · unverified`:
-        aiDroppedLead?'Possible missing first digit in local AI reading · retaining prior balance':
+        `Digit matcher estimates ${fmt(ai.value)} · raw OCR unreadable · unverified`:
+        aiDroppedLead?'Possible missing first digit in digit-matcher reading · retaining prior balance':
         extras.mesoGuess!==null?'Raw OCR unreadable now · retaining previous unverified estimate':
         'Textbox found · OCR could not extract a number';
     }
