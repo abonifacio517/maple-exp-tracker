@@ -360,7 +360,7 @@ const MESO_SCAN_MS=2000;
 const MESO_REDISCOVERY_MS=5000;
 const MESO_OCR_RETRY_MS=5000;
 const MESO_PREVIEW_REFRESH_MS=5000;
-let mesosTimer=null,mesosGeneration=0,mesosWorker=null,mesosWorkerPromise=null;
+let mesosTimer=null,mesosRecheckTimer=null,mesosGeneration=0,mesosWorker=null,mesosWorkerPromise=null;
 let lastMesosSearch=0,lastMesosOCR=0,lastMesosPreview=0;
 async function getMesosWorker(){
   if(mesosWorker)return mesosWorker;
@@ -544,12 +544,13 @@ async function scanMesos(generation){
       (ai.value!==null?`Digit prediction: ${fmt(ai.value)} · visual match ${Math.round(ai.confidence*100)}% (not calibrated probability)\n`:
         `No reliable digit prediction: ${ai.reason||'Needs labeled examples'}\n`)+
       'Unverified readings are logged; only corroborated balances affect gains.';
-    const previousBalance=extras.mesosCurrent??extras.mesoGuess;
-    const aiValid=ai.value!==null&&ai.confidence>=.65&&
-      !missingLeadingMesosDigit(ai.value,previousBalance);
+    const previousBalance=extras.mesosCurrent;
+    const aiValid=Number.isSafeInteger(ai.value)&&ai.value>=0&&ai.confidence>=.65;
     const aiCandidate=aiValid?{value:ai.value,source:'learned digits',
       confidence:Math.round(ai.confidence*100)}:null;
-    const needOCR=Date.now()-lastMesosOCR>=MESO_OCR_RETRY_MS;
+    const elapsedOCR=Date.now()-lastMesosOCR;
+    const needOCR=elapsedOCR>=MESO_OCR_RETRY_MS||
+      (extras.mesoPendingChange?.needsOCR&&elapsedOCR>=2800);
     let read=null;
     if(needOCR){
       lastMesosOCR=Date.now();
@@ -568,40 +569,67 @@ async function scanMesos(generation){
       $('mesoOCRDetails').textContent=
         `${field.note}\n${read.note}\nCandidate: ${read.value===null?'unreadable':fmt(read.value)}`;
     }
-    const ocrValid=read&&Number.isSafeInteger(read.value)&&
-      !missingLeadingMesosDigit(read.value,previousBalance);
-    // The reader chooses one candidate per capture. Learned digits provide
-    // inexpensive observations on non-OCR scans; raw OCR can supersede a
-    // disagreement only when it is reasonably confident.
-    let chosen=aiCandidate;
-    if(ocrValid&&(!chosen||read.confidence>=75&&read.strict&&
-       read.value!==chosen.value))
-      chosen={value:read.value,source:'raw OCR',confidence:read.confidence};
-    if(!chosen&&ocrValid)chosen={value:read.value,source:'raw OCR',confidence:read.confidence};
-    if(chosen){
-      extras.mesoGuess=chosen.value;
-      extras.mesoGuessSource=chosen.source==='raw OCR'?'raw':'ai';
+    // Log the result of each recognizer even when they disagree or cannot
+    // confirm the balance. None of these raw observations changes earnings.
+    const aiEntry=aiCandidate?recordMesosObservation(
+      aiCandidate.value,aiCandidate.source,aiCandidate.confidence):null;
+    const ocrNumber=read&&Number.isSafeInteger(read.value)&&read.value>=0;
+    const ocrEntry=ocrNumber?recordMesosObservation(read.value,'raw OCR',read.confidence):null;
+    const ocrValid=ocrNumber&&read.strict&&read.confidence>=55;
+    const ocrCandidate=ocrValid?{value:read.value,source:'raw OCR',
+      confidence:read.confidence}:null;
+    const disagree=!!(aiCandidate&&ocrCandidate&&aiCandidate.value!==ocrCandidate.value);
+    if(disagree){
+      if(aiEntry)aiEntry.status='reader disagreement';
+      if(ocrEntry)ocrEntry.status='reader disagreement';
+      extras.mesoPendingChange=null;
+      extras.mesoGuess=aiCandidate.value;
+      extras.mesoGuessSource='ai';
       extras.mesoGuessAt=Date.now();
-      extras.mesoGuessConfidence=chosen.confidence;
-      const logged=trackMesosCandidate(chosen.value,chosen.source,chosen.confidence);
-      extras.mesoStatus=logged.saved?
-        `Mesos snapshot ${fmt(chosen.value)} recorded (${chosen.source})`:
-        `Mesos observed ${fmt(chosen.value)} · ${logged.reason}`;
+      extras.mesoStatus='Readers disagree · awaiting a fresh capture';
     }else{
-      extras.mesoStatus=ai.value!==null&&
-        missingLeadingMesosDigit(ai.value,previousBalance)?
-        'Possible missing first digit · previous balance retained':
-        read?.value!==null&&read&&missingLeadingMesosDigit(read.value,previousBalance)?
-        'Possible missing first digit in OCR · previous balance retained':
-        extras.mesosCurrent!==null?'No readable number · last snapshot retained':
-        'Waiting for first readable mesos amount';
+      const chosen=aiCandidate||ocrCandidate;
+      if(chosen){
+        // A single-frame agreement counts as stronger evidence, but a large
+        // or leading-digit change still requires three distinct captures.
+        const agreement=!!(aiCandidate&&ocrCandidate&&aiCandidate.value===ocrCandidate.value);
+        extras.mesoGuess=chosen.value;
+        extras.mesoGuessSource=chosen.source==='raw OCR'?'raw':'ai';
+        extras.mesoGuessAt=Date.now();
+        extras.mesoGuessConfidence=chosen.confidence;
+        const entry=chosen===aiCandidate?aiEntry:ocrEntry;
+        const logged=trackMesosCandidate(chosen.value,chosen.source,chosen.confidence,
+          {agreement,entry});
+        if(ocrEntry&&ocrEntry!==entry)ocrEntry.status='corroborates trained digits';
+        extras.mesoStatus=logged.saved?
+          `Mesos balance ${fmt(chosen.value)} verified (${logged.reason})`:
+          `Balance ${fmt(chosen.value)} · ${logged.reason}`;
+      }else{
+        extras.mesoStatus=ocrEntry?'OCR uncertain · previous balance retained':
+          ai.candidate!==undefined?'Digit matcher uncertain · previous balance retained':
+          extras.mesosCurrent!==null?'No readable number · previous balance retained':
+          'Waiting for first readable mesos amount';
+      }
     }
     $('mesoDebug').textContent=extras.mesoStatus+'\n'+$('mesoOCRDetails').textContent;
   }catch(error){
     extras.mesoStatus='Mesos read issue · last confirmed balance retained';
     $('mesoDebug').textContent='Mesos scan: '+String(error?.message||error);
     $('mesoOCRDetails').textContent=$('mesoDebug').textContent;
-  }finally{extras.mesoBusy=false;showExtraStats();}
+  }finally{
+    extras.mesoBusy=false;showExtraStats();
+    if(extras.mesoPendingChange&&state.running&&generation===mesosGeneration)
+      scheduleMesosRecheck(generation);
+  }
+}
+function scheduleMesosRecheck(generation){
+  if(mesosRecheckTimer!==null||!state.running||generation!==mesosGeneration)return;
+  // No parallel OCR workers or heavy full-screen loops: each follow-up waits
+  // for the previous scan to finish, and Pause cancels this timer.
+  mesosRecheckTimer=setTimeout(()=>{
+    mesosRecheckTimer=null;
+    if(state.running&&generation===mesosGeneration)void scanMesos(generation);
+  },850);
 }
 function beginMesosWatch(){
   if(mesosTimer!==null)return;
@@ -614,6 +642,8 @@ function beginMesosWatch(){
 }
 function stopMesosWatch(){
   if(mesosTimer!==null){clearInterval(mesosTimer);mesosTimer=null;}
+  if(mesosRecheckTimer!==null){clearTimeout(mesosRecheckTimer);mesosRecheckTimer=null;}
+  extras.mesoPendingChange=null;
   ++mesosGeneration;
 }
 
