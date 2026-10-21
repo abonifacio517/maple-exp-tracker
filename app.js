@@ -168,7 +168,8 @@ function greenGroups(frame,anchor){
   const {width:W,height:H,data:p}=frame;
   const {x,y,scale:s}=anchor,groups=[];
   let open=null;
-  const left=Math.round(x+52*s),right=Math.min(W-1,Math.round(x+350*s));
+  // Lower bound supports the green (%) block shifting left at a level-up.
+  const left=Math.round(x+43*s),right=Math.min(W-1,Math.round(x+350*s));
   for(let xx=left;xx<=right+1;xx++){
     let hits=0;
     if(xx<=right)for(let yy=Math.max(0,Math.round(y+5*s));yy<=Math.min(H-1,Math.round(y+18*s));yy++){
@@ -187,7 +188,7 @@ function greenGroups(frame,anchor){
   // The left and right lime-green brackets must be nearby and in order.
   for(let i=0;i<groups.length;i++)for(let j=i+1;j<groups.length;j++){
     const a=groups[i],b=groups[j],width=b-a;
-    if(a-x<65*s||a-x>270*s||width<25*s||width>115*s)continue;
+    if(a-x<44*s||a-x>270*s||width<18*s||width>130*s)continue;
     return [a,b];
   }
   return null;
@@ -203,6 +204,80 @@ function areasFromAnchor(frame,anchor){
   const pct={x:pctx,y:yy,w:pctend-pctx,h:Math.min(hh,frame.height-yy)};
   if(exp.w<15||pct.w<15||exp.h<8||expx<0||pctend>frame.width)return null;
   return {exp,pct,bars};
+}
+// Refresh the EXP/% boundary from the LIVE frame before EVERY EXP read.
+// The original EXP box is only a search guide: when a level-up shortens EXP,
+// the green parenthesized percent shifts left into yesterday's fixed crop.
+// An uncertain auto-detected boundary must not produce an EXP value.
+const expBoundaryCanvas=document.createElement('canvas');
+const expBoundaryCtx=expBoundaryCanvas.getContext('2d',{willReadFrequently:true});
+function liveEXPRegion(){
+  const original=state.regions.exp;
+  if(!original)return {region:null,reason:'No EXP region selected'};
+  if(!video.videoWidth||video.readyState<2)return {region:null,reason:'EXP HUD is not visible'};
+  const anchor=state.autoAnchor;
+  const scale=anchor?.scale||(original.h/21);
+  const s=Math.max(.45,Math.min(2.5,scale));
+  const refX=anchor?anchor.x:original.x-41*s;
+  const refY=anchor?anchor.y:original.y;
+  const captureX=Math.max(0,Math.floor(refX-5*s));
+  const captureY=Math.max(0,Math.floor(refY-3*s));
+  const captureRight=Math.min(video.videoWidth,Math.ceil(
+    anchor?refX+358*s:original.x+original.w+145*s));
+  const captureBottom=Math.min(video.videoHeight,Math.ceil(refY+25*s));
+  const w=captureRight-captureX,h=captureBottom-captureY;
+  if(w<35||h<12)return {region:null,reason:'EXP boundary is outside the captured frame'};
+  if(expBoundaryCanvas.width!==w||expBoundaryCanvas.height!==h){
+    expBoundaryCanvas.width=w;expBoundaryCanvas.height=h;
+  }
+  expBoundaryCtx.drawImage(video,captureX,captureY,w,h,0,0,w,h);
+  const frame={width:w,height:h,data:expBoundaryCtx.getImageData(0,0,w,h).data};
+  const localAnchor={x:refX-captureX,y:refY-captureY,scale:s};
+  let bars=greenGroups(frame,localAnchor);
+  let greenStart=bars?.[0]===undefined?null:captureX+bars[0];
+  // Manual selections can start inside the EXP readout rather than at the
+  // known EXP logo. If the green opening parenthesis appears INSIDE the
+  // selected region, crop immediately before it even if the second green
+  // bracket was not visible. The color test uses ORIGINAL RGB, never OCR.
+  if(!anchor&&greenStart===null){
+    const from=Math.max(0,original.x-captureX+4);
+    const to=Math.min(w-1,original.x+original.w-captureX);
+    const rowA=Math.max(0,Math.round(original.y-captureY+4*s));
+    const rowB=Math.min(h-1,Math.round(original.y-captureY+18*s));
+    let runStart=-1,runEnd=-1;
+    for(let xx=from;xx<=to+1;xx++){
+      let hits=0;
+      if(xx<=to)for(let yy=rowA;yy<=rowB;yy++){
+        const i=(yy*w+xx)*4,r=frame.data[i],g=frame.data[i+1],b=frame.data[i+2];
+        if(g>112&&g>r*1.13&&g>b*1.25&&g-r>20)hits++;
+      }
+      const ink=hits>=Math.max(2,Math.round(3*s));
+      if(ink&&runStart<0)runStart=xx;
+      if(ink)runEnd=xx;
+      if(!ink&&runStart>=0){
+        if(runEnd-runStart<=Math.round(11*s)){
+          greenStart=captureX+runStart;break;
+        }
+        runStart=-1;runEnd=-1;
+      }
+    }
+  }
+  if(greenStart===null){
+    // A precise manual selection can exclude the green percent entirely.
+    // Auto mode NEVER falls back to the stale fixed-width EXP crop.
+    return anchor?{region:null,reason:'Green (%) boundary unclear; holding EXP'}:
+      {region:original,reason:'Manual EXP region (no green percent inside)'};
+  }
+  const right=Math.floor(greenStart-4*s);
+  const left=original.x;
+  if(right-left<Math.max(12,Math.round(15*s))){
+    return {region:null,reason:'EXP and green (%) overlap; holding EXP'};
+  }
+  // Even if the manual ROI includes the percentage, cap at the first green
+  // bracket. If the percent later shifts RIGHT, the crop grows again.
+  const safeRight=anchor?right:Math.min(original.x+original.w,right);
+  return {region:{x:left,y:original.y,w:safeRight-left,h:original.h},
+    reason:'Green (%) excluded at x='+Math.round(greenStart)};
 }
 async function detectHUD(){
   const template=await loadAnchorTemplate();
@@ -243,8 +318,8 @@ async function autoDetectAndStart(){
 }
 function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
 const cropBuffer=document.createElement('canvas'),cropContext=cropBuffer.getContext('2d',{willReadFrequently:true});
-function prepareCrop(key,nearest=false){
-  const r=state.regions[key];if(!r)throw Error('Select an area first.');
+function prepareCrop(key,nearest=false,regionOverride=null){
+  const r=regionOverride||state.regions[key];if(!r)throw Error('Select an area first.');
   if(video.readyState<2||!video.videoWidth)throw Error('The shared game window is not providing video frames.');
   const configuredZoom=Number($('zoom').value);
   const z=Math.min(configuredZoom,Math.max(2,Math.floor(1800/(r.w+4))));
@@ -339,9 +414,12 @@ async function getWorker(){
 }
 async function recognizeArea(key,worker){
   if(!state.regions[key])return {value:null,status:'No box selected',details:[]};
-  const template=key==='exp'&&typeof expTemplateRead==='function'?expTemplateRead():null;
-  const source=prepareCrop(key,false);
-  const variants=[['High contrast',()=>enhance(source,'binary')],['Grayscale',()=>enhance(source,'gray')],['Adjusted threshold',()=>enhance(source,'alternate')],['Pixel-sharp',()=>enhance(prepareCrop(key,true),'gray')]];
+  const safe=key==='exp'?liveEXPRegion():{region:state.regions[key],reason:''};
+  if(!safe.region)return {value:null,status:safe.reason,details:[{
+    name:'EXP boundary guard',raw:safe.reason,candidate:null,confidence:0}]};
+  const template=key==='exp'&&typeof expTemplateRead==='function'?expTemplateRead(safe.region):null;
+  const source=prepareCrop(key,false,safe.region);
+  const variants=[['High contrast',()=>enhance(source,'binary')],['Grayscale',()=>enhance(source,'gray')],['Adjusted threshold',()=>enhance(source,'alternate')],['Pixel-sharp',()=>enhance(prepareCrop(key,true,safe.region),'gray')]];
   const max=$('ocrMode').value==='accuracy'?4:3;
   const tries=[],votes=new Map();
   for(let i=0;i<max;i++){
