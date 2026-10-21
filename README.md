@@ -1,6 +1,16 @@
-# Van's Maple EXP Tracker — Alpha 0.2.45
+# Van's Maple EXP Tracker — Alpha 0.2.46
 
 This release focuses on **faster, movable-inventory mesos reading**, manual potion costs, and an accurate pause-aware timer. EXP and level recognition remain screen-only.
+
+## Alpha 0.2.46 — Minimal mesos UI and portable digit learning
+
+- Condense the main Mesos Tracker: keep the **WORK IN PROGRESS** pill, prominent signed net mesos total, positive/neutral/negative status, current inventory balance, gross gain/hour, and potion spending. Remove the experimental disclaimer, lengthy calculation copy and public diagnostic chatter.
+- Tighter HP/MP layout: compact two-column potion cards, item-price dropdowns and counts only (no redundant price display), abbreviated usage counters, one-line instructions and concise update/reset feedback. All actual potion spending and net-mesos calculations are unchanged.
+- Move digit-training controls and recognition diagnostics into an additional collapsed section under **OCR SETTINGS**. The main panel retains only an optional collapsed manual balance correction control. Mesos scan status and the net formula are visible under SCAN DETAILS, not in the main tracker.
+- Use neutral “Digit recognition”, “learned digits” and “examples” wording in the interface rather than promoting the implementation as an AI agent.
+- Add **Export examples** and **Import examples** for browser-local labeled digit patterns. Exports are a .json containing ONLY small digit labels and 12×16 binary feature bitmaps, not screenshots. Imports validate strict format, reject malformed data and merge unique samples without clearing existing examples. Current player-specific saved examples persist unchanged.
+- Important: this release does **not** automatically include a player's existing locally taught digits in the GitHub Pages app. Those browser-private examples must first be exported, explicitly shared and then bundled into a future commit. Friends can alternatively import the exported file themselves.
+- EXP tracking, the single session timer, KPQ calculations, mesos recognition, potion accounting, and Maple HUD remain intact.
 
 ## Alpha 0.2.45 — One pausable session clock and potion-adjusted net mesos
 
