@@ -1,6 +1,16 @@
-# Van's Maple EXP Tracker — Alpha 0.2.52
+# Van's Maple EXP Tracker — Alpha 0.2.53
 
 This release focuses on **faster, movable-inventory mesos reading**, manual potion costs, and an accurate pause-aware timer. EXP and level recognition remain screen-only.
+
+## Alpha 0.2.53 — Keep green EXP percentage out of every EXP read
+
+- Fix the post-level-up EXP OCR error: when the EXP value resets to a shorter number, the green `(percentage%)` text on the MapleStory HUD moves left into the original EXP region. Previously the app only detected that boundary at the start of the session, then reused the stale region width indefinitely.
+- Before **every** EXP scan, sample only a tiny strip of the user-approved game video around the EXP label. Detect the live green parenthesis/percentage brackets and crop the **raw EXP digits strictly to the left** of the first green mark. Recompute this width on each scan so the crop shrinks or expands as EXP changes. OCR's 3–4 preprocessing variants and the local EXP glyph-template recognizer receive the **exact same safe region**.
+- For automatic HUD detection, **fail closed**: if the live green bracket position cannot be detected, or if the EXP and percentage overlap, do not scan the old full-width box. Keep the last verified EXP and try again on the next pass. For user-selected regions, trim the crop if any green parenthesis enters the chosen area, while allowing precisely selected numbers that do not include green pixels.
+- The green-bracket locator now accepts percentages that shift farther left at lower post-level-up EXP values. The recognized clipping edge and any fail-closed reason are shown only in Scan Details under EXP OCR diagnostics, not in the main tracker.
+- EXP pixel-template training uses the same safe live crop, preventing mislabeled samples from the percentage. This does not alter existing EXP template data or require any new model.
+- Tested simulated left-shifting green brackets and ordinary region expansion, percent removal (hold last accepted EXP), manual selection containing the percentage, and UI scales from 65% to 150%. Live MapleStory level-up footage should still be used to validate the color threshold and boundary across actual rendering conditions.
+- Existing level confirmation, EXP gains, potion and mesos ledgers, visual mesos footer detection, shared digit samples and Maple HUD remain otherwise unchanged.
 
 ## Alpha 0.2.52 — Mesos footer visual anchors with safe fallback
 
