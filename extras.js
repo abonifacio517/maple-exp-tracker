@@ -4,7 +4,7 @@
 const extras={inventory:null,lastFind:0,inventoryOpen:false,
   mesosStart:null,mesosCurrent:null,mesoPending:null,mesoVotes:[],mesoWhen:null,mesoStartWhen:null,mesoBusy:false,mesoStatus:'',
   lastMesoAttempt:0,lastInvFind:0,mesoSnapshots:[],mesoGained:0,mesoRawNote:'',
-  mesoReadings:[],mesoPendingChange:null,
+  mesoReadings:[],mesoPendingChange:null,mesoReview:null,
   mesoGuess:null,mesoGuessAt:0,mesoGuessConfidence:0,
   mesoGuessSource:'raw',mesoLastCrop:null,mesoLastCropAt:0};
 function anchorMatcher(spec,s,kind){
@@ -150,10 +150,9 @@ function sessionNetMesos(){
   return extras.mesosStart===null?null:extras.mesoGained-sessionPotionCost();
 }
 function showExtraStats(){
-  const confirmed=extras.mesosCurrent,guess=extras.mesoGuess;
-  const unverified=Number.isSafeInteger(guess)&&guess!==confirmed;
-  const balance=unverified?guess:confirmed;
-  const known=balance!==null;
+  // Only trusted balances belong on the main card. Unverified reads remain
+  // visible to the user inside Scan Details, without changing net earnings.
+  const balance=extras.mesosCurrent,known=balance!==null;
   const net=sessionNetMesos();
   const expense=sessionPotionCost();
   const netType=net===null?'unknown':net>0?'positive':net<0?'negative':'neutral';
@@ -178,10 +177,10 @@ function showExtraStats(){
   // Keep visible balance as a distinct, SECONDARY value. Never count an
   // unverified OCR or local AI guess toward session earnings.
   $('mesoBalance').textContent=known?fmt(balance):'—';
-  $('mesoBalance').className=unverified?'profit-estimate':'';
+  $('mesoBalance').className='';
   $('mesoBalanceLabel').textContent='Current balance';
-  $('mesoReadingStatus').textContent=unverified?'Estimate':
-    confirmed!==null?'Tracked':'—';
+  $('mesoReadingStatus').textContent=extras.mesoPendingChange?'Checking…':
+    !extras.inventoryOpen?'Waiting for inventory':known?'Tracked':'Checking…';
 
   $('mesoDelta').textContent=net===null?'—':signed(net);
   $('mesoGained').textContent=extras.mesoSnapshots.length?fmt(extras.mesoGained):'—';
@@ -189,15 +188,16 @@ function showExtraStats(){
     fmt(Math.round(extras.mesoGained/observedHours)):'—';
   $('potionSpend').textContent=fmt(expense);
   $('profitExplanation').textContent=
-    'Net = positive changes from recorded balance scans − estimated potion usage. Other expenses are excluded; unusual jumps require repeat verification.';
+    'Net = positive changes between verified snapshots − estimated potion usage. Suspicious readings stay out of totals until verified.';
   $('mesoScanStatus').textContent=
     (extras.mesoStatus||(extras.inventoryOpen?'Inventory visible':'Waiting for inventory'))+
     ` · ${extras.mesoReadings.length} reads · ${extras.mesoSnapshots.length} saved snapshots`;
   const history=$('mesoSnapshotHistory');
   if(history){
     const recent=extras.mesoReadings.slice(-12);
+    const rejected=extras.mesoSnapshots.filter(item=>item.status==='excluded').length;
     history.textContent=
-      `${extras.mesoReadings.length} readable scans · ${extras.mesoSnapshots.length} recorded snapshots\n`+
+      `${extras.mesoReadings.length} raw observations · ${extras.mesoSnapshots.length} accepted entries · ${rejected} excluded\n`+
       (recent.length?recent.map(item=>
         `${new Date(item.at).toLocaleTimeString()}  ${fmt(item.value)}  [${item.source}]  ${item.status||'observed'}`).join('\n'):
         'No readings recorded yet.');
@@ -206,52 +206,137 @@ function showExtraStats(){
 // Keep EVERY readable balance observation in the live session history,
 // including repeated identical balances. Only accepted changes add to gross
 // positive gains. Manual confirmations bypass the unusual-jump safeguard.
-function saveMesosSnapshot(value,source='manual'){
+// Alpha 0.2.51. Distinguish all raw observations from the trusted ledger.
+// Recompute gains from active ledger entries whenever a reading is corrected;
+// a deleted spike cannot leave a permanent positive gain in the session.
+const MESO_REVIEW_TTL_MS=16000;
+const MESO_REVIEW_FRAME_GAP_MS=350;
+function rebuildMesosLedger(){
+  const accepted=extras.mesoSnapshots.filter(entry=>entry.status!=='excluded');
+  let gained=0,previous=null;
+  for(const entry of accepted){
+    if(previous!==null&&entry.value>previous)gained+=entry.value-previous;
+    previous=entry.value;
+  }
+  extras.mesoGained=gained;
+  const first=accepted[0],last=accepted[accepted.length-1];
+  extras.mesosStart=first?.value??null;
+  extras.mesosCurrent=last?.value??null;
+  extras.mesoStartWhen=first?new Date(first.time):null;
+  extras.mesoWhen=last?new Date(last.time):null;
+}
+function saveMesosSnapshot(value,source='manual',meta={}){
   if(!Number.isSafeInteger(value)||value<0||value>1000000000000)return false;
-  const old=extras.mesosCurrent,elapsed=typeof sessionElapsedMs==='function'?sessionElapsedMs():0;
-  const time=Date.now();
-  extras.mesoSnapshots.push({value,elapsed,time,source});
-  if(old!==null&&old!==value)extras.mesoGained+=Math.max(0,value-old);
-  if(extras.mesosStart===null){extras.mesosStart=value;extras.mesoStartWhen=new Date(time);}
-  extras.mesosCurrent=value;extras.mesoWhen=new Date(time);
+  const time=Date.now(),elapsed=typeof sessionElapsedMs==='function'?sessionElapsedMs():0;
+  extras.mesoSnapshots.push({value,elapsed,time,source,
+    status:'accepted',verification:meta.verification||'manual'});
+  rebuildMesosLedger();
   extras.mesoGuess=null;extras.mesoGuessAt=0;
-  extras.mesoPendingChange=null;extras.mesoPending=null;extras.mesoVotes=[];
+  extras.mesoPendingChange=null;extras.mesoReview=null;
+  extras.mesoPending=null;extras.mesoVotes=[];
+  return true;
+}
+function correctLastMesosSnapshot(value){
+  if(!Number.isSafeInteger(value)||value<0||value>1000000000000)return false;
+  const index=extras.mesoSnapshots.findLastIndex(x=>x.status!=='excluded');
+  if(index<0)return saveMesosSnapshot(value,'manual');
+  const previous=extras.mesoSnapshots[index];
+  previous.correctedFrom=previous.value;
+  previous.value=value;
+  previous.status='accepted';
+  previous.source='manual correction';
+  previous.verification='manual correction';
+  recordMesosObservation(value,'manual correction',100).status='corrected previous snapshot';
+  rebuildMesosLedger();
+  extras.mesoPendingChange=null;extras.mesoReview=null;
+  extras.mesoGuess=null;extras.mesoGuessAt=0;
   return true;
 }
 function recordMesosObservation(value,source,confidence=0){
   if(!Number.isSafeInteger(value)||value<0||value>1000000000000)return null;
-  const now=Date.now();
-  const entry={value,source,confidence,at:now,
-    elapsed:typeof sessionElapsedMs==='function'?sessionElapsedMs():0};
+  const entry={value,source,confidence,at:Date.now(),
+    elapsed:typeof sessionElapsedMs==='function'?sessionElapsedMs():0,status:'observed'};
   extras.mesoReadings.push(entry);
   return entry;
 }
-function trackMesosCandidate(value,source,confidence=0){
-  const entry=recordMesosObservation(value,source,confidence);
+function veryLargeMesosChange(value,previous){
+  return previous!==null&&Math.abs(value-previous)>Math.max(80000,previous*.30);
+}
+// Only undo an extremely short-lived corroborated large spike when the
+// newest strongly supported balance returns EXACTLY to its pre-spike number.
+// This is intentionally narrow: legitimate buy/sell changes are possible.
+function tryRollbackMesosSpike(value,meta={}){
+  if(!meta.agreement)return false;
+  const accepted=extras.mesoSnapshots.filter(x=>x.status!=='excluded');
+  if(accepted.length<2)return false;
+  const latest=accepted[accepted.length-1];
+  const lastValue=latest.value;
+  let boundary=accepted.length-1;
+  while(boundary>=0&&accepted[boundary].value===lastValue)boundary--;
+  if(boundary<0)return false;
+  const old=accepted[boundary];
+  const run=accepted.slice(boundary+1);
+  const firstSpike=run[0];
+  if(firstSpike.verification!=='large'||
+     Date.now()-firstSpike.time>12000||old.value!==value||
+     !veryLargeMesosChange(lastValue,value))return false;
+  for(const item of run){item.status='excluded';item.exclusionReason='brief false spike reverted after dual-reader agreement';}
+  rebuildMesosLedger();
+  extras.mesoStatus='Reverted brief mesos spike; earnings recalculated';
+  return true;
+}
+function trackMesosCandidate(value,source,confidence=0,meta={}){
+  const entry=meta.entry||recordMesosObservation(value,source,confidence);
   if(!entry)return {saved:false,reason:'invalid'};
-  const previous=extras.mesosCurrent;
-  if(missingLeadingMesosDigit(value,previous)){
-    extras.mesoPendingChange=null;entry.status='possible missing first digit';
-    return {saved:false,reason:'likely missing first digit'};
+  const now=Date.now(),previous=extras.mesosCurrent;
+  if(previous===value){
+    // Retain every stable accepted snapshot for a complete scan history.
+    saveMesosSnapshot(value,source,{verification:'stable'});
+    entry.status='unchanged balance recorded';
+    return {saved:true,changed:false,reason:'unchanged'};
   }
-  // Large unexpected changes are kept in the observation log immediately
-  // but require a second matching screen read before changing earnings.
-  if(previous!==null&&previous!==value){
-    const jump=Math.abs(value-previous)>Math.max(80000,previous*.30);
-    if(jump){
-      const pending=extras.mesoPendingChange;
-      const repeated=pending?.value===value&&entry.at-pending.at<=16000;
-      const count=repeated?pending.count+1:1;
-      extras.mesoPendingChange={value,count,at:entry.at};
-      if(count<2){
-        entry.status='large change · waiting for repeat';
-        return {saved:false,reason:'large change awaiting second scan'};
-      }
-    }
+  const lead=missingLeadingMesosDigit(value,previous);
+  const large=veryLargeMesosChange(value,previous);
+  const sensitive=lead||large;
+  if(meta.disagreement){
+    entry.status='reader disagreement — waiting';
+    extras.mesoPendingChange=null;
+    return {saved:false,reason:'reader disagreement'};
   }
-  saveMesosSnapshot(value,source);
-  entry.status=previous!==value?'change saved':'same balance saved';
-  return {saved:true,changed:previous!==value,reason:'recorded'};
+  const prior=extras.mesoPendingChange;
+  const matched=prior&&prior.value===value&&now-prior.lastAt<=MESO_REVIEW_TTL_MS;
+  const monotonic=prior&&previous!==null&&!sensitive&&!prior.sensitive&&
+    now-prior.lastAt<=MESO_REVIEW_TTL_MS&&
+    ((value>prior.value&&prior.value>=previous&&value-prior.value<=20000)||
+     (value<prior.value&&prior.value<=previous&&prior.value-value<=20000));
+  const carried=(matched||monotonic)&&now-prior.lastAt>=MESO_REVIEW_FRAME_GAP_MS;
+  const votes=carried?prior.votes+1:1;
+  const firstAt=carried?prior.firstAt:now;
+  const agreementSeen=!!meta.agreement||(carried&&prior.agreementSeen);
+  const next={value,votes,firstAt,lastAt:now,sensitive,
+    needsOCR:sensitive&&!agreementSeen,agreementSeen};
+  extras.mesoPendingChange=next;
+  // Agreement between strict OCR and the learned digits on the same frame is
+  // sufficient for a normal change. Otherwise require independent frames.
+  // Large/leading-digit changes require both agreement AND 3 separate scans.
+  const required=sensitive?3:(meta.agreement?1:2);
+  const ready=votes>=required&&(!sensitive||agreementSeen);
+  if(!ready){
+    entry.status=lead?'possible missing digit · checking':
+      large?'large change · checking':'change · checking';
+    return {saved:false,reason:entry.status};
+  }
+  if(sensitive&&tryRollbackMesosSpike(value,{agreement:agreementSeen})){
+    // The revert value was already trusted before the bad run.
+    entry.status='short-lived spike excluded';
+    extras.mesoPendingChange=null;
+    saveMesosSnapshot(value,source,{verification:'reversion'});
+    return {saved:true,changed:true,reason:'spike rolled back'};
+  }
+  saveMesosSnapshot(value,source,{verification:sensitive?'large':agreementSeen?'dual reader':'repeat frames'});
+  entry.status=sensitive?'suspicious change confirmed':
+    'change verified';
+  return {saved:true,changed:previous!==value,reason:entry.status};
 }
 function resetExtras(){
   if(typeof stopMesosWatch==='function')stopMesosWatch();
@@ -259,7 +344,7 @@ function resetExtras(){
   Object.assign(extras,{inventory:null,lastFind:0,inventoryOpen:false,
     mesosStart:null,mesosCurrent:null,mesoPending:null,mesoVotes:[],mesoWhen:null,mesoStartWhen:null,
     mesoBusy:false,mesoStatus:'',lastMesoAttempt:0,lastInvFind:0,
-    mesoSnapshots:[],mesoReadings:[],mesoPendingChange:null,
+    mesoSnapshots:[],mesoReadings:[],mesoPendingChange:null,mesoReview:null,
     mesoGained:0,mesoRawNote:'',
     mesoGuess:null,mesoGuessAt:0,mesoGuessConfidence:0,
     mesoGuessSource:'raw',mesoLastCrop:null,mesoLastCropAt:0});
@@ -458,7 +543,7 @@ async function scanMesos(generation){
       `Learned digit matcher: ${training?.examples??0} examples / ${training?.digits??0} of 10 digits known\n`+
       (ai.value!==null?`Digit prediction: ${fmt(ai.value)} · visual match ${Math.round(ai.confidence*100)}% (not calibrated probability)\n`:
         `No reliable digit prediction: ${ai.reason||'Needs labeled examples'}\n`)+
-      'Learned readings can be saved as snapshots; large changes require another matching scan.';
+      'Unverified readings are logged; only corroborated balances affect gains.';
     const previousBalance=extras.mesosCurrent??extras.mesoGuess;
     const aiValid=ai.value!==null&&ai.confidence>=.65&&
       !missingLeadingMesosDigit(ai.value,previousBalance);
