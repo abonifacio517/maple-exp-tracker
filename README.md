@@ -1,6 +1,18 @@
-# Van's Maple EXP Tracker — Alpha 0.2.48
+# Van's Maple EXP Tracker — Alpha 0.2.49
 
 This release focuses on **faster, movable-inventory mesos reading**, manual potion costs, and an accurate pause-aware timer. EXP and level recognition remain screen-only.
+
+## Alpha 0.2.49 — Minimal tracker refinements and theme-matched Maple HUD
+
+- Moved the only **WORK IN PROGRESS** badge to the far right of the Mesos Tracker's top window-chrome header. Removed the duplicate Mesos Tracker heading, keeping the main metrics compact.
+- HP and MP potion cards show only `N left`, rather than `N left · N used`. The potion usage and cost calculations still run behind the scenes and continue to affect estimated net mesos gain.
+- Moved the existing **Set balance manually** correction form from the Mesos Tracker into a collapsed section at the bottom of **OCR Settings**, preserving its inputs and save behavior.
+- Renamed **Reset mesos** to **Reset mesos tracker**, and **Reset counts** to **BRB RePot**, without changing the reset actions or local-storage data.
+- Made **Van's Maple EXP Tracker** a single-line title across desktop and mobile widths, with responsive font sizing and no forced wrap.
+- Updated the browser-native Maple HUD to use the exact same `van-sprite.svg` artwork as Henesys mode and `sleepywood-sprite.svg` artwork as Sleepywood mode. The HUD switches the sprite live when the main page's theme changes.
+- Removed the redundant **EXP accepted · Sharing window**-style status copy from the HUD. The EXP and mesos figures, net mesos badge and optional graph remain.
+- Increased the default HUD Picture-in-Picture request from **390×440** to **470×690**. The graph-open size is at least **470×850** and resize calculations measure actual content, returning to the compact height when the graph closes. Chrome or the OS may still impose window limits.
+- No changes to EXP/mesos recognition, session timing, KPQ calculations, potion accounting, snapshot storage or the underlying game window capture. JS syntax, HTML element/ID and theme asset checks passed; live Chrome layout still requires visual verification.
 
 ## Alpha 0.2.48 — Bundle 30 player-confirmed samples for all visitors
 
