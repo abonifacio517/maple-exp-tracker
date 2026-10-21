@@ -84,6 +84,88 @@ async function findInventoryFooter(frame,previous=null,shouldContinue=()=>true){
     if(rect.w<8||rect.h<12||rect.x+rect.w>W||rect.y+rect.h>H)return null;
     return {x,y,s,score:.98,footer:true,rect};
   }
+  // Alpha 0.2.52: image-template anchor search from the player's actual
+  // mesos footer screenshot (329x48). We NEVER template-match changing digits.
+  // The gold coin and fixed MESOS lettering are stable at every balance.
+  // Field white starts at reference (39,14). Rows sample the word MESOS at
+  // x=270..315 with 3px stride; '1' = pale letter, '0' = blue background,
+  // 'x' = anti-aliasing uncertainty (excluded from comparison).
+  const labelRows=[
+    [8,'10xx110110110111'],
+    [10,'1x1x000000000x00'],
+    [12,'1x1xxx0xx00000xx'],
+    [14,'101x110110110110']
+  ];
+  const coinOn=[[-16,6],[-14,6],[-12,6],[-18,8],[-16,8],[-14,8],
+    [-12,8],[-18,12],[-16,12],[-14,12],[-12,12],[-18,14],[-16,14]];
+  const coinEdge=[[-8,8],[-8,10],[-8,12],[-8,14]];
+  const lightLetter=(x,y)=>{
+    const a=rgb(x,y);return !!a&&Math.min(...a)>193&&
+      Math.max(...a)-Math.min(...a)<65;
+  };
+  const darkOutline=(x,y)=>{
+    const a=rgb(x,y);return !!a&&Math.max(...a)<130;
+  };
+  function anchorScore(x,y,s){
+    let goldHits=0;
+    for(const [dx,dy] of coinOn)if(gold(x+dx*s,y+dy*s))goldHits++;
+    if(goldHits<coinOn.length*.69)return null;
+    let edgeHits=0;
+    for(const [dx,dy] of coinEdge)if(darkOutline(x+dx*s,y+dy*s))edgeHits++;
+    if(edgeHits<2)return null;
+    let labelHits=0,needed=0;
+    for(const [dy,pattern] of labelRows){
+      for(let i=0;i<pattern.length;i++){
+        const mark=pattern[i];if(mark==='x')continue;
+        const px=x+(231+3*i)*s,py=y+dy*s;
+        const found=mark==='1'?lightLetter(px,py):blueRail(px,py);
+        needed++;if(found)labelHits++;
+      }
+    }
+    const label=labelHits/Math.max(1,needed);
+    if(label<.68)return null;
+    return .45*(goldHits/coinOn.length)+.15*(edgeHits/coinEdge.length)+.40*label;
+  }
+  function verifyVisual(x,y,s){
+    if(x-24*s<0||y-3*s<0||x+282*s>=W||y+24*s>=H)return null;
+    if(![8,35,80,135,205].every(dx=>white(x+dx*s,y+2*s)))return null;
+    if(![15,50,100].every(dx=>white(x+dx*s,y+17*s)))return null;
+    // Verify both the border geometry AND icon + label; a similarly colored
+    // inventory rectangle elsewhere cannot be mistaken for this footer.
+    if(!nearRail(x-2*s,y+10*s,3)||!nearRail(x+223*s,y+11*s,3)||
+       !nearRail(x+50*s,y+22*s,3))return null;
+    const score=anchorScore(x,y,s);
+    if(score===null)return null;
+    const right=Math.round(x+220*s);
+    const left=Math.max(Math.round(x+2*s),right-Math.round(165*s));
+    const top=Math.max(0,Math.round(y-Math.max(1,s)));
+    const bottom=Math.min(H,Math.round(y+22*s));
+    const rect={x:left,y:top,w:right-left,h:bottom-top};
+    if(rect.w<8||rect.h<12||rect.x+rect.w>W)return null;
+    return {x,y,s,score,footer:true,rect,method:'coin + MESOS visual anchors'};
+  }
+  // First recheck the old position quickly with both detection methods.
+  // A changed layout or scaled capture may fail the legacy pixel verifier.
+  if(previous?.footer){
+    const direct=verifyVisual(previous.x,previous.y,previous.s);
+    if(direct)return direct;
+  }
+  // Cheap two-pixel gold gate makes the expensive label template run only
+  // near plausible coin icons. The search is time-sliced for large screens.
+  for(const scale of [1,.8,1.25,.65,1.5]){
+    for(let y=3;y<H-Math.round(29*scale);y+=3){
+      if(!(await yieldIfBusy()))return null;
+      for(let x=Math.ceil(25*scale);x<W-Math.round(283*scale);x+=3){
+        if(!gold(x-16*scale,y+10*scale)||
+           !gold(x-12*scale,y+11*scale)||
+           !white(x+80*scale,y+2*scale))continue;
+        for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){
+          const match=verifyVisual(x+dx,y+dy,scale);
+          if(match)return match;
+        }
+      }
+    }
+  }
   // Revalidate last position first, but immediately search the whole frame if moved.
   if(previous?.footer){
     const last=verify(previous.x,previous.y,previous.s);
