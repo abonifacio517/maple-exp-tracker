@@ -1286,3 +1286,56 @@ body.theme-dark .meso-current-balance strong.profit-estimate{color:#b9d8ed}
  .profit-panel .potion-grid{grid-template-columns:minmax(0,1fr)}
  .profit-panel .profit-breakdown{grid-template-columns:minmax(0,1fr)}
 }
+
+/* Alpha 0.2.49 — compact header, single-line title and mesos WIP inside chrome */
+body.theme-light .brand h1,
+body.theme-dark .brand h1{
+  display:block;
+  width:max-content;
+  max-width:none;
+  white-space:nowrap;
+  line-height:1.08;
+  font-size:clamp(20px,2.75vw,32px);
+  letter-spacing:-.045em;
+}
+.app-header .brand>div{min-width:0}
+.profit-panel>.window-chrome.meso-window-heading{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.profit-panel .meso-window-heading .window-label{white-space:nowrap}
+.profit-panel .meso-window-heading .wip-label{
+  flex:none;
+  margin-left:auto;
+  padding:5px 9px;
+  border-radius:999px;
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:.035em;
+  text-shadow:none;
+}
+body.theme-light .profit-panel .meso-window-heading .wip-label{
+  color:#77511c;
+  background:#fff6e3;
+  border:1px solid #eed39e;
+}
+body.theme-dark .profit-panel .meso-window-heading .wip-label{
+  color:#f4d29d;
+  background:#2e3440;
+  border:1px solid #756849;
+}
+@media(max-width:900px){
+  body.theme-light .brand h1,
+  body.theme-dark .brand h1{font-size:clamp(17px,3.4vw,26px)}
+}
+@media(max-width:480px){
+  body.theme-light .brand h1,
+  body.theme-dark .brand h1{font-size:clamp(14px,4.15vw,20px)}
+  body.theme-light .brand-sprite,
+  body.theme-dark .brand-sprite{width:46px;height:68px}
+  body.theme-light .brand,
+  body.theme-dark .brand{gap:9px}
+  .profit-panel .meso-window-heading .wip-label{font-size:8px;padding:4px 6px}
+}
