@@ -639,6 +639,17 @@ $('resetPotionBtn').addEventListener('click',()=>{
   $('potionNote').textContent='Counts cleared for re-pot. Session costs kept.';
 });
 renderPotions();
+// Switching HP/MP item type requires a fresh quantity baseline. A leftover
+// count from the previous item must not become the new item's count.
+for(const kind of ['hp','mp']){
+  $(kind+'PotionType').addEventListener('change',()=>{
+    const chosen=$(kind+'PotionType').value;
+    if(chosen!==potions[kind].type){
+      $(kind+'PotionCount').value='';
+      $('potionNote').textContent='Enter the starting '+kind.toUpperCase()+' count for the selected item.';
+    }
+  });
+}
 
 $('resetExtraBtn').addEventListener('click',()=>{
   resetExtras();setStatus('Mesos and HP/MP potion session reset; EXP session unchanged.','good');
