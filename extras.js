@@ -630,7 +630,8 @@ async function scanMesos(generation){
         const entry=chosen===aiCandidate?aiEntry:ocrEntry;
         const logged=trackMesosCandidate(chosen.value,chosen.source,chosen.confidence,
           {agreement,entry});
-        if(ocrEntry&&ocrEntry!==entry)ocrEntry.status='corroborates trained digits';
+        if(ocrEntry&&ocrEntry!==entry&&!weakDisagree&&
+          ocrEntry.value===chosen.value)ocrEntry.status='corroborates trained digits';
         extras.mesoStatus=logged.saved?
           `Mesos balance ${fmt(chosen.value)} verified (${logged.reason})`:
           `Balance ${fmt(chosen.value)} · ${logged.reason}`;
