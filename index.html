@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#8bb7df">
   <meta name="description" content="A lightweight, browser-based MapleStory EXP tracker that reads your on-screen EXP every five seconds.">
-  <title>Van's Maple EXP Tracker — Alpha 0.2.45</title>
-  <link rel="stylesheet" href="styles.css?v=0.2.45">
+  <title>Van's Maple EXP Tracker — Alpha 0.2.46</title>
+  <link rel="stylesheet" href="styles.css?v=0.2.46">
   <style>
     /* Essential EXP stat contrast: kept inline so an older cached theme stylesheet cannot turn numbers white. */
     body.theme-light #perHour,
@@ -30,7 +30,7 @@
       </div>
       <div class="header-right">
         <div class="header-topline">
-          <span class="header-note">Alpha 0.2.45 · Screen-only recognition</span>
+          <span class="header-note">Alpha 0.2.46 · Screen-only recognition</span>
           <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false" title="Toggle light and dark mode">
             <span class="theme-toggle-label">Sleepywood mode</span>
             <span class="theme-toggle-track"><span class="theme-toggle-thumb"></span></span>
@@ -123,29 +123,11 @@
 
       <section class="profit-panel panel" aria-label="Mesos balance and potion expenses">
         <div class="window-chrome" aria-hidden="true"><span class="window-label">MESOS TRACKER</span></div>
-        <div class="profit-title-row hero-top">
-          <div class="panel-hero panel-hero-mesos">
-            <svg class="hero-icon hero-coin-art meso-coin-art" viewBox="0 0 64 64" role="img" aria-label="Gold meso coin with a maple leaf">
-              <defs><linearGradient id="mesoGold" x1="0" y1="0" x2=".85" y2="1"><stop offset="0" stop-color="#fff1a4"/><stop offset=".34" stop-color="#fbd457"/><stop offset=".78" stop-color="#e9a727"/><stop offset="1" stop-color="#be731d"/></linearGradient></defs>
-              <ellipse cx="33" cy="36" rx="24" ry="23" fill="#4b2d16" opacity=".24"/>
-              <circle cx="31" cy="30" r="24" fill="#744217" stroke="#58300f" stroke-width="2"/>
-              <circle cx="31" cy="28" r="21" fill="url(#mesoGold)" stroke="#ffc955" stroke-width="2.5"/>
-              <circle cx="31" cy="28" r="17" fill="none" stroke="#b87020" stroke-width="2" opacity=".8"/>
-              <path d="M31 13L35 22 41 19 39 25 47 29 40 33 43 39 34 36 33 47 29 47 28 36 19 39 22 33 15 29 23 25 21 19 27 22Z" fill="#ab661e" stroke="#8a501a" stroke-width="1" stroke-linejoin="round"/>
-              <path d="M20 17A19 19 0 0 1 39 11" stroke="#fff5b7" stroke-width="2.5" stroke-linecap="round" fill="none" opacity=".88"/>
-            </svg>
-            <div>
-              <div class="eyebrow">YOUR MESOS</div>
-              <h2>Mesos balance</h2>
-            </div>
-          </div>
-          <div class="profit-badges"><span class="wip-label" title="Balance tracking is still experimental">WORK IN PROGRESS</span></div>
-        </div>
-        <p class="mesos-disclaimer">Experimental: OCR and local AI guesses may be wrong. Confirm in-game before relying on mesos totals.</p>
+        <div class="meso-compact-heading"><h2>Mesos Tracker</h2><span class="wip-label" title="Features are still being refined">WORK IN PROGRESS</span></div>
         <div class="net-mesos-highlight" id="netMesoPanel">
           <div class="net-mesos-heading"><span>NET MESOS GAIN</span><span id="profitBadge" class="profit-badge">Waiting for mesos</span></div>
           <div class="profit-total net-mesos-total"><strong id="netProfit" class="profit-unknown">—</strong><span class="profit-unit">mesos</span></div>
-          <p class="net-mesos-formula" id="netMesoFormula">Confirmed gross gains − estimated HP/MP potion usage this session</p>
+          
         </div>
         <div class="meso-current-balance">
           <div><span id="mesoBalanceLabel">Current mesos · last confirmed balance</span><strong id="mesoBalance">—</strong></div>
@@ -157,40 +139,35 @@
           <div><span>Session potion cost (estimated)</span><strong id="potionSpend">0</strong></div>
         </div>
         <span id="mesoDelta" hidden>—</span>
-        <p class="profit-help" id="profitExplanation">Net mesos gain = confirmed positive mesos changes minus the estimated NPC cost of HP/MP potions used since this mesos session started. OCR/AI guesses cannot alter the net result.</p>
+        
         <div class="potion-tracker" aria-label="Manual potion usage tracker">
-          <div class="potion-heading"><strong>HP / MP potion tracking</strong><span class="wip-label">MANUAL</span></div>
-          <p class="detail-help">Select a potion or recovery food and enter its current count. NPC shop prices are shown in each dropdown (from <a href="https://meowdb.com/msclassic/npc-shops/item-efficiency/consumables" target="_blank" rel="noopener noreferrer">MeowDB's Classic consumables table</a>). The first update sets a baseline; later decreases estimate usage. Purchased or obtained items may have a different effective cost.</p>
+          <div class="potion-heading"><strong>HP / MP Potions</strong></div>
+          <p class="potion-quick-help">Choose an item and enter your count. Update again to track use.</p>
           <div class="potion-grid">
             <div class="potion-entry">
               <label for="hpPotionType">HP potion</label>
               <select id="hpPotionType"><option value="">Select HP consumable</option><option value="Red Potion">Red Potion — 50 mesos</option><option value="Orange Potion">Orange Potion — 150 mesos</option><option value="White Potion">White Potion — 350 mesos</option><option value="Meat">Meat — 80 mesos</option><option value="Fried Chicken">Fried Chicken — 60 mesos</option><option value="Egg">Egg — 30 mesos</option><option value="Apple">Apple — 20 mesos</option><option value="Hot Dog">Hot Dog — 180 mesos</option><option value="Dried Squid">Dried Squid — 180 mesos</option><option value="Hamburger">Hamburger — 350 mesos</option><option value="Pizza">Pizza — 252 mesos</option><option value="Hot Dog Supreme">Hot Dog Supreme — 480 mesos</option><option value="Ice Cream Pop">Ice Cream Pop — 1,500 mesos</option><option value="Unagi">Unagi — 1,000 mesos</option><option value="Fat Sausage">Fat Sausage — 800 mesos</option><option value="Cake">Cake — 150 mesos</option><option value="Mrs. Ming Ming&#39;s Stew">Mrs. Ming Ming&#39;s Stew — 480 mesos</option><option value="Andre&#39;s Seafood Soup">Andre&#39;s Seafood Soup — 480 mesos</option><option value="Watermelon">Watermelon — 1,920 mesos</option><option value="Ribbon Pig Daydream">Ribbon Pig Daydream — 500 mesos</option><option value="Orange Mushroom Daydream">Orange Mushroom Daydream — 500 mesos</option></select>
-              <div class="potion-inputs"><label>Count<input id="hpPotionCount" type="number" min="0" max="9999999" step="1" placeholder="e.g. 120"></label><span class="potion-shop-price" id="hpPotionPriceDisplay">Choose an item to view NPC price</span></div>
+              <div class="potion-inputs"><label>Count<input id="hpPotionCount" type="number" min="0" max="9999999" step="1" placeholder="e.g. 120"></label></div>
               <small id="hpPotionStatus">No baseline recorded</small>
             </div>
             <div class="potion-entry">
               <label for="mpPotionType">MP potion</label>
               <select id="mpPotionType"><option value="">Select MP consumable</option><option value="Blue Potion">Blue Potion — 220 mesos</option><option value="Lemon">Lemon — 150 mesos</option><option value="Orange">Orange — 50 mesos</option><option value="Salad">Salad — 220 mesos</option><option value="Orange Juice">Orange Juice — 540 mesos</option><option value="Grape Juice">Grape Juice — 1,260 mesos</option><option value="Pure Water">Pure Water — 1,120 mesos</option><option value="Red Bean Sundae">Red Bean Sundae — 2,250 mesos</option><option value="Cake">Cake — 150 mesos</option><option value="Mrs. Ming Ming&#39;s Stew">Mrs. Ming Ming&#39;s Stew — 480 mesos</option><option value="Andre&#39;s Seafood Soup">Andre&#39;s Seafood Soup — 480 mesos</option><option value="Watermelon">Watermelon — 1,920 mesos</option></select>
-              <div class="potion-inputs"><label>Count<input id="mpPotionCount" type="number" min="0" max="9999999" step="1" placeholder="e.g. 80"></label><span class="potion-shop-price" id="mpPotionPriceDisplay">Choose an item to view NPC price</span></div>
+              <div class="potion-inputs"><label>Count<input id="mpPotionCount" type="number" min="0" max="9999999" step="1" placeholder="e.g. 80"></label></div>
               <small id="mpPotionStatus">No baseline recorded</small>
             </div>
           </div>
           <div class="meso-actions potion-actions">
-            <button class="button primary" id="updatePotionBtn" type="button">Update potion counts</button>
-            <button class="button ghost" id="resetPotionBtn" type="button">Reset potion baselines</button>
+            <button class="button primary" id="updatePotionBtn" type="button">Update counts</button>
+            <button class="button ghost" id="resetPotionBtn" type="button">Reset counts</button>
           </div>
-          <p class="detail-help" id="potionNote" role="status" aria-live="polite">No potion usage recorded. Restocking increases your baseline without adding spending.</p>
+          <p class="detail-help" id="potionNote" role="status" aria-live="polite">Set a starting count to track potion use.</p>
         </div>
-        <p class="extra-hint" id="mesoScanStatus">Waiting for inventory</p>
-        <details class="advanced-entry"><summary>Correct meso balance manually</summary>
-          <div class="manual-snapshot"><label>Balance<input id="manualMesoBalance" type="text" inputmode="numeric" placeholder="e.g. 466,629"></label><button id="setMesoSnapshot" class="button ghost">Save snapshot</button><button id="teachMesoAIBtn" class="button primary" type="button">Confirm &amp; teach local AI</button></div>
-          <div class="meso-ai-training">
-            <label class="meso-ai-toggle"><input id="mesoAIEnabled" type="checkbox" checked> Use experimental local AI digits</label>
-            <p class="detail-help" id="mesoAIStatus" role="status" aria-live="polite">Local AI starts untrained. Confirm a visible inventory balance to teach its digits; only digit patterns are saved in this browser.</p>
-            <button id="clearMesosAIBtn" class="button ghost" type="button">Clear learned digits</button>
-          </div>
+        
+        <details class="advanced-entry meso-manual-correction"><summary>Set balance manually</summary>
+          <div class="manual-snapshot"><label>Balance<input id="manualMesoBalance" type="text" inputmode="numeric" placeholder="e.g. 466,629"></label><button id="setMesoSnapshot" class="button ghost">Save balance</button></div>
         </details>
-        <div class="meso-actions"><button class="button ghost" id="resetExtraBtn">Reset mesos session</button></div>
+        <div class="meso-actions"><button class="button ghost" id="resetExtraBtn">Reset mesos</button></div>
       </section>
 
       <section class="lower-layout">
@@ -216,7 +193,10 @@
             <div class="data-row"><span>EXP read</span><strong id="expStatus">Waiting</strong></div>
             <div class="data-row"><span>Level recognition</span><strong id="levelStatusDetail">See level status above</strong></div>
             <pre id="ocrDetails">OCR has not started.</pre>
-            <p class="detail-help">Mesos scan diagnostic</p><pre id="mesoDebug">No snapshots yet</pre>
+            <p class="detail-help">Mesos scan</p><pre id="mesoDebug">No snapshots yet</pre>
+            <p class="detail-help" id="mesoScanStatus">Waiting for inventory</p>
+            <p id="netMesoFormula" class="detail-help">Confirmed gross gains − potion usage</p>
+            <p id="profitExplanation" class="detail-help">Net gain excludes unverified balance readings.</p>
             <p class="detail-help">Unverified EXP reads are not added. Level % is calculated from current EXP and the level requirement. If the level is missing, set it under OCR settings. Changing your level safely starts a new EXP baseline.</p>
             <label class="correction-label">Correct current EXP<input id="manualExp" type="text" inputmode="numeric" placeholder="e.g. 11821"></label>
             <button class="button ghost" id="autoLevelBtn">Try auto-detecting level again</button>
@@ -243,14 +223,32 @@
             <div class="template-trainer"><label for="templateExpInput">Teach the tracker an exact EXP number (optional)</label><div class="template-trainer-row"><input id="templateExpInput" type="text" inputmode="numeric" placeholder="e.g. 10,629"><button class="button" id="teachDigitsBtn">Calibrate digits</button></div><p id="templateStatus" class="detail-help">Type the number you can actually see in-game. This saves only local pixel patterns in your browser and never trains from an unconfirmed OCR guess.</p></div>
             <div class="crop-grid"><div><span>EXP OCR view <small id="expPreviewLabel">—</small></span><div class="crop"><canvas id="expCrop"></canvas></div></div></div>
             <div class="meso-ocr-preview">
-              <strong>Mesos recognition (experimental)</strong>
-              <p class="detail-help">The original-color mesos textbox and a single raw OCR result. Low-confidence guesses are displayed as unverified rather than hidden.</p>
+              <strong>Mesos recognition</strong>
+              <p class="detail-help">Original textbox and most recent OCR output.</p>
               <div class="meso-preview-grid">
-                <div><span>Original mesos textbox (no enhancements)</span><canvas id="mesoRawCrop" aria-label="Original cropped mesos number"></canvas></div>
+                <div><span>Original number crop</span><canvas id="mesoRawCrop" aria-label="Original cropped mesos number"></canvas></div>
               </div>
               <pre id="mesoOCRDetails">Waiting for inventory.</pre>
-              <p class="detail-help">Local AI (experimental; learned entirely from your confirmed digits)</p>
-              <pre id="mesoAIDetails">No learned digits yet. Confirm and teach a displayed inventory balance under Mesos Tracker.</pre>
+              <p class="detail-help">Digit matcher</p>
+              <pre id="mesoAIDetails">Waiting for number examples.</pre>
+              <details class="meso-training-tools">
+                <summary>Digit recognition settings &amp; sharing</summary>
+                <div class="meso-ai-training">
+                  <label class="meso-ai-toggle"><input id="mesoAIEnabled" type="checkbox" checked> Use learned digits</label>
+                  <p id="mesoAIStatus" class="detail-help" role="status">No examples saved yet.</p>
+                  <div class="meso-training-row">
+                    <input id="mesoTrainingBalance" type="text" inputmode="numeric" placeholder="Balance on screen">
+                    <button id="teachMesoAIBtn" class="button" type="button">Save digit example</button>
+                  </div>
+                  <p class="detail-help">Confirm the visible number to improve recognition.</p>
+                  <div class="meso-training-row">
+                    <button id="exportMesosTrainingBtn" class="button ghost" type="button">Export examples</button>
+                    <label class="meso-import-label">Import examples <input id="importMesosTrainingFile" type="file" accept=".json,application/json"></label>
+                    <button id="clearMesosAIBtn" class="button ghost" type="button">Clear examples</button>
+                  </div>
+                  <p class="detail-help" id="mesoTransferStatus" role="status">Share an exported file to use the same recognition examples in another browser.</p>
+                </div>
+              </details>
             </div>
           </details>
 
@@ -298,8 +296,8 @@
   <script src="app.js?v=0.2.45"></script>
   <script src="inventory-footer.js?v=0.2.44"></script>
   <!-- Mesos digit templates removed from automatic scan; raw OCR only. -->
-  <script src="mesos-ai.js?v=0.2.44"></script>
-  <script src="extras.js?v=0.2.45"></script>
+  <script src="mesos-ai.js?v=0.2.46"></script>
+  <script src="extras.js?v=0.2.46"></script>
   <script src="overlay.js?v=0.2.45"></script>
 </body>
 </html>
