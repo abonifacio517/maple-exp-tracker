@@ -6,8 +6,7 @@ const extras={inventory:null,lastFind:0,inventoryOpen:false,
   lastMesoAttempt:0,lastInvFind:0,mesoSnapshots:[],mesoGained:0,mesoRawNote:'',
   mesoReadings:[],mesoPendingChange:null,
   mesoGuess:null,mesoGuessAt:0,mesoGuessConfidence:0,
-  mesoGuessSource:'raw',mesoLastCrop:null,mesoLastCropAt:0,
-  potionSpendBaseline:null};
+  mesoGuessSource:'raw',mesoLastCrop:null,mesoLastCropAt:0};
 function anchorMatcher(spec,s,kind){
   const pts=spec.points.filter((p,i)=>i%(kind==='hotbar'?5:2)===0).map(([x,y,v])=>[Math.round(x*s),Math.round(y*s),v]);
   const n=pts.length,mean=pts.reduce((sum,p)=>sum+p[2],0)/n;
@@ -145,7 +144,7 @@ async function recognizeSnapshot(rect,worker,kind='mesos'){
 // end-to-start balance change. This avoids counting inventory purchases as an
 // additional loss while session potion usage is priced separately.
 function sessionPotionCost(){
-  return Math.max(0,potionSpent()-(extras.potionSpendBaseline??potionSpent()));
+  return potionSpent(); // already scoped to the active EXP/mesos session
 }
 function sessionNetMesos(){
   return extras.mesosStart===null?null:extras.mesoGained-sessionPotionCost();
@@ -256,15 +255,15 @@ function trackMesosCandidate(value,source,confidence=0){
 }
 function resetExtras(){
   if(typeof stopMesosWatch==='function')stopMesosWatch();
+  resetPotionsForNewSession(); // Pause/Resume never calls resetExtras().
   Object.assign(extras,{inventory:null,lastFind:0,inventoryOpen:false,
     mesosStart:null,mesosCurrent:null,mesoPending:null,mesoVotes:[],mesoWhen:null,mesoStartWhen:null,
     mesoBusy:false,mesoStatus:'',lastMesoAttempt:0,lastInvFind:0,
     mesoSnapshots:[],mesoReadings:[],mesoPendingChange:null,
     mesoGained:0,mesoRawNote:'',
     mesoGuess:null,mesoGuessAt:0,mesoGuessConfidence:0,
-    mesoGuessSource:'raw',mesoLastCrop:null,mesoLastCropAt:0,
-    potionSpendBaseline:potionSpent()});
-  // Resetting the mesos session does not erase manual potion spending.
+    mesoGuessSource:'raw',mesoLastCrop:null,mesoLastCropAt:0});
+  // A new mesos/EXP session also resets HP/MP use, cost, and count baselines.
   if(state.running&&state.stream)beginMesosWatch();
   showExtraStats();
 }
@@ -557,24 +556,22 @@ const POTION_NPC_PRICES={
     'Watermelon':1920
   }
 };
-const POTION_STORAGE_KEY='vansMaplePotionSessionV1';
+// Potion ledger is session-only. Never restore last session's counts from
+// localStorage (which used to survive resets and corrupt per-session usage).
+const LEGACY_POTION_STORAGE_KEY='vansMaplePotionSessionV1';
 const emptyPotion=()=>({type:'',count:null,price:0,spent:0,used:0});
 const potions={hp:emptyPotion(),mp:emptyPotion()};
-try{
-  const saved=JSON.parse(localStorage.getItem(POTION_STORAGE_KEY)||'null');
-  for(const kind of ['hp','mp']){
-    const v=saved?.[kind];
-    if(v&&typeof v.type==='string'&&(v.count===null||Number.isSafeInteger(v.count))&&
-      Number.isSafeInteger(v.price)&&Number.isSafeInteger(v.spent)&&Number.isSafeInteger(v.used)){
-      potions[kind]={type:v.type,count:v.count,price:v.price,spent:v.spent,used:v.used};
-    }
-  }
-}catch(_e){/* No storage is required to track locally in this tab. */}
+try{localStorage.removeItem?.(LEGACY_POTION_STORAGE_KEY)}catch(_){}
 function potionSpent(){return potions.hp.spent+potions.mp.spent;}
-// Only potion usage recorded from NOW onward affects this mesos session.
-// Restored lifetime localStorage expenses are not retroactively deducted.
-if(extras.potionSpendBaseline===null)extras.potionSpendBaseline=potionSpent();
-function savePotions(){try{localStorage.setItem(POTION_STORAGE_KEY,JSON.stringify(potions))}catch(_e){}}
+function resetPotionsForNewSession(){
+  for(const kind of ['hp','mp']){
+    Object.assign(potions[kind],emptyPotion());
+    $(kind+'PotionCount').value='';
+    // Keep dropdown selection for convenience; counts and expenses reset.
+  }
+  renderPotions();
+  $('potionNote').textContent='Enter starting HP/MP counts for this session.';
+}
 function renderPotions(){
   for(const kind of ['hp','mp']){
     const p=potions[kind];
@@ -591,55 +588,60 @@ function renderPotions(){
 }
 
 $('updatePotionBtn').addEventListener('click',()=>{
-  const changes=[];let any=false;
+  // Input represents what remains, not the number consumed. Compare each
+  // new count with its own last accepted count and charge ONLY the drop.
+  // Validate both HP/MP first; a bad MP value must not partly commit HP.
+  const proposed=[];
   for(const kind of ['hp','mp']){
     const type=$(kind+'PotionType').value;
-    const countRaw=$(kind+'PotionCount').value;
-    if(!type&&countRaw==='')continue;
+    const raw=$(kind+'PotionCount').value.trim();
+    if(raw==='')continue; // other type may still be selected from last session
     if(!type||!Object.hasOwn(POTION_NPC_PRICES[kind],type)){
-      $('potionNote').textContent='Choose a priced '+kind.toUpperCase()+' consumable from the dropdown.';return;
+      $('potionNote').textContent='Select an '+kind.toUpperCase()+' item first.';return;
     }
-    const count=safeAmount(countRaw,9999999);
+    const count=safeAmount(raw,9999999);
     if(count===null){
-      $('potionNote').textContent='Enter a valid '+kind.toUpperCase()+' consumable count.';return;
+      $('potionNote').textContent='Enter a valid '+kind.toUpperCase()+' count.';return;
     }
-    const price=POTION_NPC_PRICES[kind][type];
-    changes.push({kind,type,count,price});
+    const p=potions[kind],price=POTION_NPC_PRICES[kind][type];
+    const isBaseline=p.count===null||p.type!==type;
+    const used=isBaseline?0:Math.max(0,p.count-count),spent=used*price;
+    if(!Number.isSafeInteger(spent)||!Number.isSafeInteger(p.spent+spent)||
+       !Number.isSafeInteger(p.used+used)){
+      $('potionNote').textContent='Potion total exceeds the supported range.';return;
+    }
+    const note=isBaseline?kind.toUpperCase()+' baseline set':
+      used?kind.toUpperCase()+' −'+fmt(used)+' used (−'+fmt(spent)+' mesos)':
+      count>p.count?kind.toUpperCase()+' restocked':'';
+    proposed.push({kind,type,count,price,used,spent,note});
   }
-  if(!changes.length){$('potionNote').textContent='Choose at least one HP or MP potion to update.';return;}
+  if(!proposed.length){
+    $('potionNote').textContent='Enter an HP or MP count to update.';return;
+  }
   const notes=[];
-  for(const {kind,type,count,price} of changes){
-    const p=potions[kind],isNew=p.type!==type||p.count===null;
-    if(isNew)notes.push(kind.toUpperCase()+' baseline set');
-    else if(count<p.count){
-      const used=p.count-count,expense=used*price;
-      if(!Number.isSafeInteger(expense)||!Number.isSafeInteger(p.spent+expense)){
-        $('potionNote').textContent='Total potion spending exceeds supported number range.';return;
-      }
-      p.used+=used;p.spent+=expense;
-      notes.push(kind.toUpperCase()+' −'+fmt(used)+' used (−'+fmt(expense)+' mesos)');
-    }else if(count>p.count)notes.push(kind.toUpperCase()+' restocked (no usage charged)');
-    else notes.push(kind.toUpperCase()+' count unchanged');
-    p.type=type;p.count=count;p.price=price;
-    any=true;
+  for(const item of proposed){
+    const p=potions[item.kind];
+    p.type=item.type;p.count=item.count;p.price=item.price;
+    p.used+=item.used;p.spent+=item.spent;
+    if(item.note)notes.push(item.note);
   }
-  if(any){
-    savePotions();renderPotions();showExtraStats();
-    $('potionNote').textContent=notes.join(' · ');
-  }
+  renderPotions();showExtraStats();
+  $('potionNote').textContent=notes.length?notes.join(' · '):'Counts unchanged.';
 });
 $('resetPotionBtn').addEventListener('click',()=>{
+  // Re-pot: rebaseline current inventory counts, while retaining THIS
+  // session's already-incurred usage and mesos expense.
   for(const kind of ['hp','mp']){
     potions[kind].count=null;
     $(kind+'PotionCount').value='';
   }
-  savePotions();renderPotions();showExtraStats();
-  $('potionNote').textContent='Counts cleared. Enter new starting counts.';
+  renderPotions();showExtraStats();
+  $('potionNote').textContent='Counts cleared for re-pot. Session costs kept.';
 });
 renderPotions();
 
 $('resetExtraBtn').addEventListener('click',()=>{
-  resetExtras();setStatus('Mesos session reset; EXP session unchanged.','good');
+  resetExtras();setStatus('Mesos and HP/MP potion session reset; EXP session unchanged.','good');
 });
 showExtraStats();
 $('teachDigitsBtn').addEventListener('click',()=>{
