@@ -4,6 +4,7 @@
 const extras={inventory:null,lastFind:0,inventoryOpen:false,
   mesosStart:null,mesosCurrent:null,mesoPending:null,mesoVotes:[],mesoWhen:null,mesoStartWhen:null,mesoBusy:false,mesoStatus:'',
   lastMesoAttempt:0,lastInvFind:0,mesoSnapshots:[],mesoGained:0,mesoRawNote:'',
+  mesoReadings:[],mesoPendingChange:null,
   mesoGuess:null,mesoGuessAt:0,mesoGuessConfidence:0,
   mesoGuessSource:'raw',mesoLastCrop:null,mesoLastCropAt:0,
   potionSpendBaseline:null};
@@ -190,57 +191,65 @@ function showExtraStats(){
   $('potionSpend').textContent=fmt(expense);
   $('profitExplanation').textContent=
     'Net = confirmed positive balance changes − estimated potion usage this session. Other expenses are excluded. Unverified readings do not change the total.';
-  $('mesoScanStatus').textContent=extras.mesoStatus||(
-    extras.inventoryOpen?'Inventory visible · awaiting recognition':'Waiting for inventory');
+  $('mesoScanStatus').textContent=
+    (extras.mesoStatus||(extras.inventoryOpen?'Inventory visible':'Waiting for inventory'))+
+    ` · ${extras.mesoReadings.length} reads · ${extras.mesoSnapshots.length} saved snapshots`;
 }
-function saveMesosSnapshot(value){
+// Keep EVERY readable balance observation in the live session history,
+// including repeated identical balances. Only accepted changes add to gross
+// positive gains. Manual confirmations bypass the unusual-jump safeguard.
+function saveMesosSnapshot(value,source='manual'){
   if(!Number.isSafeInteger(value)||value<0||value>1000000000000)return false;
   const old=extras.mesosCurrent,elapsed=typeof sessionElapsedMs==='function'?sessionElapsedMs():0;
-  if(old!==value){
-    if(old!==null)extras.mesoGained+=Math.max(0,value-old);
-    extras.mesoSnapshots.push({value,elapsed});
-    if(extras.mesoSnapshots.length>1000)extras.mesoSnapshots.splice(1,1); // retain the initial rate baseline
-  }
-  if(extras.mesosStart===null){extras.mesosStart=value;extras.mesoStartWhen=new Date();}
-  extras.mesosCurrent=value;extras.mesoWhen=new Date();
+  const time=Date.now();
+  extras.mesoSnapshots.push({value,elapsed,time,source});
+  if(extras.mesoSnapshots.length>1500)extras.mesoSnapshots.splice(1,1);
+  if(old!==null&&old!==value)extras.mesoGained+=Math.max(0,value-old);
+  if(extras.mesosStart===null){extras.mesosStart=value;extras.mesoStartWhen=new Date(time);}
+  extras.mesosCurrent=value;extras.mesoWhen=new Date(time);
   extras.mesoGuess=null;extras.mesoGuessAt=0;
-  extras.mesoPending=null;extras.mesoVotes=[];
+  extras.mesoPendingChange=null;extras.mesoPending=null;extras.mesoVotes=[];
   return true;
 }
-// Confirmation is based on SEPARATE captured frames, not on several OCR
-// filters of the same image. Keep a rolling record across occasional failures.
-function acceptMesos(read){
-  const value=read?.value;
-  if(!Number.isSafeInteger(value)||value<0||value>1000000000000)return false;
-  if(value===extras.mesosCurrent){extras.mesoWhen=new Date();extras.mesoPending=null;extras.mesoVotes=[];return true;}
+function recordMesosObservation(value,source,confidence=0){
+  if(!Number.isSafeInteger(value)||value<0||value>1000000000000)return null;
   const now=Date.now();
-  extras.mesoVotes=(extras.mesoVotes||[]).filter(x=>now-x.time<14000);
-  extras.mesoVotes.push({value,time:now,source:read.source||'unknown',quality:read.quality||0});
-  extras.mesoVotes=extras.mesoVotes.slice(-7);
-  const groups=new Map();
-  for(const v of extras.mesoVotes){
-    const item=groups.get(v.value)||{count:0,strong:0,quality:0};
-    item.count++;item.quality+=v.quality;
-    if(v.source==='font'||v.source==='ocr-agreement')item.strong++;
-    groups.set(v.value,item);
+  const entry={value,source,confidence,at:now,
+    elapsed:typeof sessionElapsedMs==='function'?sessionElapsedMs():0};
+  extras.mesoReadings.push(entry);
+  if(extras.mesoReadings.length>1500)extras.mesoReadings.splice(0,extras.mesoReadings.length-1500);
+  return entry;
+}
+function trackMesosCandidate(value,source,confidence=0){
+  const entry=recordMesosObservation(value,source,confidence);
+  if(!entry)return {saved:false,reason:'invalid'};
+  const previous=extras.mesosCurrent;
+  if(missingLeadingMesosDigit(value,previous)){
+    extras.mesoPendingChange=null;
+    return {saved:false,reason:'likely missing first digit'};
   }
-  const ranked=[...groups].sort((a,b)=>b[1].count-a[1].count||b[1].quality-a[1].quality);
-  const leader=ranked[0],runner=ranked[1];
-  const strong=leader[1].strong>=2;
-  // Provisional template + enhanced OCR readings still need at least three
-  // different captured frames, never just two filters on the same image.
-  let needed=strong?2:3;
-  if(extras.mesosCurrent!==null&&Math.abs(leader[0]-extras.mesosCurrent)>Math.max(1000000,extras.mesosCurrent*.35))needed++;
-  extras.mesoPending={value:leader[0],count:leader[1].count,needed};
-  if(leader[1].count<needed||(runner&&runner[1].count>=leader[1].count))return false;
-  return saveMesosSnapshot(leader[0]);
+  // Large unexpected changes are kept in the observation log immediately
+  // but require a second matching screen read before changing earnings.
+  if(previous!==null&&previous!==value){
+    const jump=Math.abs(value-previous)>Math.max(80000,previous*.30);
+    if(jump){
+      const pending=extras.mesoPendingChange;
+      const repeated=pending?.value===value&&entry.at-pending.at<=16000;
+      const count=repeated?pending.count+1:1;
+      extras.mesoPendingChange={value,count,at:entry.at};
+      if(count<2)return {saved:false,reason:'large change awaiting second scan'};
+    }
+  }
+  saveMesosSnapshot(value,source);
+  return {saved:true,changed:previous!==value,reason:'recorded'};
 }
 function resetExtras(){
   if(typeof stopMesosWatch==='function')stopMesosWatch();
   Object.assign(extras,{inventory:null,lastFind:0,inventoryOpen:false,
     mesosStart:null,mesosCurrent:null,mesoPending:null,mesoVotes:[],mesoWhen:null,mesoStartWhen:null,
     mesoBusy:false,mesoStatus:'',lastMesoAttempt:0,lastInvFind:0,
-    mesoSnapshots:[],mesoGained:0,mesoRawNote:'',
+    mesoSnapshots:[],mesoReadings:[],mesoPendingChange:null,
+    mesoGained:0,mesoRawNote:'',
     mesoGuess:null,mesoGuessAt:0,mesoGuessConfidence:0,
     mesoGuessSource:'raw',mesoLastCrop:null,mesoLastCropAt:0,
     potionSpendBaseline:potionSpent()});
