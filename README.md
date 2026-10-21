@@ -1,6 +1,16 @@
-# Van's Maple EXP Tracker — Alpha 0.2.46
+# Van's Maple EXP Tracker — Alpha 0.2.47
 
 This release focuses on **faster, movable-inventory mesos reading**, manual potion costs, and an accurate pause-aware timer. EXP and level recognition remain screen-only.
+
+## Alpha 0.2.47 — Live mesos snapshots and shared numeral patterns
+
+- Fix a silent gap between **visible mesos estimates** and the session's **net gain**: previously snapshots were saved only after OCR exceeded 55% confidence and several independent matching readings, and local digit guesses were never recorded at all. The first readable balance now becomes the session starting snapshot and shows **0 net mesos** immediately; subsequent credible balance changes update gross positive mesos and potion-adjusted net gain.
+- Every readable scan is recorded with a timestamp, value, source and status, **including unchanged balances and suspicious changes**. Every accepted balance is also added to the session snapshot list even if the balance did not change. Neither list discards older entries while the active session runs. Scan Details contains a collapsed recent-history preview and observation/snapshot counts. Pause/Resume preserves history; Reset Mesos resets it.
+- Keep safety guards for the common missing-leading-digit error. An unusually large balance jump is logged immediately but requires one more matching scan within 16 seconds before being applied to gains. Normal valid changes are applied immediately. These are screen-reading estimates; a wrong reading may still affect totals until manually corrected.
+- Load the previously extracted, player-verified **mesos-font.js** source atlas ahead of **mesos-ai.js** to provide a **shared bundled starter model** available automatically to every visitor. The 24 deduplicated pixel features cover verified numeral shapes for **1–9**; there is no verified bundled 0 yet, so original-image OCR and optionally added personal examples still matter. A reconstructed real 483,583 field is successfully recognized by the bundled set.
+- The original per-browser training remains in localStorage under the same key, is merged with (not overwritten by) the shared samples, and is excluded from Clear examples operations. The OCR settings counter distinguishes bundled and personal samples.
+- To bundle the exact 25 additional patterns already trained in a user's Chrome browser, those private samples need to be exported **once** and provided for a later shared release. Static GitHub Pages cannot remotely read another browser's localStorage.
+- No changes to EXP tracking, pause/resume clock, potions, KPQ estimates, or HUD layout.
 
 ## Alpha 0.2.46 — Minimal mesos UI and portable digit learning
 
