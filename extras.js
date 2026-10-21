@@ -253,13 +253,22 @@ function correctLastMesosSnapshot(value){
   if(!Number.isSafeInteger(value)||value<0||value>1000000000000)return false;
   const index=extras.mesoSnapshots.findLastIndex(x=>x.status!=='excluded');
   if(index<0)return saveMesosSnapshot(value,'manual');
-  const previous=extras.mesoSnapshots[index];
-  previous.correctedFrom=previous.value;
-  previous.value=value;
-  previous.status='accepted';
-  previous.source='manual correction';
-  previous.verification='manual correction';
-  recordMesosObservation(value,'manual correction',100).status='corrected previous snapshot';
+  const lastValue=extras.mesoSnapshots[index].value;
+  // The same incorrect amount might have been saved across many identical
+  // scans. Correct the ENTIRE last contiguous run, not just its final copy,
+  // otherwise an earlier duplicate could still inflate gross gain.
+  let corrected=0;
+  for(let i=index;i>=0;i--){
+    const item=extras.mesoSnapshots[i];
+    if(item.status==='excluded')continue;
+    if(item.value!==lastValue)break;
+    if(item.value!==value)item.correctedFrom=item.value;
+    item.value=value;item.source='manual correction';
+    item.verification='manual correction';item.status='accepted';
+    corrected++;
+  }
+  recordMesosObservation(value,'manual correction',100).status=
+    'corrected '+corrected+' contiguous accepted snapshots';
   rebuildMesosLedger();
   extras.mesoPendingChange=null;extras.mesoReview=null;
   extras.mesoGuess=null;extras.mesoGuessAt=0;
