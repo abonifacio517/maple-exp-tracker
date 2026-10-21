@@ -192,6 +192,11 @@ function showExtraStats(){
   $('mesoScanStatus').textContent=
     (extras.mesoStatus||(extras.inventoryOpen?'Inventory visible':'Waiting for inventory'))+
     ` · ${extras.mesoReadings.length} reads · ${extras.mesoSnapshots.length} saved snapshots`;
+  const pending=extras.mesoPendingChange;
+  $('mesoVerifyDetails').textContent=pending?
+    `Verifying ${fmt(pending.value)} · ${pending.votes} separate scans · ${pending.agreementSeen?'OCR agrees':'awaiting OCR or fresh matching frames'}`:
+    extras.mesosCurrent!==null?'Last verified balance: '+fmt(extras.mesosCurrent):
+      'Waiting for a readable balance.';
   const history=$('mesoSnapshotHistory');
   if(history){
     const recent=extras.mesoReadings.slice(-12);
@@ -201,6 +206,14 @@ function showExtraStats(){
       (recent.length?recent.map(item=>
         `${new Date(item.at).toLocaleTimeString()}  ${fmt(item.value)}  [${item.source}]  ${item.status||'observed'}`).join('\n'):
         'No readings recorded yet.');
+    const changes=extras.mesoSnapshots.filter((item,index,arr)=>
+      index===0||item.status==='excluded'||item.correctedFrom!==undefined||
+      item.value!==arr[index-1]?.value).slice(-8);
+    history.textContent+='\n\nTrusted ledger (changes only):\n'+
+      (changes.length?changes.map(item=>
+        `${new Date(item.time).toLocaleTimeString()}  ${fmt(item.value)}  ${item.status}  [${item.verification}]`+
+        (item.correctedFrom!==undefined?` (was ${fmt(item.correctedFrom)})`:'')
+      ).join('\n'):'No accepted balances yet.');
   }
 }
 // Keep EVERY readable balance observation in the live session history,
@@ -869,7 +882,13 @@ if(mesosLearner){
 $('setMesoSnapshot').addEventListener('click',()=>{
   const value=safeAmount($('manualMesoBalance').value,1000000000000);
   if(value===null){$('mesoDebug').textContent='Enter an exact non-negative meso balance.';return;}
-  saveMesosSnapshot(value);
-  extras.mesoStatus='Manual mesos balance confirmed: '+fmt(value);
-  $('manualMesoBalance').value='';$('mesoDebug').textContent='Manual mesos snapshot saved for the active-session history.';showExtraStats();
+  const correcting=$('replaceLastMesoSnapshot').checked;
+  const saved=correcting?correctLastMesosSnapshot(value):saveMesosSnapshot(value,'manual');
+  if(!saved)return;
+  extras.mesoStatus=correcting?'Last balance corrected to '+fmt(value):
+    'Manual mesos snapshot recorded: '+fmt(value);
+  $('manualMesoBalance').value='';
+  $('replaceLastMesoSnapshot').checked=false;
+  $('mesoDebug').textContent=extras.mesoStatus+'; gross and net mesos recalculated.';
+  showExtraStats();
 });
