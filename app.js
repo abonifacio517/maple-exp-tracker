@@ -421,7 +421,8 @@ async function recognizeArea(key,worker){
   const source=prepareCrop(key,false,safe.region);
   const variants=[['High contrast',()=>enhance(source,'binary')],['Grayscale',()=>enhance(source,'gray')],['Adjusted threshold',()=>enhance(source,'alternate')],['Pixel-sharp',()=>enhance(prepareCrop(key,true,safe.region),'gray')]];
   const max=$('ocrMode').value==='accuracy'?4:3;
-  const tries=[],votes=new Map();
+  const tries=key==='exp'?[{name:'EXP crop',raw:safe.reason,candidate:null,confidence:0}]:[];
+  const votes=new Map();
   for(let i=0;i<max;i++){
     const [name,fn]=variants[i],image=fn();
     if(i===0&&document.querySelector('.settings-panel').open)showSample(key,image);
