@@ -7,6 +7,33 @@ window.MapleMesosAI=(()=>{
   const KEY='vansMapleMesosLocalDigitsV1',VERSION=1;
   const GW=12,GH=16,MAX_PER_DIGIT=36,MAX_TOTAL=300;
   let samples=[],enabled=true;
+  // Shared verified silhouettes from earlier real MapleStory screenshots.
+  // Private learned samples remain in browser storage and are NOT overwritten.
+  const builtinSamples=(()=>{
+    const atlas=typeof MAPLE_MESO_FONT==='undefined'?{}:MAPLE_MESO_FONT;
+    const result=[];
+    for(const [digit,images] of Object.entries(atlas)){
+      if(!/^[0-9]$/.test(digit))continue;
+      for(const glyph of images){
+        if(!glyph||!Number.isInteger(glyph.w)||!Number.isInteger(glyph.h)||
+           typeof glyph.bits!=='string'||glyph.bits.length!==glyph.w*glyph.h||
+           !/^[01]+$/.test(glyph.bits))continue;
+        const ratio=Math.min((GW-2)/glyph.w,(GH-2)/glyph.h);
+        const dw=Math.max(1,Math.round(glyph.w*ratio)),dh=Math.max(1,Math.round(glyph.h*ratio));
+        const ox=Math.floor((GW-dw)/2),oy=Math.floor((GH-dh)/2);
+        const bits=new Uint8Array(GW*GH);
+        for(let y=0;y<dh;y++)for(let x=0;x<dw;x++){
+          const sx=Math.min(glyph.w-1,Math.floor((x+.5)*glyph.w/dw));
+          const sy=Math.min(glyph.h-1,Math.floor((y+.5)*glyph.h/dh));
+          bits[(y+oy)*GW+x+ox]=glyph.bits[sy*glyph.w+sx]==='1'?1:0;
+        }
+        const encoded=Array.from(bits).join('');
+        if(!result.some(q=>q.d===digit&&q.bits===encoded))result.push({d:digit,bits:encoded});
+      }
+    }
+    return result;
+  })();
+  const allSamples=()=>[...builtinSamples,...samples];
   try {
     const saved=JSON.parse(localStorage.getItem(KEY)||'null');
     if(saved?.version===VERSION&&Array.isArray(saved.samples)){
@@ -17,8 +44,9 @@ window.MapleMesosAI=(()=>{
   try{enabled=localStorage.getItem(KEY+'Enabled')!=='false';}catch(_){}
   const save=()=>{try{localStorage.setItem(KEY,JSON.stringify({version:VERSION,samples}))}catch(_){}};
   const summary=()=>{
-    const counts=Array.from({length:10},(_,i)=>samples.filter(x=>x.d===String(i)).length);
-    return {examples:samples.length,digits:counts.filter(Boolean).length,counts,enabled};
+    const counts=Array.from({length:10},(_,i)=>allSamples().filter(x=>x.d===String(i)).length);
+    return {examples:samples.length,digits:counts.filter(Boolean).length,counts,enabled,
+      bundled:builtinSamples.length,personal:samples.length};
   };
   const setEnabled=v=>{enabled=!!v;try{localStorage.setItem(KEY+'Enabled',String(enabled))}catch(_){}};
   const clear=()=>{samples=[];save()};
@@ -181,13 +209,13 @@ window.MapleMesosAI=(()=>{
   }
   function predict(frame,rect){
     if(!enabled)return {value:null,confidence:0,reason:'Local AI disabled'};
-    if(!samples.length)return {value:null,confidence:0,reason:'No confirmed training examples yet'};
+    if(!allSamples().length)return {value:null,confidence:0,reason:'No confirmed training examples yet'};
     const found=segment(frame,rect);
     if(!found.pieces.length)return {value:null,confidence:0,reason:found.reason};
     let chars='',distances=[],margins=[];
     for(const piece of found.pieces){
       const ranks=new Map();
-      for(const sample of samples){
+      for(const sample of allSamples()){
         const dis=distance(piece.bits,sample.bits);
         if(!ranks.has(sample.d)||ranks.get(sample.d)>dis)ranks.set(sample.d,dis);
       }
