@@ -1,6 +1,15 @@
-# Van's Maple EXP Tracker — Alpha 0.2.51
+# Van's Maple EXP Tracker — Alpha 0.2.52
 
 This release focuses on **faster, movable-inventory mesos reading**, manual potion costs, and an accurate pause-aware timer. EXP and level recognition remain screen-only.
+
+## Alpha 0.2.52 — Mesos footer visual anchors with safe fallback
+
+- Introduced a lightweight **template-based visual detector** for the mesos footer using the player's supplied 329×48 screenshot. It matches only the invariant gold coin silhouette, blue/white frame geometry and the fixed **MESOS** lettering—not the changing currency digits. No external model or network request is used, and the browser screen-share permission model is unchanged.
+- The detector scans the user-approved game capture for the independent gold coin and MESOS label at five UI scales (65%, 80%, 100%, 125% and 150%), confirming the recognized footer against white-field and blue-border geometry before returning a crop. Full-frame search yields periodically to avoid long blocking periods.
+- A verified prior footer position is tested first, before any full-screen discovery. The **original blue-frame and coin-pixel detector remains intact as an automatic fallback** if the newer visual matcher does not identify a compatible footer. This keeps existing screen and UI variants supported and makes reverting as simple as restoring the previous locator script.
+- The resulting number crop uses the existing stable 165 game-pixel-wide right-aligned field; no numeral recognition, digit classifier training, Balanced verification, or net-profit accounting algorithms were changed in this release. Scan Details records which locator identified the current field.
+- Offline image-based tests using the actual supplied footer screenshot, translated to another screen location and resized by nearest-neighbor and bilinear resampling, located the footer at every supported scale. Removing the coin or the fixed MESOS label causes the new matcher to reject that invalid reference, while erasing/changing the currency digits leaves detection unchanged.
+- Alpha 0.2.51 snapshot ledger, HP/MP tracking, EXP tracking, single pause-aware timer, theme-matched Maple HUD and shared/local digit examples remain unchanged. Live MapleStory gameplay and background scenes still need field testing.
 
 ## Alpha 0.2.51 — Balanced mesos recognition and recoverable session profits
 
