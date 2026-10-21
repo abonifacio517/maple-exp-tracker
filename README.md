@@ -1,6 +1,18 @@
-# Van's Maple EXP Tracker — Alpha 0.2.50
+# Van's Maple EXP Tracker — Alpha 0.2.51
 
 This release focuses on **faster, movable-inventory mesos reading**, manual potion costs, and an accurate pause-aware timer. EXP and level recognition remain screen-only.
+
+## Alpha 0.2.51 — Balanced mesos recognition and recoverable session profits
+
+- Move mesos recognition to **Balanced verification**. The scanner now treats the current balance as trusted only after appropriate evidence: agreement between reliable learned-digit recognition and sufficiently confident, strictly parsed OCR on the same captured image, or repeated observations from separate captures. Ordinary new values may commit immediately if both readers agree; single-reader changes wait for a second fresh frame (at least 350 ms apart).
+- **Reader disagreements do not update trusted balances or net profit**. Strong OCR disagreement blocks a proposed digit match; weak OCR disagreement is still logged but cannot instantly bank an unsupported reading. Only strict OCR values with confidence at least 55/100 are eligible for confirmation. These thresholds are heuristics, not calibrated accuracy guarantees.
+- Missing-first-digit and unusually large changes (over max(80,000 mesos, 30% of the last trusted balance)) require **three separate candidate scans and corroboration by both readers**. This also allows a genuinely large or digit-length-changing balance to be accepted when confirmed, instead of rejecting it forever.
+- While an ordinary or suspicious reading is being checked, request a fast extra capture after approximately 850 ms without starting parallel scans or additional continuous OCR loops. OCR normally remains throttled to five seconds, with an optional 2.8-second review interval for suspicious changes. Pause, window loss, and Stop Sharing cancel pending verification work.
+- Record raw observations (including both disagreeing OCR and digit-reader values) in session diagnostics, but show **only accepted trusted balances** on the main Mesos Tracker. A subtle **Checking…** indication appears while a candidate is pending. Every accepted scan, including unchanged balances, remains in the session ledger.
+- **Recalculable earnings ledger**: derive `mesoGained` by replaying active accepted snapshots on each update, rather than permanently incrementing a total. Explicit corrections and narrowly detected brief spikes remove mistaken gains from the ledger and automatically recalculate potion-adjusted net mesos. The automatic rollback only triggers for a recently accepted large spike that returns *exactly* to the earlier trusted number with dual-reader agreement after verification.
+- Under OCR Settings, **Set balance manually** now includes an optional **Correct the last tracked balance** checkbox. Correction updates the whole most recent contiguous run of identical wrong snapshots; default Save balance continues to add a new snapshot. Detailed raw readings, verification state, excluded ledger entries and corrections live only under Scan Details.
+- Existing shared **54 digit examples**, personal training, EXP tracker, single pauseable session timer, HP/MP session accounting, KPQ and Maple HUD remain unchanged. Nothing is uploaded; screenshots, recognizer state and session snapshots stay browser-local in memory unless separately exported through an existing control.
+- Verified simulated scenarios: accepted initial read; normal agreement; independent-frame confirmation; strongly conflicting readers; missing leading digit; suspicious large change held until three scans; exact large-spike rollback; repeated incorrect balance run manually corrected; net profit recalculated with potion expenses; and new-session reset. **Not** a benchmark against live MapleStory footage. The scanner may still need field tuning for different display scales.
 
 ## Alpha 0.2.50 — Accurate per-session HP/MP potion usage
 
