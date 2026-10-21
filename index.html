@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#8bb7df">
   <meta name="description" content="A lightweight, browser-based MapleStory EXP tracker that reads your on-screen EXP every five seconds.">
-  <title>Van's Maple EXP Tracker — Alpha 0.2.49</title>
+  <title>Van's Maple EXP Tracker — Alpha 0.2.50</title>
   <link rel="stylesheet" href="styles.css?v=0.2.49">
   <style>
     /* Essential EXP stat contrast: kept inline so an older cached theme stylesheet cannot turn numbers white. */
@@ -30,7 +30,7 @@
       </div>
       <div class="header-right">
         <div class="header-topline">
-          <span class="header-note">Alpha 0.2.49 · Screen-only recognition</span>
+          <span class="header-note">Alpha 0.2.50 · Screen-only recognition</span>
           <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false" title="Toggle light and dark mode">
             <span class="theme-toggle-label">Sleepywood mode</span>
             <span class="theme-toggle-track"><span class="theme-toggle-thumb"></span></span>
@@ -141,7 +141,7 @@
         
         <div class="potion-tracker" aria-label="Manual potion usage tracker">
           <div class="potion-heading"><strong>HP / MP Potions</strong></div>
-          <p class="potion-quick-help">Choose an item and enter your count. Update again to track use.</p>
+          <p class="potion-quick-help">Enter your current count. Each update compares with the last; a new session starts fresh.</p>
           <div class="potion-grid">
             <div class="potion-entry">
               <label for="hpPotionType">HP potion</label>
@@ -158,13 +158,13 @@
           </div>
           <div class="meso-actions potion-actions">
             <button class="button primary" id="updatePotionBtn" type="button">Update counts</button>
-            <button class="button ghost" id="resetPotionBtn" type="button">BRB RePot</button>
+            <button class="button ghost" id="resetPotionBtn" type="button" title="Clear potion count baselines after restocking; keep this session's already spent mesos">BRB RePot</button>
           </div>
           <p class="detail-help" id="potionNote" role="status" aria-live="polite">Set a starting count to track potion use.</p>
         </div>
         
         
-        <div class="meso-actions"><button class="button ghost" id="resetExtraBtn">Reset mesos tracker</button></div>
+        <div class="meso-actions"><button class="button ghost" id="resetExtraBtn" title="Start a new mesos and HP/MP potion session without resetting EXP">Reset mesos tracker</button></div>
       </section>
 
       <section class="lower-layout">
@@ -299,7 +299,7 @@
   <!-- Mesos digit templates removed from automatic scan; raw OCR only. -->
   <script src="mesos-font.js?v=0.2.47"></script>
   <script src="mesos-ai.js?v=0.2.48"></script>
-  <script src="extras.js?v=0.2.49"></script>
+  <script src="extras.js?v=0.2.50"></script>
   <script src="overlay.js?v=0.2.49"></script>
 </body>
 </html>
