@@ -580,7 +580,7 @@ function renderPotions(){
     const p=potions[kind];
     const label=$(kind+'PotionStatus');
     label.textContent=p.count===null?'No starting count':
-      `${fmt(p.count)} left · ${fmt(p.used)} used`;
+      `${fmt(p.count)} left`;
     const select=$(kind+'PotionType');
     if(p.type&&Object.hasOwn(POTION_NPC_PRICES[kind],p.type)&&
       [...select.options].some(o=>o.value===p.type))select.value=p.type;
