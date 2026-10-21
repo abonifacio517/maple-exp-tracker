@@ -174,7 +174,7 @@ function showExtraStats(){
   badge.className='profit-badge '+(netType==='unknown'?'neutral':netType);
   $('netMesoFormula').textContent=net===null?
     'Confirm an initial mesos snapshot to start net tracking. Potion usage will be included.':
-    `${fmt(extras.mesoGained)} confirmed gross gains − ${fmt(expense)} estimated potion usage = ${signed(net)} net mesos`;
+    `${fmt(extras.mesoGained)} recorded gross gains − ${fmt(expense)} estimated potion usage = ${signed(net)} net mesos`;
 
   // Keep visible balance as a distinct, SECONDARY value. Never count an
   // unverified OCR or local AI guess toward session earnings.
@@ -182,7 +182,7 @@ function showExtraStats(){
   $('mesoBalance').className=unverified?'profit-estimate':'';
   $('mesoBalanceLabel').textContent='Current balance';
   $('mesoReadingStatus').textContent=unverified?'Estimate':
-    confirmed!==null?'Confirmed':'—';
+    confirmed!==null?'Tracked':'—';
 
   $('mesoDelta').textContent=net===null?'—':signed(net);
   $('mesoGained').textContent=extras.mesoSnapshots.length?fmt(extras.mesoGained):'—';
@@ -190,7 +190,7 @@ function showExtraStats(){
     fmt(Math.round(extras.mesoGained/observedHours)):'—';
   $('potionSpend').textContent=fmt(expense);
   $('profitExplanation').textContent=
-    'Net = confirmed positive balance changes − estimated potion usage this session. Other expenses are excluded. Unverified readings do not change the total.';
+    'Net = positive changes from recorded balance scans − estimated potion usage. Other expenses are excluded; unusual jumps require repeat verification.';
   $('mesoScanStatus').textContent=
     (extras.mesoStatus||(extras.inventoryOpen?'Inventory visible':'Waiting for inventory'))+
     ` · ${extras.mesoReadings.length} reads · ${extras.mesoSnapshots.length} saved snapshots`;
@@ -459,7 +459,7 @@ async function scanMesos(generation){
       `Learned digit matcher: ${training?.examples??0} examples / ${training?.digits??0} of 10 digits known\n`+
       (ai.value!==null?`Digit prediction: ${fmt(ai.value)} · visual match ${Math.round(ai.confidence*100)}% (not calibrated probability)\n`:
         `No reliable digit prediction: ${ai.reason||'Needs labeled examples'}\n`)+
-      'Local digit guesses are never automatically trusted as earned mesos.';
+      'Learned readings can be saved as snapshots; large changes require another matching scan.';
     const previousBalance=extras.mesosCurrent??extras.mesoGuess;
     const aiValid=ai.value!==null&&ai.confidence>=.65&&
       !missingLeadingMesosDigit(ai.value,previousBalance);
