@@ -194,6 +194,15 @@ function showExtraStats(){
   $('mesoScanStatus').textContent=
     (extras.mesoStatus||(extras.inventoryOpen?'Inventory visible':'Waiting for inventory'))+
     ` · ${extras.mesoReadings.length} reads · ${extras.mesoSnapshots.length} saved snapshots`;
+  const history=$('mesoSnapshotHistory');
+  if(history){
+    const recent=extras.mesoReadings.slice(-12);
+    history.textContent=
+      `${extras.mesoReadings.length} readable scans · ${extras.mesoSnapshots.length} recorded snapshots\n`+
+      (recent.length?recent.map(item=>
+        `${new Date(item.at).toLocaleTimeString()}  ${fmt(item.value)}  [${item.source}]  ${item.status||'observed'}`).join('\n'):
+        'No readings recorded yet.');
+  }
 }
 // Keep EVERY readable balance observation in the live session history,
 // including repeated identical balances. Only accepted changes add to gross
@@ -223,7 +232,7 @@ function trackMesosCandidate(value,source,confidence=0){
   if(!entry)return {saved:false,reason:'invalid'};
   const previous=extras.mesosCurrent;
   if(missingLeadingMesosDigit(value,previous)){
-    extras.mesoPendingChange=null;
+    extras.mesoPendingChange=null;entry.status='possible missing first digit';
     return {saved:false,reason:'likely missing first digit'};
   }
   // Large unexpected changes are kept in the observation log immediately
@@ -235,10 +244,14 @@ function trackMesosCandidate(value,source,confidence=0){
       const repeated=pending?.value===value&&entry.at-pending.at<=16000;
       const count=repeated?pending.count+1:1;
       extras.mesoPendingChange={value,count,at:entry.at};
-      if(count<2)return {saved:false,reason:'large change awaiting second scan'};
+      if(count<2){
+        entry.status='large change · waiting for repeat';
+        return {saved:false,reason:'large change awaiting second scan'};
+      }
     }
   }
   saveMesosSnapshot(value,source);
+  entry.status=previous!==value?'change saved':'same balance saved';
   return {saved:true,changed:previous!==value,reason:'recorded'};
 }
 function resetExtras(){
