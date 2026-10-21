@@ -150,6 +150,19 @@ async function findInventoryFooter(frame,previous=null,shouldContinue=()=>true){
     const direct=verifyVisual(previous.x,previous.y,previous.s);
     if(direct)return direct;
   }
+  // The original detector is also allowed to validate a stable previous
+  // position BEFORE either full-screen search. This prevents rescanning
+  // large displays when a theme/resolution does not match the new template.
+  // Revalidate last position first, but immediately search the whole frame if moved.
+  if(previous?.footer){
+    const last=verify(previous.x,previous.y,previous.s);
+    if(last)return last;
+    const r=16;
+    for(let dy=-r;dy<=r;dy+=3)for(let dx=-r;dx<=r;dx+=3){
+      const found=verify(previous.x+dx,previous.y+dy,previous.s);
+      if(found)return found;
+    }
+  }
   // Cheap two-pixel gold gate makes the expensive label template run only
   // near plausible coin icons. The search is time-sliced for large screens.
   for(const scale of [1,.8,1.25,.65,1.5]){
@@ -164,16 +177,6 @@ async function findInventoryFooter(frame,previous=null,shouldContinue=()=>true){
           if(match)return match;
         }
       }
-    }
-  }
-  // Revalidate last position first, but immediately search the whole frame if moved.
-  if(previous?.footer){
-    const last=verify(previous.x,previous.y,previous.s);
-    if(last)return last;
-    const r=16;
-    for(let dy=-r;dy<=r;dy+=3)for(let dx=-r;dx<=r;dx+=3){
-      const found=verify(previous.x+dx,previous.y+dy,previous.s);
-      if(found)return found;
     }
   }
   for(const s of [1,.8,1.25,.65,1.5]){
