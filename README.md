@@ -1,6 +1,16 @@
-# Van's Maple EXP Tracker — Alpha 0.2.49
+# Van's Maple EXP Tracker — Alpha 0.2.50
 
 This release focuses on **faster, movable-inventory mesos reading**, manual potion costs, and an accurate pause-aware timer. EXP and level recognition remain screen-only.
+
+## Alpha 0.2.50 — Accurate per-session HP/MP potion usage
+
+- HP and MP entries each compare the **new remaining quantity** against the **last accepted quantity for the same potion item**. Only drops count as consumed; increases are restocks and start a new comparison point, without erasing earlier usage. Unchanged entries add nothing.
+- The first valid count for a fresh session or for a newly selected consumable establishes a baseline, not consumption. Changing the potion item clears the stale quantity field to prevent accidentally reusing the previous item's number.
+- HP and MP updates are staged and validated together before any change commits. The player can update one side without entering a count in the other, even if the other selection remains populated from a previous session.
+- Removed the old lifetime `vansMaplePotionSessionV1` persistence. The potion ledger (counts, used quantities and NPC spending) now lives **only in the active tracking session**. A new page load starts fresh. EXP Reset, **Reset mesos tracker**, stopping screen sharing and starting a new share reset both HP/MP ledgers and their potion cost contribution to net mesos. Pause/Resume preserves them.
+- **BRB RePot** intentionally clears HP/MP count baselines **within the current session**, but preserves costs already incurred during that session; the next count starts a new comparison baseline. This avoids making net mesos falsely positive when restocking.
+- Potions remain displayed as **N left**, with short last-update feedback under the controls. No changes to EXP recognition, mesos OCR or snapshots, KPQ, local digit training, theme art or HUD layout.
+- Simulated scenarios cover HP and MP decreases, unchanged counts, independent updates, restocking, count rebasing, invalid-input atomicity, legacy stored state, reset, and reload. Live gameplay still requires confirmation.
 
 ## Alpha 0.2.49 — Minimal tracker refinements and theme-matched Maple HUD
 
