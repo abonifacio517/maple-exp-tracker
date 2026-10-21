@@ -179,12 +179,9 @@ function showExtraStats(){
   // unverified OCR or local AI guess toward session earnings.
   $('mesoBalance').textContent=known?fmt(balance):'—';
   $('mesoBalance').className=unverified?'profit-estimate':'';
-  $('mesoBalanceLabel').textContent=unverified?
-    'Current mesos · '+(extras.mesoGuessSource==='ai'?'local AI':'raw OCR')+' estimate':
-    'Current mesos · last confirmed balance';
-  $('mesoReadingStatus').textContent=unverified?
-    `Unverified ${extras.mesoGuessSource==='ai'?'AI':'OCR'} reading · confirm in-game`:
-    confirmed!==null?'Confirmed snapshot':'Waiting for inventory';
+  $('mesoBalanceLabel').textContent='Current balance';
+  $('mesoReadingStatus').textContent=unverified?'Estimate':
+    confirmed!==null?'Confirmed':'—';
 
   $('mesoDelta').textContent=net===null?'—':signed(net);
   $('mesoGained').textContent=extras.mesoSnapshots.length?fmt(extras.mesoGained):'—';
@@ -192,7 +189,7 @@ function showExtraStats(){
     fmt(Math.round(extras.mesoGained/observedHours)):'—';
   $('potionSpend').textContent=fmt(expense);
   $('profitExplanation').textContent=
-    'Net mesos gain uses confirmed positive changes in your inventory balance, minus estimated NPC replacement cost of HP/MP potions consumed during this mesos session. Purchases and other outflows are not separately counted as losses. Raw OCR and AI estimates never affect this calculation.';
+    'Net = confirmed positive balance changes − estimated potion usage this session. Other expenses are excluded. Unverified readings do not change the total.';
   $('mesoScanStatus').textContent=extras.mesoStatus||(
     extras.inventoryOpen?'Inventory visible · awaiting recognition':'Waiting for inventory');
 }
@@ -338,8 +335,7 @@ function reportMesoAI(){
   const stat=learner.summary();
   const status=$('mesoAIStatus');
   if(status)status.textContent=
-    `Local AI: ${stat.examples} labeled examples · ${stat.digits}/10 digits learned · ${stat.enabled?'enabled':'disabled'}.`+
-    (stat.digits<10?' Missing digits will improve as you confirm more balances.':' All digits have at least one example.');
+    `Saved examples: ${stat.examples} · ${stat.digits}/10 digits covered · ${stat.enabled?'On':'Off'}`;
 }
 function drawMesosPreview(rect,frame){
   if(!rect||!frame)return;
@@ -574,29 +570,17 @@ function renderPotions(){
   for(const kind of ['hp','mp']){
     const p=potions[kind];
     const label=$(kind+'PotionStatus');
-    label.textContent=p.count===null?'No baseline recorded':
-      `${fmt(p.count)} in latest update · ${fmt(p.used)} used · ${fmt(p.spent)} mesos estimated`;
+    label.textContent=p.count===null?'No starting count':
+      `${fmt(p.count)} left · ${fmt(p.used)} used`;
     const select=$(kind+'PotionType');
     if(p.type&&Object.hasOwn(POTION_NPC_PRICES[kind],p.type)&&
       [...select.options].some(o=>o.value===p.type))select.value=p.type;
     if(p.count!==null&&$(kind+'PotionCount').value==='')$(kind+'PotionCount').value=String(p.count);
-    const selection=select.value;
-    const price=Object.hasOwn(POTION_NPC_PRICES[kind],selection)?
-      POTION_NPC_PRICES[kind][selection]:null;
-    $(kind+'PotionPriceDisplay').textContent=price===null?
-      'Choose an item to view NPC price':
-      'NPC price: '+fmt(price)+' mesos each';
+
   }
   $('potionSpend').textContent=fmt(potionSpent());
 }
-for(const kind of ['hp','mp']){
-  $(kind+'PotionType').addEventListener('change',()=>{
-    const type=$(kind+'PotionType').value;
-    const price=Object.hasOwn(POTION_NPC_PRICES[kind],type)?POTION_NPC_PRICES[kind][type]:null;
-    $(kind+'PotionPriceDisplay').textContent=price===null?
-      'Choose an item to view NPC price':'NPC price: '+fmt(price)+' mesos each';
-  });
-}
+
 $('updatePotionBtn').addEventListener('click',()=>{
   const changes=[];let any=false;
   for(const kind of ['hp','mp']){
@@ -632,7 +616,7 @@ $('updatePotionBtn').addEventListener('click',()=>{
   }
   if(any){
     savePotions();renderPotions();showExtraStats();
-    $('potionNote').textContent=notes.join(' · ')+'. Estimated potion use is deducted from NET mesos gain, not from current balance.';
+    $('potionNote').textContent=notes.join(' · ');
   }
 });
 $('resetPotionBtn').addEventListener('click',()=>{
@@ -641,7 +625,7 @@ $('resetPotionBtn').addEventListener('click',()=>{
     $(kind+'PotionCount').value='';
   }
   savePotions();renderPotions();showExtraStats();
-  $('potionNote').textContent='Potion counts reset. Enter your restocked amount and update to establish a new baseline. Previous estimated spending is retained.';
+  $('potionNote').textContent='Counts cleared. Enter new starting counts.';
 });
 renderPotions();
 
@@ -669,32 +653,32 @@ if(mesosLearner){
     reportMesoAI();
   });
   $('teachMesoAIBtn').addEventListener('click',()=>{
-    const raw=$('manualMesoBalance').value;
+    const raw=$('mesoTrainingBalance').value;
     const value=safeAmount(raw,1000000000000);
     if(value===null){
-      $('mesoAIStatus').textContent='Enter the exact balance shown in your MapleStory inventory first.';
+      $('mesoTransferStatus').textContent='Enter the number visible in your inventory.';
       return;
     }
     if(!extras.mesoLastCrop||Date.now()-extras.mesoLastCropAt>90000){
-      $('mesoAIStatus').textContent=
-        'Open the inventory in your shared game window first. No recent digits are available to teach.';
+      $('mesoTransferStatus').textContent=
+        'Open your inventory before saving a digit example.';
       return;
     }
     const learned=mesosLearner.learn(extras.mesoLastCrop.frame,extras.mesoLastCrop.rect,String(value));
     if(!learned.ok){
-      $('mesoAIStatus').textContent='Could not learn safely: '+learned.reason+
-        ' Use Save snapshot to confirm the balance without training.';
+      $('mesoTransferStatus').textContent='Could not save: '+learned.reason;
       return;
     }
     // This is an explicitly confirmed reading; it can update session history.
     saveMesosSnapshot(value);
     extras.mesoStatus='Player verified balance '+fmt(value)+' · '+learned.reason;
-    $('manualMesoBalance').value='';
+    $('mesoTrainingBalance').value='';
     showExtraStats();
     reportMesoAI();
     $('mesoAIDetails').textContent=learned.reason+
-      '\n'+mesosLearner.summary().digits+' of 10 digits learned. Corrections stay in this browser.';
-    $('mesoDebug').textContent='Locally taught digit shapes from confirmed '+fmt(value);
+      '\n'+mesosLearner.summary().digits+' of 10 digits covered.';
+    $('mesoTransferStatus').textContent=learned.reason;
+    $('mesoDebug').textContent='Digit examples saved from confirmed '+fmt(value);
   });
   $('clearMesosAIBtn').addEventListener('click',()=>{
     if(!window.confirm('Clear all locally learned mesos digit examples? This cannot be undone.'))return;
@@ -703,15 +687,46 @@ if(mesosLearner){
       extras.mesoGuess=null;extras.mesoGuessAt=0;
     }
     reportMesoAI();
-    $('mesoAIDetails').textContent='All learned digit patterns cleared. Raw OCR is still available.';
+    $('mesoAIDetails').textContent='Examples cleared. Raw OCR remains available.';
     showExtraStats();
+  });
+  $('exportMesosTrainingBtn').addEventListener('click',()=>{
+    try{
+      const payload=mesosLearner.exportData();
+      const data=new Blob([payload],{type:'application/json'});
+      const url=URL.createObjectURL(data);
+      const link=document.createElement('a');
+      link.href=url;link.download='maple-mesos-digit-examples.json';
+      document.body.appendChild(link);link.click();link.remove();
+      // Delay revocation until Chrome has started the download.
+      setTimeout(()=>URL.revokeObjectURL(url),30000);
+      $('mesoTransferStatus').textContent='Examples exported. Share this file to use them in another browser.';
+    }catch(error){
+      $('mesoTransferStatus').textContent='Export unavailable: '+(error?.message||error);
+    }
+  });
+  $('importMesosTrainingFile').addEventListener('change',async()=>{
+    const input=$('importMesosTrainingFile'),file=input.files?.[0];
+    if(!file)return;
+    if(file.size>100000){
+      $('mesoTransferStatus').textContent='That file is too large.';input.value='';return;
+    }
+    try{
+      const result=mesosLearner.importData(await file.text());
+      $('mesoTransferStatus').textContent=result.reason;
+      reportMesoAI();
+    }catch(_){
+      $('mesoTransferStatus').textContent='Could not import that file.';
+    }finally{input.value=''}
   });
   reportMesoAI();
 }else{
   $('mesoAIEnabled').disabled=true;
   $('teachMesoAIBtn').disabled=true;
   $('clearMesosAIBtn').disabled=true;
-  $('mesoAIStatus').textContent='Local AI module could not load. Raw OCR remains available.';
+  $('exportMesosTrainingBtn').disabled=true;
+  $('importMesosTrainingFile').disabled=true;
+  $('mesoAIStatus').textContent='Digit learning unavailable; OCR is still active.';
 }
 
 $('setMesoSnapshot').addEventListener('click',()=>{
