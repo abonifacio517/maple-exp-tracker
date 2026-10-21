@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#8bb7df">
   <meta name="description" content="A lightweight, browser-based MapleStory EXP tracker that reads your on-screen EXP every five seconds.">
-  <title>Van's Maple EXP Tracker — Alpha 0.2.48</title>
-  <link rel="stylesheet" href="styles.css?v=0.2.46">
+  <title>Van's Maple EXP Tracker — Alpha 0.2.49</title>
+  <link rel="stylesheet" href="styles.css?v=0.2.49">
   <style>
     /* Essential EXP stat contrast: kept inline so an older cached theme stylesheet cannot turn numbers white. */
     body.theme-light #perHour,
@@ -30,7 +30,7 @@
       </div>
       <div class="header-right">
         <div class="header-topline">
-          <span class="header-note">Alpha 0.2.48 · Screen-only recognition</span>
+          <span class="header-note">Alpha 0.2.49 · Screen-only recognition</span>
           <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false" title="Toggle light and dark mode">
             <span class="theme-toggle-label">Sleepywood mode</span>
             <span class="theme-toggle-track"><span class="theme-toggle-thumb"></span></span>
@@ -122,8 +122,7 @@
       </section>
 
       <section class="profit-panel panel" aria-label="Mesos balance and potion expenses">
-        <div class="window-chrome" aria-hidden="true"><span class="window-label">MESOS TRACKER</span></div>
-        <div class="meso-compact-heading"><h2>Mesos Tracker</h2><span class="wip-label" title="Features are still being refined">WORK IN PROGRESS</span></div>
+        <div class="window-chrome meso-window-heading"><span class="window-label">MESOS TRACKER</span><span class="wip-label" title="Features are still being refined">WORK IN PROGRESS</span></div>
         <div class="net-mesos-highlight" id="netMesoPanel">
           <div class="net-mesos-heading"><span>NET MESOS GAIN</span><span id="profitBadge" class="profit-badge">Waiting for mesos</span></div>
           <div class="profit-total net-mesos-total"><strong id="netProfit" class="profit-unknown">—</strong><span class="profit-unit">mesos</span></div>
@@ -159,15 +158,13 @@
           </div>
           <div class="meso-actions potion-actions">
             <button class="button primary" id="updatePotionBtn" type="button">Update counts</button>
-            <button class="button ghost" id="resetPotionBtn" type="button">Reset counts</button>
+            <button class="button ghost" id="resetPotionBtn" type="button">BRB RePot</button>
           </div>
           <p class="detail-help" id="potionNote" role="status" aria-live="polite">Set a starting count to track potion use.</p>
         </div>
         
-        <details class="advanced-entry meso-manual-correction"><summary>Set balance manually</summary>
-          <div class="manual-snapshot"><label>Balance<input id="manualMesoBalance" type="text" inputmode="numeric" placeholder="e.g. 466,629"></label><button id="setMesoSnapshot" class="button ghost">Save balance</button></div>
-        </details>
-        <div class="meso-actions"><button class="button ghost" id="resetExtraBtn">Reset mesos</button></div>
+        
+        <div class="meso-actions"><button class="button ghost" id="resetExtraBtn">Reset mesos tracker</button></div>
       </section>
 
       <section class="lower-layout">
@@ -253,6 +250,10 @@
                 </div>
               </details>
             </div>
+            <details class="advanced-entry meso-manual-correction">
+              <summary>Set balance manually</summary>
+              <div class="manual-snapshot"><label>Balance<input id="manualMesoBalance" type="text" inputmode="numeric" placeholder="e.g. 466,629"></label><button id="setMesoSnapshot" class="button ghost">Save balance</button></div>
+            </details>
           </details>
 
     </main>
@@ -298,7 +299,7 @@
   <!-- Mesos digit templates removed from automatic scan; raw OCR only. -->
   <script src="mesos-font.js?v=0.2.47"></script>
   <script src="mesos-ai.js?v=0.2.48"></script>
-  <script src="extras.js?v=0.2.47"></script>
-  <script src="overlay.js?v=0.2.45"></script>
+  <script src="extras.js?v=0.2.49"></script>
+  <script src="overlay.js?v=0.2.49"></script>
 </body>
 </html>
