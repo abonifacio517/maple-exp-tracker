@@ -203,7 +203,6 @@ function saveMesosSnapshot(value,source='manual'){
   const old=extras.mesosCurrent,elapsed=typeof sessionElapsedMs==='function'?sessionElapsedMs():0;
   const time=Date.now();
   extras.mesoSnapshots.push({value,elapsed,time,source});
-  if(extras.mesoSnapshots.length>1500)extras.mesoSnapshots.splice(1,1);
   if(old!==null&&old!==value)extras.mesoGained+=Math.max(0,value-old);
   if(extras.mesosStart===null){extras.mesosStart=value;extras.mesoStartWhen=new Date(time);}
   extras.mesosCurrent=value;extras.mesoWhen=new Date(time);
@@ -217,7 +216,6 @@ function recordMesosObservation(value,source,confidence=0){
   const entry={value,source,confidence,at:now,
     elapsed:typeof sessionElapsedMs==='function'?sessionElapsedMs():0};
   extras.mesoReadings.push(entry);
-  if(extras.mesoReadings.length>1500)extras.mesoReadings.splice(0,extras.mesoReadings.length-1500);
   return entry;
 }
 function trackMesosCandidate(value,source,confidence=0){
@@ -344,7 +342,7 @@ function reportMesoAI(){
   const stat=learner.summary();
   const status=$('mesoAIStatus');
   if(status)status.textContent=
-    `Saved examples: ${stat.examples} · ${stat.digits}/10 digits covered · ${stat.enabled?'On':'Off'}`;
+    `Included: ${stat.bundled??0} samples · Yours: ${stat.personal??stat.examples} · ${stat.digits}/10 digits covered · ${stat.enabled?'On':'Off'}`;
 }
 function drawMesosPreview(rect,frame){
   if(!rect||!frame)return;
