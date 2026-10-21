@@ -7,7 +7,10 @@
 
   let miniWindow = null, timer = null, graphOpen = false;
   const sourceValue = id => document.getElementById(id)?.textContent?.trim() || '—';
-  const spriteSrc = new URL('van-sprite.svg', document.baseURI).href;
+  const spriteSrcByTheme = {
+    light:new URL('van-sprite.svg',document.baseURI).href,
+    dark:new URL('sleepywood-sprite.svg',document.baseURI).href
+  };
   const currentTheme = () => (window.__getMapleTheme ? window.__getMapleTheme() : (document.body.classList.contains('theme-dark') ? 'dark' : 'light'));
   // Small geometric SVG marks replace the previous bulky pixel-art assets in the HUD.
   const expMark = '<svg viewBox="0 0 28 28" width="24" height="24" aria-hidden="true"><path d="M3 21L10 13l5 4 10-12M18 5h7v7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -15,7 +18,7 @@
 
   const html = `
     <div class="hud-window">
-      <div class="hud-brand"><img src="${spriteSrc}" alt=""><div class="hud-brand-copy"><strong>Van's EXP Tracker</strong><small>LIVE TRAINING HUD</small></div></div>
+      <div class="hud-brand"><img id="hudThemeSprite" src="${spriteSrcByTheme[currentTheme()]}" alt="MapleStory character sprite"><div class="hud-brand-copy"><strong>Van's EXP Tracker</strong><small>LIVE TRAINING HUD</small></div></div>
       <div class="hud-body">
         <section class="hud-card primary-card">
           <div class="card-head">${expMark}<span>EXP TRACKER</span></div>
@@ -39,7 +42,7 @@
           <div class="mesos-content">
             <div class="meso-amount" id="hudMesos">—</div>
             <div class="primary-caption" id="hudMesoCaption">Net mesos gain · after potion usage</div>
-            <div class="mesos-footer"><span id="hudMesoBadge" class="pill">Awaiting inventory</span><span id="hudStatus">Waiting for tracker</span></div>
+            <div class="mesos-footer"><span id="hudMesoBadge" class="pill">Awaiting inventory</span></div>
           </div>
         </section>
         <button type="button" id="hudGraphToggle" class="hud-chart-toggle" aria-expanded="false" aria-controls="hudGraphPanel">Show EXP/min graph <span aria-hidden="true">▾</span></button>
@@ -134,7 +137,14 @@
   `;
 
   function syncTheme(doc){
-    doc.body.classList.toggle('theme-dark', currentTheme() === 'dark');
+    const theme=currentTheme();
+    doc.body.classList.toggle('theme-dark',theme==='dark');
+    const character=doc.getElementById('hudThemeSprite');
+    if(character){
+      const expected=spriteSrcByTheme[theme];
+      if(character.src!==expected)character.src=expected;
+      character.alt=theme==='dark'?'Sleepywood character sprite':'Henesys character sprite';
+    }
   }
 
 
@@ -181,8 +191,16 @@
 
   function resizeHud(){
     if(!miniWindow||miniWindow.closed)return;
-    try{if(typeof miniWindow.resizeTo==='function')miniWindow.resizeTo(graphOpen?430:390,graphOpen?620:440);}
-    catch(_error){/* Browser may prohibit resizing; the window remains scrollable. */}
+    // Request a comfortable minimum size from Chrome's Document PiP. Browser
+    // and screen limits may clamp this; content remains scrollable as fallback.
+    const width=470,minimum=graphOpen?850:690;
+    const doc=miniWindow.document;
+    const measured=Math.ceil(Math.max(doc.documentElement.scrollHeight||0,
+      doc.body.scrollHeight||0)+18);
+    const height=Math.max(minimum,measured);
+    try{
+      if(typeof miniWindow.resizeTo==='function')miniWindow.resizeTo(width,height);
+    }catch(_error){/* Browser may prohibit resizing. */}
   }
 
   function update(){
@@ -216,8 +234,6 @@
     const caption = at('hudMesoCaption');
     if (caption) caption.textContent = 'Net mesos gain · after potion usage';
     if (badge) { badge.className = 'pill ' + kind; badge.textContent = sourceValue('profitBadge'); }
-    const status = at('hudStatus');
-    if (status) status.textContent = sourceValue('readingBadge') + ' · ' + (sourceValue('sharePill') || '');
     syncTheme(doc);
     if(graphOpen)drawGraph(doc);
   }
@@ -240,7 +256,7 @@
       return;
     }
     try {
-      const pip = await window.documentPictureInPicture.requestWindow({ width: 390, height: 440 });
+      const pip = await window.documentPictureInPicture.requestWindow({ width: 470, height: 690 });
       miniWindow = pip;
       pip.document.title = "Van's Maple EXP Tracker · HUD";
       const style = pip.document.createElement('style');
@@ -254,13 +270,15 @@
         toggle.setAttribute('aria-expanded',String(graphOpen));
         toggle.innerHTML=(graphOpen?'Hide EXP/min graph':'Show EXP/min graph')+' <span aria-hidden="true">'+(graphOpen?'▴':'▾')+'</span>';
         pip.document.getElementById('hudGraphPanel').hidden=!graphOpen;
-        resizeHud();
-        if(graphOpen)drawGraph(pip.document);
+        // Wait for the graph panel to take up its real layout space.
+        pip.requestAnimationFrame(()=>{resizeHud();if(graphOpen)drawGraph(pip.document);});
       });
       pip.addEventListener('pagehide', closed, { once: true });
       button.textContent = '× Close maple HUD';
       button.setAttribute('aria-pressed', 'true');
       update();
+      // Ensure the opened HUD fits its full default contents at first launch.
+      pip.requestAnimationFrame(resizeHud);
       timer = setInterval(update, 700);
     } catch (error) {
       closed();
