@@ -233,8 +233,25 @@ function liveEXPRegion(){
   expBoundaryCtx.drawImage(video,captureX,captureY,w,h,0,0,w,h);
   const frame={width:w,height:h,data:expBoundaryCtx.getImageData(0,0,w,h).data};
   const localAnchor={x:refX-captureX,y:refY-captureY,scale:s};
-  let bars=greenGroups(frame,localAnchor);
-  let greenStart=bars?.[0]===undefined?null:captureX+bars[0];
+  const bars=greenGroups(frame,localAnchor);
+  let greenStart=null;
+  if(bars){
+    // greenGroups reports the CENTER of a slim green bracket. Clipping at
+    // that center risks leaving the bracket's left edge in the EXP image.
+    // Walk back to the FIRST green ink column, then clip with a safety margin.
+    const mid=bars[0],y0=Math.max(0,Math.round(localAnchor.y+5*s)),
+      y1=Math.min(h-1,Math.round(localAnchor.y+18*s));
+    for(let xx=Math.max(0,Math.floor(mid-12*s));xx<=Math.ceil(mid);xx++){
+      let hits=0;
+      for(let yy=y0;yy<=y1;yy++){
+        const i=(yy*w+xx)*4,r=frame.data[i],g=frame.data[i+1],bl=frame.data[i+2];
+        if(g>112&&g>r*1.13&&g>bl*1.25&&g-r>20)hits++;
+      }
+      if(hits>=Math.max(2,Math.round(4*s))){
+        greenStart=captureX+xx;break;
+      }
+    }
+  }
   // Manual selections can start inside the EXP readout rather than at the
   // known EXP logo. If the green opening parenthesis appears INSIDE the
   // selected region, crop immediately before it even if the second green
@@ -268,7 +285,7 @@ function liveEXPRegion(){
     return anchor?{region:null,reason:'Green (%) boundary unclear; holding EXP'}:
       {region:original,reason:'Manual EXP region (no green percent inside)'};
   }
-  const right=Math.floor(greenStart-4*s);
+  const right=Math.floor(greenStart-3.5*s);
   const left=original.x;
   if(right-left<Math.max(12,Math.round(15*s))){
     return {region:null,reason:'EXP and green (%) overlap; holding EXP'};
