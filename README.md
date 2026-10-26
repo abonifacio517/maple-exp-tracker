@@ -1,6 +1,15 @@
-# Van's Maple EXP Tracker — Alpha 0.2.53
+# Van's Maple EXP Tracker — Alpha 0.2.54
 
 This release focuses on **faster, movable-inventory mesos reading**, manual potion costs, and an accurate pause-aware timer. EXP and level recognition remain screen-only.
+
+## Alpha 0.2.54 — Firefox and cross-browser compatibility
+
+- Replace Chrome/Edge-only sharing copy with capability checks for secure HTTPS screen capture. Request standards-based `getDisplayMedia` with an **optional** ideal 5 fps target, retry once using the simplest `{video:true,audio:false}` constraints only if the browser rejects unsupported capture constraints (TypeError, OverconstrainedError, NotSupportedError). Never re-prompt after cancellation/permission denial. Clean up the in-memory stream and UI state if shared video playback fails.
+- Keep the existing Document Picture-in-Picture HUD on browsers that support its `requestWindow()` API. On Firefox or another desktop browser **without that API**, pressing **Open maple HUD** now opens the exact same live DOM/graph dashboard in a normal same-origin resizable browser popup. No extra capture, game injection, server connection, or separate login is needed; live numbers continue to be sourced from the original tracking tab.
+- HUD popup creation runs directly in the user's click handler, before any `await`, as browser popup blockers require user activation. If blocked, present explicit instructions to allow this site's popups; the app remains usable without its HUD. Popup uses a larger height allowance for the browser's title bar, preserves Henesys/Sleepywood sprites and EXP graph, and stops its update interval when closed.
+- **Important limitation:** the non-Document-PiP Firefox HUD is a regular browser window and may **not stay always on top** of MapleStory or other windows. Its size, popup UI and behavior depend on Firefox/browser/window-manager settings. Feature detection (not user-agent sniffing) selects native PiP wherever supported. Screen sharing still needs explicit browser permission.
+- Tests simulated native PiP, Firefox-style popup, blocked popup, theme switching, graph expansion/collapse, close cleanup, standard display capture, unsupported optional constraints, cancelled sharing and insecure contexts. Actual Firefox desktop gameplay and video-capture timings remain to be field-tested.
+- No intentional change to the EXP/level OCR engine, green-percentage exclusion, mesos verification and snapshot ledger, 54 shared trained digit patterns, HP/MP costs, session timing, or theme art.
 
 ## Alpha 0.2.53 — Keep green EXP percentage out of every EXP read
 
