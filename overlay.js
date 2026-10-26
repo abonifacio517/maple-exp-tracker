@@ -5,7 +5,11 @@
   const button = document.getElementById('overlayBtn');
   if (!button) return;
 
-  let miniWindow = null, timer = null, graphOpen = false;
+  let miniWindow = null, timer = null, graphOpen = false, hudMode = null;
+  const nativeHudAvailable=()=>typeof window.documentPictureInPicture?.requestWindow==='function';
+  // Firefox and other browsers can show the same dashboard in a normal
+  // same-origin popup without requiring Chrome-specific Document PiP.
+  // A normal popup is NOT guaranteed to float over MapleStory.
   const sourceValue = id => document.getElementById(id)?.textContent?.trim() || '—';
   const spriteSrcByTheme = {
     light:new URL('van-sprite.svg',document.baseURI).href,
@@ -191,8 +195,8 @@
 
   function resizeHud(){
     if(!miniWindow||miniWindow.closed)return;
-    // Request a comfortable minimum size from Chrome's Document PiP. Browser
-    // and screen limits may clamp this; content remains scrollable as fallback.
+    // Request the same useful size in either Document PiP or a browser popup.
+    // Firefox may include its toolbar in resizeTo; content remains scrollable.
     const width=470,minimum=graphOpen?850:690;
     const doc=miniWindow.document;
     // Measure where the last HUD element actually ends. The page itself has
@@ -208,7 +212,10 @@
   }
 
   function update(){
-    if (!miniWindow || miniWindow.closed) return;
+    if (!miniWindow || miniWindow.closed) {
+      if(miniWindow?.closed)closed();
+      return;
+    }
     const doc = miniWindow.document, at = id => doc.getElementById(id);
     const mapped = {
       hudPerHour: 'perHour',
@@ -244,49 +251,70 @@
 
   function closed(){
     if (timer !== null) { clearInterval(timer); timer = null; }
-    miniWindow = null;graphOpen=false;
+    miniWindow = null;graphOpen=false;hudMode=null;
     button.textContent = '↗ Open maple HUD';
     button.setAttribute('aria-pressed', 'false');
   }
+  function openFallbackHud(){
+    // Call synchronously inside the click handler. Deferring this until after
+    // an await would cause Firefox's popup blocker to deny the new window.
+    const popup=window.open('','_blank',
+      'popup=yes,width=470,height=750,resizable=yes,scrollbars=yes');
+    if(!popup)throw Error('Your browser blocked the HUD window. Allow popups for this site and try again.');
+    return popup;
+  }
 
+  button.title=nativeHudAvailable()?
+    'Open the live HUD in Picture-in-Picture':
+    'Open the live HUD in a resizable browser window';
   button.addEventListener('click', async () => {
     if (miniWindow && !miniWindow.closed) {
       miniWindow.close();
       closed();
       return;
     }
-    if (!('documentPictureInPicture' in window)) {
-      setStatus('Mini overlay requires a desktop Chrome/Edge browser that supports Document Picture-in-Picture.', 'warn');
-      return;
-    }
+    let pip=null;
     try {
-      const pip = await window.documentPictureInPicture.requestWindow({ width: 470, height: 690 });
-      miniWindow = pip;
-      pip.document.title = "Van's Maple EXP Tracker · HUD";
-      const style = pip.document.createElement('style');
-      style.textContent = css;
+      if(nativeHudAvailable()){
+        pip=await window.documentPictureInPicture.requestWindow({width:470,height:690});
+        hudMode='document-pip';
+      }else{
+        // Firefox / non-PiP browsers: same live dashboard, no game injection.
+        pip=openFallbackHud();
+        hudMode='popup';
+      }
+      miniWindow=pip;
+      pip.document.title="Van's Maple EXP Tracker · HUD";
+      const style=pip.document.createElement('style');
+      style.textContent=css;
       pip.document.head.appendChild(style);
-      pip.document.body.innerHTML = html;
+      pip.document.body.innerHTML=html;
       syncTheme(pip.document);
       pip.document.getElementById('hudGraphToggle').addEventListener('click',()=>{
         graphOpen=!graphOpen;
         const toggle=pip.document.getElementById('hudGraphToggle');
         toggle.setAttribute('aria-expanded',String(graphOpen));
-        toggle.innerHTML=(graphOpen?'Hide EXP/min graph':'Show EXP/min graph')+' <span aria-hidden="true">'+(graphOpen?'▴':'▾')+'</span>';
+        toggle.innerHTML=(graphOpen?'Hide EXP/min graph':'Show EXP/min graph')+
+          ' <span aria-hidden="true">'+(graphOpen?'▴':'▾')+'</span>';
         pip.document.getElementById('hudGraphPanel').hidden=!graphOpen;
-        // Wait for the graph panel to take up its real layout space.
-        pip.requestAnimationFrame(()=>{resizeHud();if(graphOpen)drawGraph(pip.document);});
+        const nextFrame=typeof pip.requestAnimationFrame==='function'?
+          pip.requestAnimationFrame.bind(pip):window.requestAnimationFrame.bind(window);
+        nextFrame(()=>{resizeHud();if(graphOpen)drawGraph(pip.document);});
       });
-      pip.addEventListener('pagehide', closed, { once: true });
-      button.textContent = '× Close maple HUD';
-      button.setAttribute('aria-pressed', 'true');
+      pip.addEventListener('pagehide',closed,{once:true});
+      button.textContent='× Close maple HUD';
+      button.setAttribute('aria-pressed','true');
       update();
-      // Ensure the opened HUD fits its full default contents at first launch.
-      pip.requestAnimationFrame(resizeHud);
-      timer = setInterval(update, 700);
-    } catch (error) {
+      const nextFrame=typeof pip.requestAnimationFrame==='function'?
+        pip.requestAnimationFrame.bind(pip):window.requestAnimationFrame.bind(window);
+      nextFrame(resizeHud);
+      timer=setInterval(update,700);
+      if(hudMode==='popup')
+        setStatus('Maple HUD opened in a separate window. Firefox may not keep it on top of the game.','neutral');
+    }catch(error){
+      if(pip&&!pip.closed)try{pip.close()}catch(_){}
       closed();
-      setStatus('Could not open mini overlay: ' + (error?.message || String(error)), 'warn');
+      setStatus('Could not open Maple HUD: '+(error?.message||String(error)),'warn');
     }
   });
 })();
