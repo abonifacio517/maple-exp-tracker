@@ -73,19 +73,44 @@ function stopSharing(){
   if(typeof resetExtras==='function')resetExtras();
   refreshButtons();setStatus('Sharing stopped.');
 }
+// Standard screen-sharing permissions and stream frames work in Firefox,
+// Chrome and other modern browsers; request only optional capture constraints.
+async function requestGameCapture(){
+  const share=navigator.mediaDevices.getDisplayMedia.bind(navigator.mediaDevices);
+  try{
+    return await share({video:{frameRate:{ideal:5}},audio:false});
+  }catch(error){
+    // Some browsers reject even optional video constraints. Retry with the
+    // minimum standard shape, but never re-prompt after a user denial/cancel.
+    if(!['TypeError','OverconstrainedError','NotSupportedError'].includes(error?.name))
+      throw error;
+    return share({video:true,audio:false});
+  }
+}
 $('shareBtn').addEventListener('click',async()=>{
   if(state.stream){stopSharing();return;}
-  if(!navigator.mediaDevices?.getDisplayMedia){setStatus('Screen sharing requires HTTPS and Chrome/Edge.','warn');return;}
+  if(!window.isSecureContext||!navigator.mediaDevices?.getDisplayMedia){
+    setStatus('Game capture requires HTTPS and a browser with screen-sharing support, such as Firefox, Chrome or Edge.','warn');
+    return;
+  }
   let stream=null;
   try{
-    stream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:5},audio:false});
+    stream=await requestGameCapture();
+    if(!stream?.getVideoTracks?.().length)throw Error('No video track was shared. Select the game window or screen.');
     if(state.stream)stopSharing();
-    state.stream=stream;video.srcObject=stream;await video.play();
+    state.stream=stream;
+    video.srcObject=stream;
+    await video.play();
     stream.getVideoTracks()[0].addEventListener('ended',()=>{if(state.stream===stream)stopSharing();},{once:true});
     state.regions={exp:null,level:null};pause();reset();
     refreshButtons();setStatus('Connected. Locating the EXP HUD…');
     await autoDetectAndStart();
-  }catch(e){if(stream)stream.getTracks().forEach(t=>t.stop());setStatus('Could not share: '+(e.message||e.name),'warn');}
+  }catch(e){
+    if(stream)stream.getTracks().forEach(t=>t.stop());
+    const denied=e?.name==='NotAllowedError'||e?.name==='AbortError';
+    setStatus(denied?'Screen sharing was cancelled or not allowed. Choose the game window and try again.':
+      'Could not share: '+(e?.message||e?.name||String(e)),'warn');
+  }
 });
 $('resetBtn').addEventListener('click',()=>{pause();reset();setStatus('Session reset. Your game connection is kept.');});
 // Static EXP logo sample taken from the user's supplied MapleStory screenshot.
