@@ -205,7 +205,7 @@
     const body=doc.querySelector('.hud-body');
     const contentBottom=body?.getBoundingClientRect().bottom||0;
     const measured=Math.ceil(contentBottom+26);
-    const height=Math.max(minimum,measured);
+    const height=Math.max(minimum,measured)+(hudMode==='popup'?90:0);
     try{
       if(typeof miniWindow.resizeTo==='function')miniWindow.resizeTo(width,height);
     }catch(_error){/* Browser may prohibit resizing. */}
@@ -259,7 +259,7 @@
     // Call synchronously inside the click handler. Deferring this until after
     // an await would cause Firefox's popup blocker to deny the new window.
     const popup=window.open('','_blank',
-      'popup=yes,width=470,height=750,resizable=yes,scrollbars=yes');
+      'popup=yes,width=470,height=780,resizable=yes,scrollbars=yes');
     if(!popup)throw Error('Your browser blocked the HUD window. Allow popups for this site and try again.');
     return popup;
   }
