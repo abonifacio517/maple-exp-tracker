@@ -107,6 +107,15 @@ $('shareBtn').addEventListener('click',async()=>{
     await autoDetectAndStart();
   }catch(e){
     if(stream)stream.getTracks().forEach(t=>t.stop());
+    if(stream&&state.stream===stream){
+      // A video playback or capture error must not leave the app pretending
+      // to be connected to an already-stopped Firefox/Chrome media stream.
+      pause();
+      state.stream=null;video.srcObject=null;
+      state.regions={exp:null,level:null};
+      state.autoAnchor=null;state.frameDims=null;
+      refreshButtons();
+    }
     const denied=e?.name==='NotAllowedError'||e?.name==='AbortError';
     setStatus(denied?'Screen sharing was cancelled or not allowed. Choose the game window and try again.':
       'Could not share: '+(e?.message||e?.name||String(e)),'warn');
